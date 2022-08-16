@@ -3,6 +3,7 @@ From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import Transform.
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Erasure Require Import ELiftSubst.
+From MetaCoq.Template Require Import utils.
 
 Module Ex := ExAst.
 
@@ -187,8 +188,8 @@ Definition annot_transform_type (t : ExtractTransform) :=
 
 (* More utility functions *)
 
-Fixpoint Edecompose_lam_annot (t : term) : (annots t) -> (list name) × (∑t, annots t) :=
-  match t return annots t -> (list name) × (∑t, annots t) with
+Fixpoint Edecompose_lam_annot (t : term) : (annots t) -> (list BasicAst.name) × (∑t, annots t) :=
+  match t return annots t -> (list BasicAst.name) × (∑t, annots t) with
   | tLambda n b => fun '(bt, a) =>
       let '(ns, (b; a)) := Edecompose_lam_annot b a  in
       (n :: ns, (b; a))

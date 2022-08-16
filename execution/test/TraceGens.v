@@ -16,9 +16,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ChainedList.
-
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
+From ConCert.Execution.Test Require Import TestUtils.
 
 Import MonadNotation. Open Scope monad_scope.
 
@@ -30,9 +28,11 @@ Import BoundedN.Stdpp.
 Import ListNotations.
 
 Section TraceGens.
-  Context  {ChainBuilder : ChainBuilderType}.
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
+  Global Definition BlockReward : Amount := 50.
+  Global Definition BlockCreator : Address := creator.
+  Global Definition MaxGenAttempts : nat := 2.
 
   (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum information
       needed to reconstruct a ChainTrace, that being a list of block headers and
@@ -129,14 +129,14 @@ Section TraceGens.
         rebuild_chains shrunk_blocks builder_initial
   }.
 
-  (* Adds a block with 50 money as reward. This will be used for all testing. *)
+  (* Adds a block with miner reward of 50. This is used for all testing *)
   Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
           block_slot := S (current_slot chain);
           block_finalized_height := finalized_height chain;
-          block_creator := creator;
-          block_reward := 50; |} in
+          block_creator := BlockCreator;
+          block_reward := BlockReward; |} in
     builder_add_block chain header acts.
 
   Definition gAdd_block (cb : ChainBuilder)
@@ -158,6 +158,9 @@ Section TraceGens.
         | Ok r => returnGen (Ok r)
         end
       end.
+  
+  Definition try_repeated {T E} (default : E) (n : nat) (g : G (result T E)) : G (result T E) :=
+    backtrack_result default (repeat (1, g) n).
 
   Definition gChain (init_lc : ChainBuilder)
                     (gActOptFromChainSized : Environment -> nat -> GOpt Action)
@@ -166,15 +169,16 @@ Section TraceGens.
                     (max_acts_per_block : nat)
                     : G ChainBuilder :=
     let gAdd_block' lc max_acts := gAdd_block lc gActOptFromChainSized act_depth max_acts in
-    let default_error := action_evaluation_depth_exceeded in (* Not ideal approach, but it suffices for now *)
-    let try_twice g := backtrack_result default_error [(1, g);(1, g)] in
-    let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_twice (g n)) in
+    let default_error := action_evaluation_depth_exceeded in (* TODO: Not ideal approach, but it suffices for now *)
+    let try_repeat g := try_repeated default_error MaxGenAttempts g in
+    let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_repeat (g n)) in
     (* Try decreasing max_acts_per_block, this is needed in some cases since there might be blocks
         where it is not possible to generate max_acts_per_block number of valid actions *)
     let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
       match n with
       | 0 => returnGen lc
-      | S n => lc' <- try_decreasing (gAdd_block' lc) ;; (* heuristic: try twice for more expected robustness *)
+      (* heuristic: try multiple time and try decreasing for more expected robustness *)
+      | S n => lc' <- try_decreasing (gAdd_block' lc) ;;
               match lc' with
               | Ok lc' => rec n lc'
               (* if no new chain could be generated without error, return the old chain *)
@@ -314,12 +318,12 @@ Section TraceGens.
 
   (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
   Definition forAllBlocks {prop : Type}
-                             `{Checkable prop}
-                              (maxLength : nat)
-                              (init_lc : ChainBuilder)
-                              (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                              (pf : ChainState -> prop)
-                              : Checker :=
+                          `{Checkable prop}
+                          (maxLength : nat)
+                          (init_lc : ChainBuilder)
+                          (gTrace : ChainBuilder -> nat -> G ChainBuilder)
+                          (pf : ChainState -> prop)
+                          : Checker :=
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
 
@@ -413,16 +417,14 @@ Section TraceGens.
 
   Open Scope string_scope.
   (* if pre tests true, then post tests true, for all tested execution traces *)
-  Definition pre_post_assertion {Setup Msg State prop : Type}
+  Definition pre_post_assertion {Msg State prop : Type}
                                `{Checkable prop}
                                `{Serializable Msg}
                                `{Serializable State}
-                               `{Serializable Setup}
                                `{Show Msg}
                                 (maxLength : nat)
                                 (init_chain : ChainBuilder)
                                 (gTrace : ChainBuilder -> nat -> G ChainBuilder)
-                                (c : Contract Setup Msg State)
                                 (caddr : Address)
                                 (pre : State -> Msg -> bool)
                                 (post : Environment -> ContractCallContext -> State -> Msg -> option (State * list ActionBody) -> prop) : Checker :=

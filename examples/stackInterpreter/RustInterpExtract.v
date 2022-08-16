@@ -1,7 +1,3 @@
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import ZArith.
-From Coq Require Import Bool.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreter.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Common.
@@ -9,8 +5,14 @@ From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Utils Require Import StringExtra.
 From MetaCoq.Template Require Import All.
+From MetaCoq.PCUIC Require Import PCUICToTemplate.
+From Coq Require Import String.
+From Coq Require Import List.
+From Coq Require Import ZArith.
+From Coq Require Import Bool.
 
 Open Scope string.
+
 Module SI := StackInterpreter.
 
 Definition map_lookup : string :=
@@ -25,7 +27,7 @@ Definition remap_extra_consts : list (kername * string) := Eval compute in
 Definition ex1 := [SI.IPushZ 1; SI.IPushZ 1; SI.IOp SI.Add].
 
 Definition STACK_INTERP_MODULE : ConcordiumMod _ _ :=
-  {| concmd_contract_name := "interpreter";
+  {| concmd_contract_name := "interpreter"%bs;
      concmd_init := @SI.init;
      concmd_receive := @SI.receive;
      (* Extracting the example as well *)
@@ -43,9 +45,9 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/interp.rs"
 MetaCoq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith
+                  (ConcordiumRemap.remap_Z_arith
                      ++ ConcordiumRemap.remap_blockchain_consts
-                     ++ remap_extra_consts)
+                     ++ map (on_snd String.of_string) remap_extra_consts)
                   ConcordiumRemap.remap_inline_bool_ops
                   (ConcordiumRemap.remap_std_types
                      ++ ConcordiumRemap.remap_blockchain_inductives))

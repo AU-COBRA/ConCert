@@ -7,12 +7,14 @@ From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Examples Require EIP20Token.
+From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Execution Require Import ContractCommon.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
-Import MonadNotation.
+Import MCMonadNotation.
+
+Local Coercion bytestring.String.of_string : string >-> bytestring.string.
 
 Local Open Scope string_scope.
 
@@ -163,11 +165,13 @@ Section EIP20TokenExtraction.
     ].
 
   Time MetaCoq Run
-      (t <- liquidity_extraction_specialize PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE ;;
-      tmDefinition EIP20Token_MODULE.(lmd_module_name) t).
+  (liquidity_prepare_extraction PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE).
+
+
+  Time Definition liquidity_eip20token := Eval vm_compute in liquidity_eip20token_prepared.
   
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "../extraction/tests/extracted-code/liquidity-extract/liquidity_eip20token.liq"
-  Compute liquidity_eip20token.
+  MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).
 
 End EIP20TokenExtraction.

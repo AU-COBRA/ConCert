@@ -1,0 +1,63 @@
+FILENAMES = $(notdir $(VFILES:.v=))
+DPDFILES = $(VFILES:.v=.dpd)
+DOTFILES = $(VFILES:.v=.dot)
+SVGFILES = $(VFILES:.v=.svg)
+
+%.svg: %.dot
+	$(SHOW)'DOT -Tsvg -o $@ $<'
+	$(HIDE)dot -Tsvg -o $@ $<
+
+%.dot: %.dpd
+	$(SHOW)'DPD2DOT -o $@ $<'
+	$(HIDE)if [ -s $< ]; then \
+		dpd2dot -graphname $(*F) -o $@ $< >/dev/null; \
+	else \
+		echo "digraph StringExtra {\n  graph [ratio=0.5]\n  node [style=filled]\n} /* END */" > $@; \
+	fi
+
+$(DPDFILES): %.dpd: %.vo
+	$(SHOW)'DPDGRAPH embedding/$<'
+	$(HIDE)(echo "From ConCert.Embedding Require $(*F)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(*F).') | \
+			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
+
+embedding.dpd: $(VOFILES)
+	$(SHOW)'DPDGRAPH embedding'
+	$(HIDE)(echo "From ConCert.Embedding Require $(FILENAMES)."; echo 'Set DependGraph File "$@".'; echo 'Print FileDependGraph $(FILENAMES).') | \
+			$(COQTOP) $(COQFLAGS) $(COQLIBS) -require-import dpdgraph.dpdgraph >/dev/null 2>&1
+
+dep-graphs-svg: $(SVGFILES)
+	@mkdir -p svg
+	@$(foreach i, $(shell seq 1 3 $(words $(COQMF_COQLIBS_NOML))), \
+		$(foreach f, $(filter $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/%, $(SVGFILES)), \
+			mv $f svg/$(strip $(subst /,., $(subst $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/, \
+			$(word $(shell expr $i + 2), $(COQMF_COQLIBS_NOML))., $f)));))
+dep-graphs-dot: $(DOTFILES)
+	@mkdir -p dot
+	@$(foreach i, $(shell seq 1 3 $(words $(COQMF_COQLIBS_NOML))), \
+		$(foreach f, $(filter $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/%, $(DOTFILES)), \
+			mv $f dot/$(strip $(subst /,., $(subst $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/, \
+			$(word $(shell expr $i + 2), $(COQMF_COQLIBS_NOML))., $f)));))
+dep-graphs-dpd: $(DPDFILES)
+	@mkdir -p dpd
+	@$(foreach i, $(shell seq 1 3 $(words $(COQMF_COQLIBS_NOML))), \
+		$(foreach f, $(filter $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/%, $(DPDFILES)), \
+			mv $f dpd/$(strip $(subst /,., $(subst $(word $(shell expr $i + 1), $(COQMF_COQLIBS_NOML))/, \
+			$(word $(shell expr $i + 2), $(COQMF_COQLIBS_NOML))., $f)));))
+
+full-dep-graph-svg: embedding.svg
+full-dep-graph-dot: embedding.dot
+full-dep-graph-dpd: embedding.dpd
+
+.PHONY: clean-dpd
+clean-dpd::
+	$(SHOW)'CLEAN'
+	$(HIDE)rm -f $(DPDFILES)
+	$(HIDE)rm -f $(DOTFILES)
+	$(HIDE)rm -f $(SVGFILES)
+	$(HIDE)rm -f embedding.dpd embedding.dot embedding.svg
+	$(HIDE)rm -rf dpd
+	$(HIDE)rm -rf dot
+	$(HIDE)rm -rf svg
+
+.PHONY: clean
+clean:: clean-dpd

@@ -7,7 +7,7 @@ From MetaCoq.Template Require Import All.
 
 
 Definition ESCROW_MODULE : ConcordiumMod _ _ :=
-  {| concmd_contract_name := "escrow"%string;
+  {| concmd_contract_name := "escrow"%bs;
      concmd_init := @Escrow.init;
      concmd_receive := @Escrow.receive;
      concmd_extra := []; |}.
@@ -24,7 +24,8 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/escrow.rs"
 MetaCoq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith
+                  (ConcordiumRemap.remap_Z_arith
+                     ++ ConcordiumRemap.remap_nat_arith
                      ++ ConcordiumRemap.remap_blockchain_consts)
                   ConcordiumRemap.remap_inline_bool_ops
                   (ConcordiumRemap.remap_std_types

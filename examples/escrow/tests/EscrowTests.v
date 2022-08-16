@@ -5,26 +5,16 @@
 
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
-From ConCert.Utils Require Import RecordUpdate.
-
-From QuickChick Require Import QuickChick.
 From Coq Require Import ZArith.
 From Coq Require Import List.
-
 Import ListNotations.
-Import RecordSetNotations.
-Import QcNotation.
 
-Close Scope string_scope.
 
 Section TestSetup.
   (* Fix seller and buyer *)
@@ -35,14 +25,13 @@ Section TestSetup.
     setup_buyer := buyer
   |}.
 
-  Definition deploy_escrow amount := create_deployment amount Escrow.contract escrow_setup.
-  Definition escrow_contract_addr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+  Definition escrow_contract_addr : Address := contract_base_addr.
   (* The initial blockchain with the escrow contract deployed, and with buyer balance = 10 *)
   Definition escrow_chain : ChainBuilder :=
-    unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+    unpack_result (TraceGens.add_block empty_chain
     [
-      build_act seller seller (act_transfer buyer 10);
-      build_act seller seller (deploy_escrow 2)
+      build_transfer seller buyer 10;
+      build_deploy seller 2 Escrow.contract escrow_setup
     ]).
     
 End TestSetup.
@@ -51,23 +40,15 @@ End TestSetup.
     an EscrowGensInfo module. *)
 Module TestInfo <: EscrowGensInfo.
   Definition contract_addr := escrow_contract_addr.
-  Definition gAccount := elems_ person_1 test_chain_addrs.
-  Definition gAccountWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
-    elems_opt addrs.
 End TestInfo.
 Module MG := EscrowGens.EscrowGens TestInfo. Import MG.
 Section TestGenInstances.
-  
-  Definition forAllEscrowChainBuilder gEscrowTrace length cb := 
-    forAllChainBuilder length cb gEscrowTrace .
   
   (* For automation *)
   Global Instance gEscrowChainBuilder : GenSized ChainBuilder := 
   {|
     arbitrarySized := gEscrowTraceBetter escrow_chain
   |}.
-  Global Instance shrinkChainBuilder : Shrink ChainBuilder := {| shrink a := [a] |}.
 
 End TestGenInstances.
 

@@ -1,4 +1,5 @@
 (* This file provides the main function for invoking our extraction. *)
+From Coq Require Import String.
 From ConCert.Extraction Require Import Erasure.
 From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require OptimizePropDiscr.
@@ -15,7 +16,9 @@ From MetaCoq.PCUIC Require Import TemplateToPCUIC.
 From MetaCoq.SafeChecker Require Import SafeTemplateChecker.
 
 Existing Instance extraction_checker_flags.
---
+
+Module PEnv := P.PCUICEnvironment.
+
 (** We consider a type to be empty, if it is not mutual and has no constructors *)
 Definition is_empty_type_decl (d : ExAst.global_decl) : bool :=
   match d with
@@ -35,17 +38,63 @@ Record extract_pcuic_params :=
     (* The transforms to apply after extraction. Only run when optimize_prop_discr is true. *)
     extract_transforms : list ExtractTransform; }.
 
-Definition extract_pcuic_env
+
+Lemma fresh_global_erase_global_decl_rec :
+    forall (Σ0 : global_declarations) (universes0 : ContextSet.t)
+           (wfΣ : ∥ wf ({| PEnv.universes := universes0; PEnv.declarations := Σ0 |}) ∥)
+           (seeds : KernameSet.t) (ignore : kername -> bool) kn,
+      EnvMap.EnvMap.fresh_global kn Σ0 ->
+      ExAst.fresh_global kn (erase_global_decls_deps_recursive Σ0 universes0 wfΣ seeds ignore).
+Proof.
+  intros Σ0 universes0 wfΣ seeds ignore kn fresh.
+  revert wfΣ seeds.
+  induction Σ0;intros wfΣ seeds.
+  - constructor.
+  - cbn. destruct a;cbn.
+    inversion fresh;cbn in *;subst;clear fresh.
+    destruct (KernameSet.mem _ _) eqn:Hmem;cbn.
+    * constructor;auto.
+      now apply IHΣ0.
+    * now apply IHΣ0.
+Qed.
+
+Lemma fresh_globals_erase_global_decl_rec :
+    forall (Σ0 : global_declarations) (universes0 : ContextSet.t)
+           (wfΣ : ∥ wf ({| PEnv.universes := universes0; PEnv.declarations := Σ0 |}) ∥)
+           (seeds : KernameSet.t) (ignore : kername -> bool),
+      EnvMap.EnvMap.fresh_globals Σ0 ->
+      ExAst.fresh_globals (erase_global_decls_deps_recursive Σ0 universes0 wfΣ seeds ignore).
+Proof.
+  intros Σ0 universes0 wfΣ seeds ignore fresh.
+  revert wfΣ seeds.
+  induction Σ0;intros wfΣ seeds;cbn in *.
+  - constructor.
+  - destruct a;cbn.
+    inversion fresh;subst.
+    destruct (KernameSet.mem _ _).
+    * constructor.
+      ** now apply IHΣ0.
+      ** now apply fresh_global_erase_global_decl_rec.
+    * easy.
+Qed.
+
+Program Definition extract_pcuic_env
            (params : extract_pcuic_params)
-           (Σ : P.global_env) (wfΣ : ∥wf Σ∥)
+           (Σ : global_env)
+           (wfΣ : ∥wf Σ ∥)
            (seeds : KernameSet.t)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
-  let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive Σ wfΣ seeds ignore) in
+           (ignore : kername -> bool) : result ExAst.global_env _ :=
+  let Σ := timed "Erasure" (fun _ => erase_global_decls_deps_recursive (declarations Σ) (universes Σ) wfΣ seeds ignore) in
   if optimize_prop_discr params then
-    let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ) in
+    let Σ := timed "Removal of prop discrimination" (fun _ => OptimizePropDiscr.optimize_env Σ _) in
     compose_transforms (extract_transforms params) Σ
   else
     Ok Σ.
+Next Obligation.
+  apply fresh_globals_erase_global_decl_rec.
+  sq.
+  now apply PCUICWfEnvImpl.wf_fresh_globals.
+Qed.
 
 Record extract_template_env_params :=
   { (* The transforms to apply at the template coq level, before translating to PCUIC and extracting.
@@ -57,6 +106,8 @@ Record extract_template_env_params :=
     check_wf_env_func : forall Σ, result (∥wf Σ∥) string;
     pcuic_args : extract_pcuic_params }.
 
+Import MCMonadNotation.
+
 Definition check_wf_and_extract (params : extract_template_env_params)
            (Σ : global_env) (seeds : KernameSet.t) (ignore : kername -> bool)
   := wfΣ <- check_wf_env_func params Σ;;
@@ -65,37 +116,36 @@ Definition check_wf_and_extract (params : extract_template_env_params)
 Definition extract_template_env_general
            (pcuic_trans : PCUICEnvironment.global_env -> result PCUICEnvironment.global_env string)
            (params : extract_template_env_params)
-           (Σ : Ast.global_env)
+           (Σ : Ast.Env.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : result ExAst.global_env string :=
-  let Σ := SafeTemplateChecker.fix_global_env_universes Σ in
-  let Σ := trans_global_decls Σ in
-  Σ <- pcuic_trans Σ ;;
+  let Σ := trans_global_env Σ in
+  Σ <- pcuic_trans (PCUICProgram.trans_env_env Σ) ;;
   check_wf_and_extract params Σ seeds ignore.
 
 Definition extract_template_env := extract_template_env_general ret.
 
-Definition run_transforms_list (Σ : Ast.global_env) (ts : list TemplateTransform) : TemplateMonad Ast.global_env :=
+Definition run_transforms_list (Σ : Ast.Env.global_env) (ts : list TemplateTransform) : TemplateMonad Ast.Env.global_env :=
   res <- tmEval lazy (compose_transforms ts Σ) ;;
   match res with
   | Ok Σ => ret Σ
   | Err s => tmFail s
   end.
 
-Definition run_transforms (Σ : Ast.global_env) (params : extract_template_env_params) : TemplateMonad Ast.global_env :=
+Definition run_transforms (Σ : Ast.Env.global_env) (params : extract_template_env_params) : TemplateMonad Ast.Env.global_env :=
   let transforms := params.(template_transforms) in
   run_transforms_list Σ transforms.
 
 Definition extract_template_env_certifying_passes
            (pcuic_trans : PCUICEnvironment.global_env -> result PCUICEnvironment.global_env string)
            (params : extract_template_env_params)
-           (Σ : Ast.global_env)
+           (Σ : Ast.Env.global_env)
            (seeds : KernameSet.t)
            (ignore : kername -> bool) : TemplateMonad ExAst.global_env :=
   Σtrans <- run_transforms Σ params ;;
   mpath <- tmCurrentModPath tt;;
-  gen_defs_and_proofs Σ Σtrans mpath "_cert_pass" seeds;;
-  res <- tmEval lazy (extract_template_env_general pcuic_trans params  Σtrans seeds ignore) ;;
+  gen_defs_and_proofs (Ast.Env.declarations Σ) (Ast.Env.declarations Σtrans) mpath "_cert_pass" seeds;;
+  res <- tmEval lazy (extract_template_env_general pcuic_trans params Σtrans seeds ignore) ;;
   match res with
     | Ok env => ret env
     | Err e => tmFail e
@@ -133,7 +183,7 @@ Definition get_projections (env : ExAst.global_env) : list (ident * ExAst.one_in
         (* case 1-ind with primitive projections *)
         | [ctor],_::_ => map (fun '(na, _) => (na, oib)) oib.(ExAst.ind_projs)
         (*case 1-ind without primitive projections *)
-        | [(_,ctor_args)],[] => 
+        | [(_,ctor_args,_)],[] => 
           (* let is_named '(nm,_) := match nm with nNamed _ => true | _ => false end in *)
           (* let named_args := filter is_named ctor_args in *)
           map (fun '(na, _) =>(string_of_name na, oib)) ctor_args

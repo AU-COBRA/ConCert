@@ -1,27 +1,21 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
 From ConCert.Examples.Congress Require Import CongressGens.
 From ConCert.Examples.Congress Require Import CongressPrinters.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Program.Basics.
 
-Notation "f 'o' g" := (compose f g) (at level 50).
+
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.
 
 Definition chain1 : ChainBuilder := builder_initial.
 Definition chain2 : ChainBuilder := unpack_result (add_block chain1 []).
 Definition chain3 : ChainBuilder := unpack_result
-  (add_block chain2 [build_act creator creator (act_transfer person_1 10)]).
+  (add_block chain2 [build_transfer creator person_1 10]).
 
 Definition setup_rules :=
   {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
@@ -32,7 +26,7 @@ Definition setup := Congress.build_setup setup_rules.
 Definition deploy_congress : ActionBody :=
   create_deployment 5 Congress.contract setup.
 Definition chain4 : ChainBuilder :=
-  unpack_result (add_block chain3 [build_act person_1 person_1 deploy_congress]).
+  unpack_result (add_block chain3 [build_deploy person_1 5 Congress.contract setup]).
 Definition congress_1 : Address :=
   match outgoing_txs (builder_trace chain4) person_1 with
   | tx :: _ => tx_to tx
@@ -58,24 +52,16 @@ Definition chain5 : ChainBuilder :=
   unpack_result (add_block chain4 acts).
 Definition create_proposal_call :=
   congress_ifc.(send) 0 (Some (create_proposal [cact_transfer person_3 3])).
-Definition chain6 : ChainBuilder :=
-  unpack_result (add_block chain5 [build_act person_1 person_1 create_proposal_call]).
 
 Definition congress_chain := chain5.
-Definition congress_caddr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition congress_caddr := addr_of_Z 128%Z.
 
-Definition gCongressChain max_acts_per_block congress_cb max_length := 
-  let act_depth := 2 in 
-  gChain congress_cb
-    (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
-
-Definition forAllCongressChainTraces n :=
-  forAllBlocks n congress_chain (gCongressChain 1).
-
-Definition pre_post_assertion_congress P c Q :=
-  pre_post_assertion 5 congress_chain (gCongressChain 2) Congress.contract c P Q.
-
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50).
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := (fun env => GCongressAction env act_depth congress_caddr).
+  Definition init_cb := congress_chain.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample gChain. *)
 
 Definition nr_cacts (msg : option Congress.Msg) :=
   match msg with
@@ -120,12 +106,11 @@ Definition receive_state_well_behaved_P (chain : Chain)
   | _ => false
   end.
 
-(* QuickChick ( *)
-(*   {{fun _ _ => true}} *)
-(*   congress_caddr *)
-(*   {{receive_state_well_behaved_P}} *)
-(* ). *)
-
+(* QuickChick (
+  {{fun _ _ => true}}
+  congress_caddr
+  {{receive_state_well_behaved_P}}
+). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 
@@ -143,15 +128,8 @@ Definition state_proposals_proposed_in_valid (cs : ChainState) :=
   | None => checker true
   end.
 
-(* QuickChick (forAllCongressChainTraces 5 state_proposals_proposed_in_valid). *)
+(* QuickChick (forAllBlocks state_proposals_proposed_in_valid). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-
-Definition reachableFrom_chaintrace_congress (cb : ChainBuilder) pf : Checker :=
-  reachableFrom_chaintrace cb (gCongressChain 1) pf.
-
-Notation "lc '~~>' pf" :=
-  (reachableFrom_chaintrace_congress lc pf)
-  (at level 88, left associativity).
 
 Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
   let state_opt := get_contract_state Congress.State cs congress_caddr in
@@ -180,7 +158,6 @@ Definition congress_finished_a_vote (cs : ChainState) :=
                                            | _ => false 
                                            end in
     existsb act_is_finish_vote acts.
-
 
 (* QuickChick (chain5 ~~> congress_finished_a_vote). *)
 (* Success - found witness satisfying the predicate!

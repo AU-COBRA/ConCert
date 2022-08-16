@@ -17,7 +17,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Section Congress.
 Context {BaseTypes : ChainBase}.
@@ -479,7 +479,7 @@ Proof.
     now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
     instantiate (DeployFacts := fun _ _ => True).
-    instantiate (CallFacts := fun _ _ _ _ => True).
+    instantiate (CallFacts := fun _ _ _ _ _ => True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.

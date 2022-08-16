@@ -1,5 +1,8 @@
+From Coq Require Import List.
+From Coq Require Import ssrbool.
 From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import Utils.
+From MetaCoq.Template Require Import utils.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
@@ -88,7 +91,9 @@ Proof.
   - easy.
   - split; [easy|].
     destruct clos as (_ & clos).
-    induction X; cbn in *; propify; easy.
+    induction X; cbn in *; propify;auto.
+    replace (#|x.1| + (k + n')) with ((#|x.1| + k) + n') by lia.
+    intuition;eauto.
   - rewrite map_length.
     revert n' k k' clos.
     induction X; intros n' k k' clos; cbn in *; propify; [easy|].
@@ -142,7 +147,10 @@ Proof.
     + rewrite <- (proj2 clos); f_equal; lia.
   - easy.
   - split; [easy|].
-    induction X; cbn in *; propify; easy.
+    induction X; cbn in *; propify;auto.
+    replace (#|x.1| + (k + k' + #|s|)) with (k + (#|x.1| + k') + #|s|) in * by lia.
+    replace (#|x.1| + (k + k')) with ( k + (#|x.1| + k')) by lia.
+    easy.
   - rewrite map_length.
     revert k k' all clos.
     induction X; intros k k' all all'; cbn in *; propify; [easy|].

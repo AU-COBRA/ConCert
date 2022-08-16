@@ -9,7 +9,7 @@ From MetaCoq.Template Require Import All.
 Open Scope string.
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=
-  {| concmd_contract_name := "counter";
+  {| concmd_contract_name := "counter"%bs;
      concmd_init := @ConCert.Examples.Counter.Counter.counter_init;
      concmd_receive := @ConCert.Examples.Counter.Counter.counter_receive;
      concmd_extra := []; |}.
@@ -25,7 +25,7 @@ Redirect "../extraction/tests/extracted-code/concordium-extract/counter.rs"
 MetaCoq Run (concordium_extraction
                COUNTER_MODULE
                (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_arith ++ ConcordiumRemap.remap_blockchain_consts)
+                  (ConcordiumRemap.remap_Z_arith ++ ConcordiumRemap.remap_blockchain_consts)
                   []
                   (ConcordiumRemap.remap_blockchain_inductives
                      ++ ConcordiumRemap.remap_std_types))

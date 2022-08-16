@@ -171,7 +171,7 @@ Proof.
        always returns an empty list of actions. We instantiate the [CallFacts]
        predicate with the assumption that the from-address is not equal to the
        contract address. We will be asked to prove this goal later. *)
-    instantiate (CallFacts := fun _ ctx _ _ => ctx_from ctx <> ctx_contract_address ctx);
+    instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
       subst CallFacts; cbn in *; congruence.
   + (* we asked to prove additional assumptions we might have made.
      Since we instantiated only [CallFacts], we instantiate other assumptions
@@ -184,8 +184,9 @@ Proof.
     cbn. intros cstate Hc Hstate.
     (* we use the fact that [counter_receive] doesn't return any actions *)
     assert ((outgoing_acts bstate_from to_addr) = []) as Hempty.
-    { apply lift_outgoing_acts_nil with (contract := counter_contract);eauto.
-      intros. eapply (receive_produces_no_calls (chain:=chain) (ctx:=ctx));eauto. apply H. }
+    { apply lift_outgoing_acts_nil with (contract := counter_contract); eauto.
+      now constructor.
+      intros. eapply (receive_produces_no_calls (chain:=chain) (ctx:=ctx)); eauto. apply H. }
     unfold outgoing_acts in *. rewrite queue_prev in *.
     subst act;cbn in Hempty.
     now destruct_address_eq.

@@ -1,16 +1,8 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import SerializablePrinters.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-(* From ExtLib.Structures Require Import Monads. *)
-(* Import MonadNotation. Open Scope monad_scope. *)
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Program.Basics.
-Notation "f 'o' g" := (compose f g) (at level 50).
+From Coq Require Import List.
 Open Scope string_scope.
 
 Instance showRules : Show Rules :=
@@ -35,7 +27,7 @@ end.
 
 Instance showSetup : Show Setup :=
 {|
-  show := show o setup_rules
+  show v := show (setup_rules v)
 |}.
 
 (* Ugly fuel hack :/ *)

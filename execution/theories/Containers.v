@@ -280,4 +280,4 @@ Module FMap.
   End Theories.
 End FMap.
 
-Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.
+#[export] Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.

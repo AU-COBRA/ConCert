@@ -1,61 +1,86 @@
 .toc {
-    background: #fefefe;
-    width: 250px;
-    position: fixed;
-    border: 1px solid #ddd;
-    color: #333;
-    margin-top: 55px;
-    line-height: 2;
+  background: rgb(86,157,199);
+  width: min(250px, 15vw);
+  position: fixed;
+  border: 1px solid #ddd;
+  border-left-width: 0px;
+  color: #333;
+  padding-top: 55px;
+  line-height: 1.8;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow-y: scroll;
+  z-index: 1;
 }
 
 .toc-header {
-    font-size: 18px;
-    position: fixed;
-    margin-top: 25px;
+  font-size: 18px;
+  position: fixed;
+  margin-top: -39px;
+  z-index: 2;
+  background: inherit;
+  padding-top: 10px;
+  border-bottom: 1px solid #bfbfbf;
+  width: inherit;
+  text-indent: 10px;
+}
+
+.toc ul {
+  margin-top: 2px;
+  padding-left: 24px;
 }
 
 .toc a {
-    color: #333;
+  color: #333;
 }
 
 .toc .toc-h1 {
-    font-size: 16px;
+  font-size: 16px;
 }
 
 .toc .toc-h2 {
-    margin-left: 10px;
-    font-size: 14px;
+  margin-left: 10px;
+  font-size: 14px;
 }
+
 .toc .toc-h3 {
-    margin-left: 20px;
-    font-size: 12px;
+  margin-left: 20px;
+  font-size: 12px;
 }
+
 .toc-visible {
-    color: #000;
-    font-weight: bold;
+  color: #000;
+  font-weight: bold;
 }
+
 .toc.right {
-    right: 0
+  right: 0;
 }
 
 .section {
-   position: relative;
-   border-top: 42px solid transparent; /* navbar height +2 */
-   margin: -30px 0 0;
-   -webkit-background-clip: padding-box;
-   -moz-background-clip: padding;
-   background-clip: padding-box;
+  position: relative;
+  border-top: 42px solid transparent; /* navbar height +2 */
+  margin: -30px 0 0;
+  -webkit-background-clip: padding-box;
+  -moz-background-clip: padding;
+  background-clip: padding-box;
 }
 
 .section:before {
-   content: "";
-   position: absolute;
-   top: -2px;
-   left: 0;
-   right: 0;
-   border-top: 2px solid transparent;
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  border-top: 2px solid transparent;
 }
 
 .jstoc-hidden {
-    display: none;
+  display: none;
+}
+
+.jstoc-hidden-main {
+  padding-left: 16px!important;
+  padding-right: 16px!important;
 }

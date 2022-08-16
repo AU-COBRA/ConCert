@@ -2,27 +2,21 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.FA2 Require Import FA2Printers.
 From ConCert.Examples.FA2 Require Import TestContracts.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
-(* For monad notations *)
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
+Import MonadNotation.
 
 Module Type FA2TestsInfo.
   Parameter fa2_contract_addr : Address.
   Parameter fa2_client_addr : Address.
   Parameter fa2_hook_addr : Address.
-  Parameter gAddrWithout : list Address -> G Address.
-  Parameter gUniqueAddrPair : GOpt (Address * Address).
+  Parameter accounts : list Address.
 End FA2TestsInfo.
 
 Module FA2Gens (Info : FA2TestsInfo).
@@ -44,7 +38,7 @@ Definition policy_allows_self_transfer (policy : permissions_descriptor) : bool 
   match policy.(descr_self) with
   | self_transfer_permitted => true
   | self_transfer_denied => false
-  end .
+  end.
 
 Local Open Scope N_scope.
 
@@ -61,7 +55,7 @@ Definition gTransferCallerFromTo (state : FA2Token.State)
   let policy := state.(permission_policy) in
   let gSelfTransfer :=
     caller <- gAccountWithTokens ;;
-    to <- liftOptGen (gAddrWithout [caller]) ;;
+    to <- liftOptGen (gAddrWithout [caller] accounts) ;;
     returnGenSome (caller, caller, to) in
   let gOperatorTransfer :=
     (* make sure caller is an operator, with the given tokenid *)
@@ -74,7 +68,7 @@ Definition gTransferCallerFromTo (state : FA2Token.State)
                                 (existsb op_tokens_contains_tokenid (FMap.values op_tokens_map)) in
     '(from, ops_map) <- sampleFMapOpt_filter state.(operators) (fun p => (owner_has_tokens (fst p)) && (filter_ (snd p))) ;;
     '(caller, _) <- sampleFMapOpt_filter ops_map (fun p => op_tokens_contains_tokenid (snd p)) ;;
-    to <- liftOptGen (gAddrWithout [caller; from]) ;;
+    to <- liftOptGen (gAddrWithout [caller; from] accounts) ;;
     returnGenSome (from, from, to) in
   match (policy.(descr_self), policy.(descr_operator)) with
   | (self_transfer_permitted, operator_transfer_denied) => gSelfTransfer
@@ -101,10 +95,12 @@ Definition gSingleTransfer (state : FA2Token.State)
         returnGenSome
           (caller, {|
             from_ := from;
-            to_ := to;
-            transfer_token_id := tokenid;
-            amount := amount;
-            sender_callback_addr := None;
+            txs := [{|
+              to_ := to;
+              dst_token_id := tokenid;
+              amount := amount;
+            |}];
+            sender_callback_addr := None
           |})
     )
   | None => returnGen None
@@ -166,8 +162,8 @@ Local Close Scope Z_scope.
 Definition gOperatorParam (chain : Chain)
                           (state : FA2Token.State)
                           : G (option operator_param) :=
-  owner <- liftOptGen (gAddrWithout []) ;;
-  addr <-  liftOptGen (gAddrWithout [owner]) ;;
+  owner <- liftOptGen (gAddress accounts) ;;
+  addr <-  liftOptGen (gAddrWithout [owner] accounts) ;;
   tokenid <- liftM fst (sampleFMapOpt state.(tokens)) ;;
   tokens <- (elems [Some all_tokens; Some (some_tokens [tokenid])]) ;;
   returnGenSome {|
@@ -214,14 +210,14 @@ Definition gFA2TokenAction (env : Environment) : GOpt Action :=
     (* create tokens *)
     (1, let has_balance amount := Z.ltb 0 amount in
         let is_not_contract_addr addr := negb (address_is_contract addr) in
-        caller <- liftOptGen (gAddrWithout []) ;;
+        caller <- liftOptGen (gAddress accounts) ;;
         (* caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                             (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;; *)
         '(amount, msg) <- gCreateTokens env caller fa2_state ;;
         mk_call caller amount msg
     ) ;
     (* update operators *)
-    (2, caller <- liftOptGen (gAddrWithout []) ;;
+    (2, caller <- liftOptGen (gAddress accounts) ;;
         upd <- gUpdateOperators env fa2_state 2 ;;
         mk_call caller 0%Z upd
     )
@@ -233,10 +229,10 @@ End FA2ContractGens.
 (* The generators for this section assume that 'fa2_client_addr' is an address to an fa2 client contract
   with message type ClientMsg *)
 Section FA2ClientGens.
-Let client_other_msg := @other_msg _ FA2ClientMsg _.
+Let client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition gIsOperatorMsg : G (option ClientMsg) :=
- '(addr1, addr2) <- gUniqueAddrPair ;;
+ '(addr1, addr2) <- gUniqueAddrPair accounts ;;
   op_tokens <- elems_opt [all_tokens ; some_tokens [0%N]] ;;
   let params := Build_is_operator_param
       (Build_operator_param addr1 addr2 op_tokens)
@@ -252,7 +248,7 @@ Definition gClientAction (env : Environment) : GOpt Action :=
         |} in
   state <- returnGen (get_contract_state ClientState env fa2_client_addr) ;;
   let fa2_caddr := state.(fa2_caddr) in
-  caller <- liftOptGen (gAddrWithout []) ;;
+  caller <- liftOptGen (gAddress accounts) ;;
   msg <- gIsOperatorMsg ;;
   mk_call_fa2 caller fa2_caddr msg.
 
@@ -287,12 +283,3 @@ Definition token_reachableFrom_implies_reachable {A}
   reachableFrom_implies_chaintracePropSized size cb (gFA2ChainTraceList 1) pf1 pf2.
 
 End FA2Gens.
-
-Module DummyTestInfo <: FA2TestsInfo.
-  Definition fa2_contract_addr := zero_address.
-  Definition fa2_client_addr := zero_address.
-  Definition fa2_hook_addr := zero_address.
-  Definition gAddrWithout (ws : list Address) := returnGen zero_address.
-  Definition gUniqueAddrPair : GOpt (Address * Address) := returnGen None.
-End DummyTestInfo.
-Module MG := FA2Gens DummyTestInfo. Import MG.

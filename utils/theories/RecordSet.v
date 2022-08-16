@@ -8,7 +8,7 @@ From MetaCoq.Template Require Import utils.
 
 Global Unset Asymmetric Patterns.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Class SetterFromGetter {A B} (a : A -> B) := setter_from_getter : (B -> B) -> A -> A.
 
@@ -32,7 +32,7 @@ Definition make_setters (T : Type) : TemplateMonad unit :=
          | None => tmFail "Could not find inductive in mutual inductive?"
          end;;
   '(ctor, ar) <- match ind_ctors oib with
-                 | [((_, t), ar)] => ret (t, ar)
+                 | [c] => ret (c.(cstr_type), c.(cstr_arity))
                  | _ => tmFail "Type should have exactly one constructor"
                  end;;
 

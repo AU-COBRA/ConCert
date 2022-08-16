@@ -14,13 +14,16 @@
      a (N.to_nat n).
 
    Note: Only specializes ChainBase when it is the very first abstraction.  *)
+(* From Coq Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 
-Local Open Scope string.
+Import MCMonadNotation.
+
+Local Open Scope bs_scope.
 
 Definition ChainBase_kername : kername :=
   <%% ChainBase %%>.
@@ -38,12 +41,31 @@ Section ChainBaseSpecialization.
   | specialize
   | none.
 
-  Fixpoint specialize_term
-            (specialized : list kername) : list VarInfo -> term -> result term string :=
+  Definition result_string A := result A string.
+
+  Definition specialize_type
+              (specialize_term : (list VarInfo -> term -> result term string))
+              (name : string)
+              (Γ : list VarInfo)
+              (remove : bool)
+              (t : term) : result term string :=
+    match remove, t with
+    | true, tProd _ _ body =>
+      map_error (fun s => "While specializing type in " ++ name ++ ": " ++ s)
+                (specialize_term (replace :: Γ) body)
+
+    | true, _ => Err ("Expected product in " ++ name ++ ", got" ++ nl ++ string_of_term t)
+    | false, _ => specialize_term Γ t
+    end.
+
+  Compute (rev (List.fold_right (fun e '(l,y) => ((l ++ [(e, y)] ), 0 :: y ))%list ([],[]) ([1;2;3])).1).
+
+  Definition specialize_term
+            (specialized : list kername) : list VarInfo -> term -> result_string term :=
     fix f Γ t :=
       match t with
       | tRel n =>
-        vi <- result_of_option (nth_error Γ n) "Unbound tRel";;
+        vi <- result_of_option (nth_error Γ n) ("Unbound tRel(" ++ string_of_nat n ++ ")");;
         match vi with
         | replace => ret replacement_term
         | specialize => Err "Unapplied tRel that should be specialized appears in term"
@@ -77,7 +99,7 @@ Section ChainBaseSpecialization.
           arg <- f Γ arg;;
           ret (tApp head arg)
       | tApp (tRel i as head) arg =>
-        vi <- result_of_option (nth_error Γ i) "Unbound tRel";;
+        vi <- result_of_option (nth_error Γ i) "Unbound applied tRel";;
         match vi with
         | replace => Err "Unexpected application"
         | specialize => ret (tRel (i - 1)) (* removed chain base inbetween, hacky *)
@@ -97,16 +119,66 @@ Section ChainBaseSpecialization.
                   ++ "' (or constructor of this) appears unapplied in term; this needs to be specialized")
         else
           ret t
-      | tCase (ind, npars) ret_ty disc brs =>
-        ret_ty <- f Γ ret_ty;;
+      | tCase (mk_case_info ind npars relevance) pr disc brs =>
+          (* FIXME: there might be some issues with specialisation of cases,
+             there was an example that failed with "Unbound Rel" for complex
+             dependent pattern-matching *)
+        remove <-
+            match pr.(pparams) with
+            | tRel n :: _ =>
+                vi <- result_of_option (nth_error Γ n) "Unbound tRel in case parameters";;
+                match vi with
+                | replace => Ok true
+                | _ => Ok false
+                end
+            | _ => Ok false
+            end ;;
+        pp <- (if (remove : bool)
+              then (match pr.(pparams) with
+                    | [] => Ok []
+                    | _ :: tl0 => monad_map (f Γ) tl0
+                    end)
+             else monad_map (f Γ) pr.(pparams)) ;;
+        let Γ0 := if (remove : bool)
+                  then replace :: repeat none (#|pp|)
+                  else repeat none #|pp| in
+        pctx <- monad_map (fun cd => c <- f (Γ0 ++ Γ)%list cd.(decl_type);;
+                                 ret (mkdecl cd.(decl_name) cd.(decl_body) c))
+                         pr.(pcontext);;
+        ret_ty <- f (repeat none #|pctx| ++ Γ)%list pr.(preturn);;
+        let pr' := {| pparams := pp;
+                      puinst := pr.(puinst);
+                      pcontext := pctx;
+                      preturn := ret_ty |} in
         disc <- f Γ disc;;
-        brs <- monad_map (fun '(ar, t) => t <- f Γ t;; ret (ar, t)) brs;;
+        brs <- monad_map (fun '(mk_branch ctx t) =>
+                           '(s_ctx, _) <- monad_fold_right
+                                     (fun '(l0, Γ1) decl =>
+                                        let decl_ty := decl.(decl_type) in
+                                        remove <-
+                                          match decl_ty with
+                                          | tProd _ (tInd ind _) _ =>
+                                              Ok (eq_kername (inductive_mind ind) (ChainBase_kername))
+                                          | tProd _ (tRel n) _ => match nth_error Γ1 n with
+                                                     | Some vi => match vi with
+                                                                 | replace => Ok true
+                                                                 | _ => Ok false
+                                                                 end
+                                                     | None => Err "Unbound tRel in case parameters"
+                                                     end
+                                          | _ => Ok false
+                                          end;;
+                                        ty <- specialize_type f "branch context" Γ1 remove decl_ty;;
+                                        ret (l0 ++ [mkdecl decl.(decl_name) decl.(decl_body) ty], none :: Γ1))%list
+                                     ctx ([],Γ);;
+                           let s_ctx := rev s_ctx in
+                           t <- f (repeat none #|s_ctx| ++ Γ)%list t;; ret (mk_branch s_ctx t)) brs;;
         let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
-        ret (tCase (ind, npars) ret_ty disc brs)
-      | tProj ((ind, npars), arg) body =>
+        ret (tCase (mk_case_info ind npars relevance) pr' disc brs)
+       | tProj (mkProjection ind npars arg) body =>
         body <- f Γ body;;
         let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
-        ret (tProj ((ind, npars), arg) body)
+        ret (tProj (mkProjection ind npars arg) body)
       | tFix defs i =>
         let Γ := (repeat none (List.length defs) ++ Γ)%list in
         defs <- monad_map (fun (d : def term) =>
@@ -127,7 +199,7 @@ Section ChainBaseSpecialization.
                                     dbody := dbody;
                                     rarg := rarg d |}) defs;;
         ret (tCoFix defs i)
-      | tPrim _ => ret t
+      (* | tPrim _ => ret t *)
       end.
 
   Definition specialize_body
@@ -145,25 +217,11 @@ Section ChainBaseSpecialization.
     | false, _ => specialize_term specialized Γ t
     end.
 
-  Definition specialize_type
-              (specialized : list kername)
-              (name : kername)
-              (Γ : list VarInfo)
-              (remove : bool)
-              (t : term) : result term string :=
-    match remove, t with
-    | true, tProd _ _ body =>
-      map_error (fun s => "While specializing type in " ++ string_of_kername name ++ ": " ++ s)
-                (specialize_term specialized (replace :: Γ) body)
-
-    | true, _ => Err ("Expected product in " ++ string_of_kername name ++ ", got" ++ nl ++ string_of_term t)
-    | false, _ => specialize_term specialized Γ t
-    end.
-
   Definition specialize_decl
+              (Σ : global_env_ext)
               (specialized : list kername)
               (kn : kername)
-              (decl : global_decl) : result (list kername * global_decl) string :=
+              (decl : global_decl) : result_string (list kername * global_decl) :=
     match decl with
     | ConstantDecl cst =>
       let remove := match cst_type cst with
@@ -174,21 +232,22 @@ Section ChainBaseSpecialization.
 
       type <- map_error
                 (fun s => "While specializing decl " ++ string_of_kername kn ++ " type: " ++ s)
-                (specialize_type specialized kn [] remove (cst_type cst));;
+                (specialize_type (specialize_term specialized) (string_of_kername kn) [] remove (cst_type cst));;
       body <- match cst_body cst with
               | Some body =>
                 body <- map_error
-                          (fun s => "While specializing decl " ++ string_of_kername kn ++ " body: " ++ s)
+                          (fun s => "While specializing decl " ++ string_of_kername kn ++ " body: " ++ s ++ nl ++ PCUICErrors.print_term Σ [] body)
                           (specialize_body specialized kn [] remove body);;
                 ret (Some body)
               | None => ret None
               end;;
 
-      ret (if remove then kn :: specialized else specialized,
+      Ok (if remove then kn :: specialized else specialized,
             ConstantDecl
               {| cst_type := type;
-                cst_body := body;
-                cst_universes := cst_universes cst |})
+                 cst_body := body;
+                 cst_universes := cst_universes cst;
+                 cst_relevance := cst_relevance cst|})
 
     | InductiveDecl mib =>
       let params := rev (ind_params mib) in
@@ -220,30 +279,33 @@ Section ChainBaseSpecialization.
                         ([], if remove then [replace] else []);;
       let params := rev params in
       let go oib :=
-          type <- specialize_type specialized (kn.1, ind_name oib) [] remove (ind_type oib);;
+          type <- specialize_type (specialize_term specialized) (string_of_kername (kn.1, ind_name oib)) [] remove (ind_type oib);;
           (* Context with all mutually inductive types added,
             specializing them if we removed an abstraction.
             Ctors themselves will be abstracted over parameters. *)
           let ctorΓ := repeat (if remove then specialize else none)
                               (List.length (ind_bodies mib)) in
           ctors <- monad_map
-                      (fun '(name, t, n) =>
-                        t <- specialize_type specialized (kn.1, name) ctorΓ remove t;;
-                        ret (name, t, n))
+                       (fun '(Build_constructor_body name args indices ty ar) =>
+                          (* TODO: shoule we also specialise args, indices? *)
+                        ty <- specialize_type (specialize_term specialized) (string_of_kername (kn.1, name)) ctorΓ remove ty;;
+                        ret (Build_constructor_body name args indices ty ar))
                       (ind_ctors oib);;
           (* Projections are just the type of the data value and
             checked in a context with parameters and the record value
             itself *)
           let projΓ := none :: repeat none (List.length params) in
           projs <- monad_map
-                      (fun '(name, t) =>
+                      (fun '(Build_projection_body name relevance t) =>
                         t <- map_error (fun s => "While specializing projection "
                                                     ++ name ++ ": " ++ s)
                                         (specialize_term specialized projΓ t);;
-                        ret (name, t))
+                        ret (Build_projection_body name relevance t))
                       (ind_projs oib);;
           ret
             {| ind_name := ind_name oib;
+               ind_indices := ind_indices oib;
+               ind_sort := ind_sort oib;
                ind_type := type;
                ind_kelim := ind_kelim oib;
                ind_ctors := ctors;
@@ -274,29 +336,30 @@ Definition axiomatized_ChainBase_decl : global_decl :=
               inductive_ind := 0; |}
             [];
         cst_body := None;
-        cst_universes := Monomorphic_ctx ContextSet.empty |}.
+        cst_universes := Monomorphic_ctx;
+      cst_relevance := Relevant |}.
 
 (* Specialize ChainBase away in all definitions in an environment.
     Note: this will also add an axiomatized chain base to the environment. *)
-Fixpoint specialize_env_rev (Σ : global_env) : result global_env string :=
+Fixpoint specialize_env_rev (Σ : global_declarations) (Σprint : global_env_ext) : result_string global_declarations :=
   match Σ with
   | [] => ret []
   | (name, decl) :: Σ =>
     if eq_kername name ChainBase_kername then
       let rep_term := tConst axiomatized_ChainBase_kername [] in
       let go '(specialized, newΣ) '(name, decl) :=
-          '(specialized, decl) <- specialize_decl rep_term specialized name decl;;
+          '(specialized, decl) <- specialize_decl rep_term Σprint specialized name decl;;
           ret (specialized, (name, decl) :: newΣ) in
       '(_, newΣ_rev) <- monad_fold_left go Σ ([], []);;
       ret ((name, decl)
               :: (axiomatized_ChainBase_kername, axiomatized_ChainBase_decl)
               :: rev newΣ_rev)
     else
-      Σ <- specialize_env_rev Σ;;
+      Σ <- specialize_env_rev Σ Σprint;;
       ret ((name, decl) :: Σ)
   end.
 
 (* TODO: There are many reverses here, we should improve this. *)
 Definition specialize_ChainBase_env (Σ : global_env) : result global_env string :=
-  Σrev <- specialize_env_rev (List.rev Σ);;
-  ret (List.rev Σrev).
+  Σrev <- specialize_env_rev (List.rev (declarations Σ)) (empty_ext Σ);;
+  ret (Build_global_env (universes Σ) (List.rev Σrev)).

@@ -12,14 +12,15 @@ theories/Containers.v
 theories/ContractMonads.v
 theories/Finite.v
 theories/InterContractCommunication.v
-theories/LocalBlockchain.v
 theories/Monads.v
 theories/ResultMonad.v
 theories/Serializable.v
 theories/ContractCommon.v
 
--R test ConCert.Execution.QCTest
+-R test ConCert.Execution.Test
+test/LocalBlockchain.v
 test/ChainPrinters.v
-test/SerializablePrinters.v
 test/TestUtils.v
 test/TraceGens.v
+test/TestNotation.v
+test/QCTest.v

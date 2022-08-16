@@ -15,17 +15,19 @@
   <div id="header">
     <span class="left">
       <span class="modulename"> <script> document.write(document.title) </script> </span>
+      <span id="toggle-toc">Contents</span>
     </span>
 
     <span class="button" id="toggle-proofs"></span>
 
     <span class="right">
-      <a href="toc.html">Table of contents</a>
       <a href="https://github.com/AU-COBRA/ConCert" target="_balnk">Project Page</a>
+      <a href="index.html">Index</a>
+      <a href="toc.html">Table of contents</a>
     </span>
 </div>
   <div id="content" tabindex="-1" onblur="document.getElementById('content').focus()">
-    <div id="js-toc-header" class="toc-header">Contents:</div>
-    <div id="js-toc" class="toc" data-toc="h1,h2,h3,h4" data-toc-container="doc">
+    <div id="js-toc" class="toc" data-toc="h1,h2,h3,h4" data-toc-container="doc" data-toc-offset="-40">
+      <div id="js-toc-header" class="toc-header">Contents:</div>
     </div>
     <div id="main">

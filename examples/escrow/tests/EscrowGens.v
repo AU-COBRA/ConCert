@@ -4,20 +4,14 @@
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
-
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
+Import MonadNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 
 Module Type EscrowGensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : G Address.
-  Parameter gAccountWithout : list Address -> GOpt Address.
 End EscrowGensInfo.
 
 Module EscrowGens (Info : EscrowGensInfo).
@@ -107,11 +101,6 @@ Definition gEscrowTraceBetter cb length :=
   let max_acts_per_block := 1 in
   gChain cb (fun e _ => gEscrowMsgBetter e) length max_act_depth max_acts_per_block.
 
+Definition forAllEscrowChainBuilder `{Show ChainBuilder} gEscrowTrace length (cb : ChainBuilder) := 
+  forAllChainBuilder length cb gEscrowTrace.
 End EscrowGens.
-
-Module DummyTestInfo <: EscrowGensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount := returnGen zero_address.
-  Definition gAccountWithout (ws : list Address) := returnGenSome zero_address.
-End DummyTestInfo.
-Module MG := EscrowGens DummyTestInfo. Import MG.

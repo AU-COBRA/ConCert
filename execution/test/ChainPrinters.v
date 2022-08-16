@@ -1,10 +1,10 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import LocalBlockchain.
-From ConCert.Execution Require Import Serializable. Import SerializedType.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import TestUtils.
 
 From QuickChick Require Import QuickChick. Import QcNotation.
 
@@ -17,6 +17,9 @@ Definition Base := TestUtils.LocalChainBase.
 Close Scope address_scope.
 Open Scope list_scope.
 Open Scope string_scope.
+
+
+Definition sep : string := ", ".
 
 (* Derive Show for positive. *)
 Derive Show for SerializedType.
@@ -167,10 +170,6 @@ Instance showAddBlockError `{Show (@Action Base)} : Show AddBlockError :=
               end
 |}.
 
-(* retrieves the previous and next state of a ChainStep *)
-Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) :=
-  (prev_bstate, next_bstate).
-
 Instance showChainTraceI `{Show (@Action Base)} {from to} : Show (ChainTrace from to) :=
 {|
   show :=
@@ -210,6 +209,42 @@ Instance showChain (BaseTypes : ChainBase) : Show Chain :=
       "Chain{" ++ "height: "       ++ height     ++ sep
                 ++ "current slot: " ++ slot       ++ sep
                 ++ "final height: " ++ fin_height ++ "}"
+|}.
+
+Ltac make_show ts :=
+  match ts with
+  | (?t, ?tail) =>
+    let rest := make_show tail in
+    constr:(
+      fun (v : SerializedValue) =>
+        match @deserialize t _ v with
+        | Some v => show v
+        | None => rest v
+        end)
+  | tt => constr:(fun (v : SerializedValue) => "<FAILED DESERIALIZATION>")
+  end.
+  
+(** Tactic to automatically derive [Show] instances for [SerializedValue].
+    Takes as input a list of types and will produce a show instance that tries to deserialize
+    the serialized value to one of those types and print that value.
+    The instance will attempt to deserialize to the types in the order that they are given.
+    Prints an error message in case all deserializations failed. The tactic will fail if
+    the types given do not have [Show] and [Serializable] instances.
+*)
+Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
+  (let pairs := pair c0 .. (pair cn tt) .. in
+   ltac:(
+     match goal with
+     | [pairs := ?x |- _] => 
+      let s := make_show x in
+      let s' := eval cbn beta in s in
+        exact {| show := s' |}
+     end))
+    (at level 0, c0, cn at level 9, only parsing).
+
+Instance showChainTraceSigT `{Show SerializedValue} : Show {to : ChainState & ChainTrace empty_state to} :=
+{|
+  show a := show (projT2 a)
 |}.
 
 Close Scope string_scope.

@@ -1,25 +1,19 @@
-From QuickChick Require Import QuickChick.
-Import QcNotation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import SerializablePrinters.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
 Import ListNotations.
 
-Definition contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
-Definition ethFund : Address := BoundedN.of_Z_const AddrSize 16%Z.
-Definition batFund : Address := BoundedN.of_Z_const AddrSize 17%Z.
+Definition contract_base_addr := addr_of_Z 128%Z.
+Definition ethFund : Address := addr_of_Z 16%Z.
+Definition batFund : Address := addr_of_Z 17%Z.
 Definition initSupply_ : N := 20%N.
 Definition exchangeRate_ := 3%N.
 

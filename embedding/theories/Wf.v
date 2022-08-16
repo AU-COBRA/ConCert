@@ -112,6 +112,7 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
   | vokContr : forall i nm vs ci,
       All (val_ok Σ) vs ->
       resolve_constr Σ i nm = Some ci ->
+      #|vs| <= ci.1.1 + #|ci.2| ->
       val_ok Σ (vConstr i nm vs)
   | vokTy : forall ty,
       iclosed_ty 0 ty ->

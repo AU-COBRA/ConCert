@@ -138,6 +138,16 @@ function toggleProofs(){
   updateView();
 }
 
+function toggleTOC() {
+  const jstocDiv = document.getElementById("js-toc");
+  const jstocHeaderDiv = document.getElementById("js-toc-header");
+  const mainDiv = document.getElementById("main");
+
+  jstocDiv.classList.toggle("jstoc-hidden");
+  jstocHeaderDiv.classList.toggle("jstoc-hidden");
+  mainDiv.classList.toggle("jstoc-hidden-main");
+}
+
 function repairDom(){
   // pull whitespace out of command
   toArray(document.getElementsByClassName("command")).forEach(function(node){
@@ -163,7 +173,8 @@ function fixTitle(){
   var modulename = "." + url.substring(url.lastIndexOf('/')+1, url.lastIndexOf('.'));
   modulename = modulename.substring(modulename.lastIndexOf('.')+1);
   if (modulename === "toc") {modulename = "Table of Contents";}
-  else if (modulename === "indexpage") {modulename = "Index";}
+  else if (modulename === "index") {modulename = "Index";}
+  else if (modulename === "//ConCert/") {modulename = "Index";}
   else {modulename = modulename + ".v";};
   document.title = modulename;
 }
@@ -174,6 +185,7 @@ function postprocess(){
   replNodes();
   foldProofs();
   document.getElementById("toggle-proofs").addEventListener("click", toggleProofs);
+  document.getElementById("toggle-toc").addEventListener("click", toggleTOC);
   updateView();
 }
 

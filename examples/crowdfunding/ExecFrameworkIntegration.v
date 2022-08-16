@@ -169,7 +169,7 @@ Proof.
   - eauto using Hreceive.
   - eauto using Hreceive.
   - instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst; cbn in *.
     destruct_chain_step; auto.
     + inversion valid_header; lia.
@@ -217,7 +217,7 @@ Proof.
     now replace new_state with fin by congruence.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.
@@ -282,7 +282,7 @@ Proof.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.
@@ -327,7 +327,7 @@ Proof.
     reflexivity.
   - destruct msg as [msg| ]; cbn in *; try congruence.
     instantiate
-      (CallFacts := fun _ ctx _ _ => (0 <= Ctx_amount (of_contract_call_context ctx))%Z);
+      (CallFacts := fun _ ctx _ _ _ => (0 <= Ctx_amount (of_contract_call_context ctx))%Z);
       subst CallFacts; cbn in *.
     remember (of_chain _) as simple_chain.
     remember (of_contract_call_context _) as simple_ctx.
@@ -423,7 +423,7 @@ Proof.
     replace s with new_state in * by congruence.
     replace new_acts with (map to_action_body l) in * by congruence.
 
-    instantiate (CallFacts := fun _ ctx cstate _ => ctx_amount ctx >= 0 /\
+    instantiate (CallFacts := fun _ ctx cstate _ _ => ctx_amount ctx >= 0 /\
                                         consistent_balance cstate /\
                                         donations_non_neg cstate);
       subst CallFacts; cbn in *.
@@ -473,6 +473,7 @@ Proof.
     destruct step; auto.
     destruct a; auto.
     intros.
+    apply trace_reachable in from_reachable.
     split; eauto.
 Qed.
 

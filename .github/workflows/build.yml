@@ -1,32 +1,120 @@
 name: Build
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
+  pull_request:
+    paths-ignore:
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: aucobra/concert:deps-coq-8.11-with-compilers-ligo-0.38.1
+      image: aucobra/concert:deps-8.14-with-compilers
       options: --user root
     steps:
     - name: Checkout branch ${{ github.ref_name }}
       uses: actions/checkout@v2
-    - name: Build
+    - name: Setup environment
       run: |
-        export HOME=/home/coq && \
+        echo "HOME=/home/coq" >> $GITHUB_ENV
+        export HOME=/home/coq
+        echo "/home/coq/.cargo/bin" >> $GITHUB_PATH
         PATH=/home/coq/.cargo/bin:$PATH
-        env && \
-        opam switch && \
-        eval $(opam env --switch=${COMPILER_EDGE} --set-switch) && \
-        make -j2 && \
-        make -j2 examples && \
-        make -j2 html && \
-        make -j2 test-extraction && \
-        make -j2 clean-extraction-out-files && \
+        env
+        opam switch
+    - name: Build core
+      run: |
+        echo "::group::Setting up switch"
+        eval $(opam env --switch=${COMPILER} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Build utilities"
+        make -j2 utils
+        echo "::endgroup::"
+
+        echo "::group::Build execution layer"
+        make -j2 execution
+        echo "::endgroup::"
+
+        echo "::group::Build embedding layer"
+        make -j2 embedding
+        echo "::endgroup::"
+
+        echo "::group::Build extraction layer"
+        make -j2 extraction
+        echo "::endgroup::"
+    - name: Build examples
+      run: |
+        echo "::group::Setting up switch"
+        eval $(opam env --switch=${COMPILER} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Build examples"
+        make -j2 examples
+        echo "::endgroup::"
+    - name: Test extraction
+      run: |
+        echo "::group::Setting up switch"
+        eval $(opam env --switch=${COMPILER} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Running tests"
+        make -j2 test-extraction
+        echo "::endgroup::"
+
+        echo "::group::Cleaning up"
+        make -j2 clean-extraction-out-files
         make -j2 clean-compiled-extraction
-    - uses: actions/upload-artifact@v2
+        echo "::endgroup::"
+    - name: Build documentation
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: |
+        echo "::group::Setting up switch"
+        eval $(opam env --switch=${COMPILER} --set-switch)
+        echo "::endgroup::"
+
+        echo "::group::Running coqdoc"
+        make -j2 html
+        echo "::endgroup::"
+
+        echo "::group::Install dependencies"
+        opam install -y coq-dpdgraph
+        sudo apt install -y graphviz
+        echo "::endgroup::"
+
+        echo "::group::Generate dependency graphs"
+        rm -rf docs/graphs
+        mkdir -p docs
+        mkdir -p docs/graphs
+        make file-dependency-graph
+        mv file-dep.svg docs/graphs/index.svg
+
+        make dependency-graphs
+        mv utils/svg/* docs/graphs/
+        mv execution/svg/* docs/graphs/
+        mv embedding/svg/* docs/graphs/
+        mv extraction/svg/* docs/graphs/
+        mv examples/svg/* docs/graphs/
+        echo "::endgroup::"
+    - name: Upload Liquidity extraction logs
+      uses: actions/upload-artifact@v2
       with:
         name: Liquidity logs
         path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
-    - name: Push to the extraction repository
+    - name: Push to the extraction results repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
@@ -40,7 +128,7 @@ jobs:
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
       if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-    - name: Deploy the docs to GitHub Pages
+    - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
       with:

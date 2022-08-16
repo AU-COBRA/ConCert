@@ -1,17 +1,15 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution.QCTest Require Import TestUtils.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
+Import MonadNotation.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith.
 
 Module Type iTokenBuggyGensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
 End iTokenBuggyGensInfo.
 
 Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
@@ -49,9 +47,9 @@ Definition gTransfer_from (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
             else choose (0, N.min allowance allower_balance)) ;;
   returnGenSome (delegate, transfer_from allower receiver  amount).
 
-Definition gMint c (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
+Definition gMint (c : Environment) (state : iTokenBuggy.State) : GOpt (Address * Msg) := 
  (* '(addr, _) <- sampleFMapOpt state.(balances) ;; *)
-  addr <- gAccount c ;;
+  addr <- gAccount ;;
   amount <- choose (0, 2) ;; (* fix nr of minted tokens to 0, 1, or 2*)
   returnGenSome (addr, mint amount ).
 
@@ -90,9 +88,3 @@ Definition giTokenBuggyAction (env : Environment) : GOpt Action :=
   ].
 
 End iTokenBuggyGens.
-
-Module DummyTestInfo <: iTokenBuggyGensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount (e : Chain) := returnGen zero_address.
-End DummyTestInfo.
-Module MG := iTokenBuggyGens DummyTestInfo. Import MG.

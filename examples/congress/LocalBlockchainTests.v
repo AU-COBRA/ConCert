@@ -5,11 +5,11 @@ our particular implementations of blockchains. *)
 
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.Congress Require Import Congress.
 From Coq Require Import List.
 From Coq Require Import ZArith.
@@ -18,7 +18,7 @@ Import ListNotations.
 Section LocalBlockchainTests.
   Let AddrSize := (2^128)%N.
   Instance Base : ChainBase := LocalChainBase AddrSize.
-  Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+  Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
   (* Addresses *)
   Definition creator : Address :=
@@ -157,7 +157,7 @@ Section LocalBlockchainTests.
   Print Assumptions chain8.
 
   Hint Resolve congress_correct_after_block : core.
-  Definition BuilderDF := LocalChainBuilderDepthFirst AddrSize.
+  Definition BuilderDF := LocalChainBuilderImpl AddrSize true.
   (* The congress satisfies a property specialized to the local blockchain DFS: *)
   Lemma congress_txs_after_local_chain_block
         (prev new : BuilderDF) header acts :
@@ -170,7 +170,7 @@ Section LocalBlockchainTests.
         num_acts_created_in_proposals inc_calls.
   Proof. eauto. Qed.
   (* And of course, it is satisfied for the breadth first chain as well. *)
-  Definition BuilderBF := LocalChainBuilderBreadthFirst AddrSize.
+  Definition BuilderBF := LocalChainBuilderImpl AddrSize false.
   Lemma congress_txs_after_local_chain_bf_block
         (prev new : BuilderBF) header acts :
     builder_add_block prev header acts = Ok new ->

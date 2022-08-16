@@ -8,8 +8,16 @@ From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import RustExtract.
 From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import monad_utils.
+From Coq Require Import List.
+From Coq Require Import String.
 
-Instance plugin_extract_preamble : Preamble :=
+Import ListNotations.
+Import MCMonadNotation.
+
+Open Scope string.
+
+Local Instance plugin_extract_preamble : Preamble :=
 {| top_preamble := [
 "#![allow(dead_code)]";
 "#![allow(non_camel_case_types)]";
@@ -127,14 +135,16 @@ Instance RustConfig : RustPrintConfig :=
 
 Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
+Module T:=Ast.Env.
+
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
-           (should_inline : kername -> bool) : result (list string) string :=
-  entry <- match p.2 with
+           (should_inline : kername -> bool) : result (list bytestring.string) bytestring.string  :=
+  entry <- match snd p with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)
-           | _ => Err "Expected program to be a tConst or tInd"
+           | _ => Err (s_to_bs "Expected program to be a tConst or tInd")
            end;;
   let without_deps kn :=
       if remap_inductive remaps (mkInd kn 0) then true else
@@ -142,13 +152,13 @@ Definition extract_lines
       if remap_inline_constant remaps kn then true else false in
   Σ <- extract_template_env
          (extract_rust_within_coq (fun _ => None) should_inline)
-         p.1
+         (fst p)
          (KernameSet.singleton entry)
          without_deps;;
   let p := print_program Σ remaps default_attrs in
-  '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
-  ret s.
+  '(_, s) <- timed "Printing" (fun _ => map_error (fun x => s_to_bs x) (finish_print_lines p));;
+  Ok (map s_to_bs s).
 
 Definition extract p remaps should_inline :=
   lines <- extract_lines p remaps should_inline;;
-  ret (String.concat nl lines).
+  ret (bytestring.String.concat MCString.nl lines).

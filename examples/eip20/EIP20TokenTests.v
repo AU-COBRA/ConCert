@@ -1,69 +1,45 @@
-Global Set Warnings "-extraction-logical-axiom".
-
-From QuickChick Require Import QuickChick. Import QcNotation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import TraceGens.
-From ConCert.Examples Require Import EIP20Token.
-From ConCert.Examples Require Import EIP20TokenPrinters.
-From ConCert.Examples Require Import EIP20TokenGens.
-
+From ConCert.Execution.Test Require Import QCTest.
+From ConCert.Examples.EIP20 Require Import EIP20Token.
+From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
+From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
 From Coq Require Import ZArith.
-From Coq Require Import Strings.String.
 From Coq Require Import List.
-
 Import ListNotations.
-Import BoundedN.Stdpp.
-Import LocalBlockchain.
+
 
 (* -------------------------- Tests of the EIP20 Token Implementation -------------------------- *)
 
 Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
-Definition deploy_eip20token := create_deployment 0 EIP20Token.contract token_setup.
-
-Definition contract_base_addr := BoundedN.of_Z_const AddrSize 128%Z.
+Definition deploy_eip20token := create_deployment .
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
 Definition token_cb :=
-  ResultMonad.unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 0);
-    build_act creator creator (act_transfer person_2 0);
-    build_act creator creator (act_transfer person_3 0);
-    build_act creator creator deploy_eip20token
+    build_transfer creator person_1 0;
+    build_transfer creator person_2 0;
+    build_transfer creator person_3 0;
+    build_deploy creator 0 EIP20Token.contract token_setup
   ]).
 
 Module TestInfo <: EIP20GensInfo.
   Definition contract_addr := contract_base_addr.
-  Definition gAccount (c : Chain) := elems [person_1; person_2; person_3; person_4; person_5].
+  Definition gAccount := gTestAddrs5.
 End TestInfo.
 Module MG := EIP20Gens TestInfo. Import MG.
 
-Definition gTokenChain max_acts_per_block token_cb max_length := 
-  let act_depth := 1 in 
-  gChain token_cb
-    (fun env act_depth => gEIP20TokenAction env) max_length act_depth max_acts_per_block.
-(* Sample (gTokenChain 2 token_cb 7).  *)
-
-Definition forAllTokenChainTraces n :=
-  let max_acts_per_block := 2 in
-  forAllBlocks n token_cb (gTokenChain max_acts_per_block).
-
-Definition pre_post_assertion_token P c Q :=
-  let max_acts_per_block := 2 in
-  let trace_length := 7 in
-  pre_post_assertion trace_length token_cb (gTokenChain max_acts_per_block) EIP20Token.contract c P Q.
-
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_token P c Q) ( at level 50).
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := gEIP20TokenAction.
+  Definition init_cb := token_cb.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+(* Sample gChain. *)
 
 Local Open Scope N_scope.
 Extract Constant defNumDiscards => "(3 * defNumTests)".
@@ -238,15 +214,15 @@ Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs :
   | None => checker true (* trivially true case *) 
   end.
 
-(* Time QuickChick (forAllTokenChainTraces 5 (checker_get_state sum_balances_eq_total_supply)). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
-(* 9 seconds *)
+(* Time QuickChick (forAllBlocks (checker_get_state sum_balances_eq_total_supply)). *)
+(* +++ Passed 10000 tests (0 discards) *)
+(* 6.67 seconds *)
 
 (* One key property: the total supply is always equal to the initial supply *)
 Definition init_supply_eq_total_supply (state : EIP20Token.State) :=
   init_supply =? state.(total_supply).
 
-(* QuickChick (forAllTokenChainTraces 5 (checker_get_state init_supply_eq_total_supply)). *)
+(* QuickChick (forAllBlocks (checker_get_state init_supply_eq_total_supply)). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
@@ -261,11 +237,10 @@ Definition sum_allowances_le_init_supply (state : EIP20Token.State) :=
   let allowances_sum := fold_left N.add allowances_list 0%N in
   allowances_sum <=? state.(total_supply).
 
-Definition sum_allowances_le_init_supply_P maxLength :=
-  forAllChainState maxLength token_cb (gTokenChain 2)
-    (checker_get_state sum_allowances_le_init_supply).
+Definition sum_allowances_le_init_supply_P :=
+  {{checker_get_state sum_allowances_le_init_supply}}.
 
-(* QuickChick (expectFailure (sum_allowances_le_init_supply_P 5)). *)
+(* QuickChick (expectFailure sum_allowances_le_init_supply_P). *)
 
 Definition person_has_tokens person (n : N) :=
   fun cs => 
@@ -273,13 +248,6 @@ Definition person_has_tokens person (n : N) :=
     | Some state => n =? (FMap_find_ person state.(balances) 0)
     | None => true (* trivial case *)
     end.
-
-Notation "cb '~~>' pf" :=
-  (reachableFrom_chaintrace cb (gTokenChain 2) pf)
-  (at level 45, no associativity).
-Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implies_chaintracePropSized 3 lc (gTokenChain 2) pf1 pf2)
-  (at level 45, lc at next level, left associativity).
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
 
@@ -298,11 +266,9 @@ Notation "'{' lc '~~>' pf1 '===>' pf2 '}'" :=
    if there is a reachable state where the creator has 5 tokens, then any trace afterwards
    will satisfy that the creator has 10 tokens. This is obviously not true, and QC will give us a counterexample. *)
 (* QuickChick (
-  {
     chain_with_token_deployed
-    ~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
+    ~~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
     ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
-  }
 ). *)
 
 Definition get_approve_act (act : Action) : option (Address * Address * EIP20Token.Msg) :=
@@ -430,14 +396,14 @@ Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list 
   conjoin_map reapprove_correct trace.
 
 Definition reapprove_transfer_from_safe_P :=
-  {token_cb ~~> state_has_some_approve_act ===>
+  token_cb ~~~> state_has_some_approve_act ===>
   (fun approve_act_p pre_trace post_trace =>
     isSomeCheck (delegate_addr approve_act_p) (fun delegate =>
       allower_reapproves_transferFrom_correct pre_trace
                                               post_trace
                                               (allower_addr approve_act_p)
                                               delegate
-                                              (approve_amount approve_act_p)))}.
+                                              (approve_amount approve_act_p))).
 
 (* QuickChick reapprove_transfer_from_safe_P. *)
 

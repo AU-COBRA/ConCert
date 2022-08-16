@@ -1,26 +1,19 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import TraceGens.
-From QuickChick Require Import QuickChick.
-Import QcNotation.
-From ExtLib.Structures Require Import Monads.
-Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 Import ListNotations.
+Import MonadNotation.
 
 
 Module Type BATGensInfo.
-  Parameter contract : Contract BATCommon.Setup BATCommon.Msg BATCommon.State.
-  Parameter initial_chain : ChainBuilder.
   Parameter trace_length : nat.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
   Parameter contract_addr : Address.
   Parameter accounts : list Address.
   Parameter accounts_total_balance : Z.
@@ -83,7 +76,7 @@ Definition gRefund (env : Environment) (state : BATCommon.State) : GOpt (Address
     returnGenSome (from_addr, refund).
 
 Definition gRefundInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
-  from_addr <- gAccount env ;;
+  from_addr <- gAccount ;;
   returnGen (from_addr, refund).
 
 Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Address * Msg) :=
@@ -97,7 +90,7 @@ Definition gFinalize (env : Environment) (state : BATCommon.State) : GOpt (Addre
     returnGenSome (fund_addr, finalize).
 
 Definition gFinalizeInvalid (env : Environment) (state : BATCommon.State) : G (Address * Msg) :=
-  from_addr <- gAccount env ;;
+  from_addr <- gAccount ;;
   returnGen (from_addr, finalize).
 
 Module EIP20 := EIP20Gens Info.
@@ -132,7 +125,7 @@ Definition gTransfer_from (state : BATCommon.State) : GOpt (Address * Msg) :=
 *)
 Definition gBATActionValid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_call caller_addr contract_addr value msg) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -180,7 +173,7 @@ Definition gBATActionValid (env : Environment) : GOpt Action :=
 *)
 Definition gBATActionInvalid (env : Environment) : GOpt Action :=
   let call contract_addr caller_addr value msg :=
-    returnGenSome (build_act caller_addr caller_addr (act_call contract_addr value ((@serialize BATCommon.Msg _) msg))) in
+    returnGenSome (build_call caller_addr contract_addr value msg) in
   state <- returnGen (get_contract_state BATCommon.State env contract_addr) ;;
   backtrack [
     (* transfer *)
@@ -238,7 +231,7 @@ Definition gBATAction (env : Environment) : GOpt Action :=
           | act_deploy _ _ _ => returnGen None
           | act_call to _ msg =>
             amount <- choose (0, account_balance env action.(act_from))%Z ;;
-            returnGenSome (build_act action.(act_from) action.(act_from) (act_call to amount msg))
+            returnGenSome (build_call action.(act_from) to amount msg)
           end
         ));
     (65, gBATActionInvalid env);
@@ -260,60 +253,5 @@ Definition gBATSetup : G Setup :=
                              exchangeRate
                              tokenCap
                              tokenMin).
-
-(* chain generator *)
-Definition gTokenChain max_acts_per_block token_cb max_length :=
-  let act_depth := 1 in
-  gChain token_cb
-    (fun env act_depth => gBATAction env) max_length act_depth max_acts_per_block.
-
-(* Generator for debugging Action generator *)
-Definition gInvalidActions max_acts_per_block token_cb max_length g :=
-  let act_depth := 1 in
-  gInvalidAction token_cb
-    (fun env act_depth => g env) max_length act_depth max_acts_per_block.
-
-Definition forAllInvalidActions n g P :=
-  let max_acts_per_block := 1 in
-  forAll (gInvalidActions max_acts_per_block initial_chain n g)
-    (fun '(cb, acts) => if length acts =? 0
-                        then checker true
-                        else disjoin (map (fun act => P cb act) acts)).
-
-Definition forAllTokenChainBuilders n :=
-  let max_acts_per_block := 2 in
-  forAllChainBuilder n initial_chain (gTokenChain max_acts_per_block).
-
-Definition forAllTokenBlocks n :=
-  let max_acts_per_block := 2 in
-  forAllBlocks n initial_chain (gTokenChain max_acts_per_block).
-
-Definition forAllTokenChainStates n :=
-  let max_acts_per_block := 2 in
-  forAllChainState n initial_chain (gTokenChain max_acts_per_block).
-
-Definition pre_post_assertion_token P c Q :=
-  let max_acts_per_block := 2 in
-  let trace_length := 7 in
-  pre_post_assertion trace_length initial_chain (gTokenChain max_acts_per_block) contract c P Q.
-
-Definition reachableFrom_implication init_cb (P : ChainState -> bool) Q :=
-  let P' := fun cs => if P cs then Some true else None in
-  let Q' := fun _ pre_trace post_trace =>
-    checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true) in
-  let max_acts_per_block := 2%nat in
-  let trace_length := 7%nat in
-  reachableFrom_implies_chaintracePropSized trace_length init_cb
-                                            (gTokenChain max_acts_per_block) P' Q'.
-
-Notation "cb '~~>' pf" :=
-  (reachableFrom_chaintrace cb (gTokenChain 2) pf) (at level 45, no associativity).
-Notation "'{' lc '~~~>' pf1 '===>' pf2 '}'" :=
-  (reachableFrom_implication lc pf1 pf2) (at level 90, left associativity).
-Notation "'{{' P '}}'" := (forAllTokenChainStates 7 P) (at level 60, no associativity).
-Notation "'{{' P '}}' '==>' '{{' Q '}}'" :=
-  (forAllChainState_implication 7 initial_chain (gTokenChain 2) P Q) (at level 60, left associativity).
-Notation "'{{' P '}}' c '{{' Q '}}'" :=
-  (pre_post_assertion_token P c Q) (at level 60, c at next level, no associativity).
 
 End BATGens.

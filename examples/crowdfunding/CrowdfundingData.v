@@ -5,19 +5,20 @@ From Coq Require Import List.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
-From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding Require Import TranslationUtils.
+From ConCert.Embedding Require Import Prelude.
 
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
+Import MCMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
 Import AcornBlockchain Prelude.Maps.
+Set Nonrecursive Elimination Schemes.
 
 (** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
 
@@ -48,6 +49,21 @@ Definition state_syn : global_dec :=
        done : Bool;
        goal : Money } \].
 
+(* TODO: MetaCoq does not generate projections at the moment.
+     (However, it worked before somehow)
+     Probably related to https://github.com/MetaCoq/metacoq/issues/369
+
+     For now, we just define records explicitly.
+   *)
+
+Record State_coq : Set := mkState_coq
+  { balance_coq : BinNums.Z;
+    donations_coq : addr_map_coq;
+    owner_coq : nat;
+    deadline_coq : nat;
+    done_coq : bool;
+    goal_coq : BinNums.Z }.
+
 (** We can print actual AST by switching off the notations *)
 
 Unset Printing Notations.
@@ -66,9 +82,9 @@ Unset Printing Notations.
 Set Printing Notations.
 
 (** Unquoting the definition of a record *)
-Set Nonrecursive Elimination Schemes.
 
-MetaCoq Unquote Inductive (global_to_tc state_syn).
+(* FIXME: disabled due to the issue with generating projections *)
+(* MetaCoq Unquote Inductive (global_to_tc state_syn). *)
 
 (** As a result, we get a new Coq record [State_coq] *)
 
@@ -159,7 +175,7 @@ Module Notations.
   Import Maps.
 
   Definition Σ' :=
-    StdLib.Σ ++ [ Prelude.AcornMaybe;
+    (StdLib.Σ ++ [ Prelude.AcornMaybe;
            state_syn;
            msg_syn;
            addr_map_acorn;
@@ -167,7 +183,7 @@ Module Notations.
            AcornBlockchain.SimpleContractCallContextAcorn;
            AcornBlockchain.SimpleActionBodyAcorn;
            gdInd "Z" 0 [("Z0", []); ("Zpos", [(None,tyInd "positive")]);
-                          ("Zneg", [(None,tyInd "positive")])] false].
+                          ("Zneg", [(None,tyInd "positive")])] false])%list.
 
   End Notations.
 

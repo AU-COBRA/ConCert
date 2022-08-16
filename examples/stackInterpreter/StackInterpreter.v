@@ -59,11 +59,12 @@ Section StackInterpreter.
   Definition reset_decrement (i : Z) : Z :=
     if (i <=? 1) then 0 else i-1.
 
-  Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) (cond : Z) :=
+  Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) (cond : Z)
+    : option (list value) :=
     match insts with
     | [] => Some s
     | hd :: inst0 =>
-      match hd with
+    match hd with
       | IPushZ i => if continue_ cond then
                       interp ext inst0 (ZVal i :: s) cond
                     else interp ext inst0 s cond

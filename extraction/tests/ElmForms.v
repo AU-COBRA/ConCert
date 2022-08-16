@@ -19,6 +19,7 @@ From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq Require Import utils.
 From Coq Require Import ssrbool.
+From Coq Require Import String.
 
 Open Scope string.
 
@@ -35,7 +36,7 @@ Record Entry :=
     passwordAgain : string }.
 
 Definition validPassword (p : string) : Prop :=
-  8 <=? String.length p.
+  8 <=? length p.
 
 Definition nonEmptyString (s : string) : Prop :=
   s <> "".
@@ -100,10 +101,9 @@ Definition userAlreadyExistsError := "User already exists!".
 Program Definition validateModel : Model -> list string
   := fun model =>
        let res :=
-           [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError)
-           ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
+           [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError)           ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
            ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
-           ; (8 <=? String.length model.(currentEntry).(password), passwordIsTooShortError)] in
+           ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)] in
        map snd (filter (fun x => ~~ x.1) res).
 
 
@@ -122,8 +122,8 @@ Next Obligation.
   destruct entry as [e He];destruct He as (? & ? & ?);cbn;auto.
 Qed.
 
-Hint Resolve -> eqb_neq : core.
-Hint Unfold nonEmptyString : core.
+Local Hint Resolve -> eqb_neq : core.
+Local Hint Unfold nonEmptyString : core.
 
 (** This tactic notation allows to extract information from the fact
 that the validation succeeded *)
@@ -134,7 +134,7 @@ Tactic Notation "destruct_validation" :=
            eqn:name_empty;
   destruct (password _ =? passwordAgain _)
            eqn: passwords_eq;
-  destruct (8 <=? String.length (password _))
+  destruct (8 <=? length (password _))
            eqn:password_long_enough;try discriminate.
 
 Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg
@@ -166,7 +166,7 @@ Next Obligation.
   + destruct (model.(users)) as (l, l_nodup). cbn. auto.
 Qed.
 
-Hint Constructors NoDup : core.
+Local Hint Constructors NoDup : core.
 
 Program Definition initModel : Model * Cmd StorageMsg :=
   let entry :=
@@ -184,24 +184,26 @@ Definition extract_elm_within_coq (should_inline : kername -> bool) :=
                       [dearg_transform (fun _ => None) true true true true true] |} |}.
 
 
-Instance ElmBoxes : ElmPrintConfig :=
+Local Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)
      any_type_symbol := "()"; (* unit type *)
      false_elim_def := "false_rec ()";
      print_full_names := false |}.
 
+Import MCMonadNotation.
+
 Definition general_wrapped (Σ : global_env) (pre post : string)
            (seeds : KernameSet.t)
            (to_inline : list kername)
-           (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
+           (ignore: list kername) (TT : list (kername * string)) : TemplateMonad _ :=
   let should_inline kn := existsb (eq_kername kn) to_inline in
   let extract_ignore kn := existsb (eq_kername kn) ignore in
-  Σ <- extract_template_env_certifying_passes ret (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
+  Σ <- extract_template_env_certifying_passes Ok (extract_elm_within_coq should_inline) Σ seeds extract_ignore;;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
-  p <- tmEval lazy (finish_print (print_env Σ TT_fun)) ;;
+  p <- tmEval lazy (map_error (fun x => s_to_bs x) (finish_print (print_env Σ TT_fun))) ;;
   match p with
-  | Ok (_,s) => tmEval lazy (pre ++ nl ++ s ++ nl ++ post)
+  | Ok (_,s) => tmEval lazy (pre ++ Common.nl ++ s ++ Common.nl ++ post)
   | Err s => tmFail s
   end.
 
@@ -234,18 +236,18 @@ Definition preamble : string :=
    ; ""
   $>.
 
-Notation "'remap_ctor' c1 'of' ind 'to' c2" := ((<%% ind %%>.1, c1), c2) (at level 100).
+Notation "'remap_ctor' c1 'of' ind 'to' c2" := ((<%% ind %%>.1, (s_to_bs c1)), c2) (at level 100).
 
-  Notation "'string_literal' s" :=
-    (remap <%% s %%> (String.concat "" [""""; s; """"])) (at level 20).
+Notation "'string_literal' s" :=
+    (remap <%% s %%> (concat "" [""""; s; """"])) (at level 20).
 
 Definition TT :=
   [ remap <%% bool %%> "Bool"
   ; remap <%% negb %%> "not"
 
   ; remap <%% string %%> "String"
-  ; remap <%% String.eqb %%> "string_eq"
-  ; remap <%% String.length %%> "String.length"
+  ; remap <%% eqb %%> "string_eq"
+  ; remap <%% length %%> "String.length"
   ; remap_ctor "EmptyString" of string to """"""
   ; string_literal emptyNameError
   ; string_literal passwordsDoNotMatchError
@@ -285,13 +287,13 @@ Definition to_inline :=
 Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   seeds <- monad_map extract_def_name_exists m.(elmmd_extract);;
-  general_wrapped Σ (header_and_imports ++ nl ++ nl ++ preamble ++ nl ++ nl ++ elm_false_rec) ""
+  general_wrapped Σ (header_and_imports ++ Common.nl ++ Common.nl ++ preamble ++ Common.nl ++ Common.nl ++ elm_false_rec) ""
                   (KernameSetProp.of_list seeds)
                   to_inline
                   (map fst TT)
                   TT.
 
 Time MetaCoq Run (t <- elm_extraction USER_FORM_APP TT;;
-                  tmDefinition "extracted_app" t).
+                  tmDefinition (s_to_bs "extracted_app") t).
 
-Redirect "tests/extracted-code/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg extracted_app).
+Redirect "tests/extracted-code/elm-web-extract/UserList.elm" MetaCoq Run (tmMsg (s_to_bs extracted_app)).

@@ -6,8 +6,8 @@
 
     Definitions and lemmas defined in this file are used in three different implementations of the Basic Attention Token contract.
     - [ConCert.Execution.Examples.BAT] Classical implementation
-    - [ConCert.Execution.Examples.BAT_Fixed] An implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
-    - [ConCert.Execution.Examples.BAT_AltFix] An alternative implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
+    - [ConCert.Execution.Examples.BATFixed] An implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
+    - [ConCert.Execution.Examples.BATAltFix] An alternative implementation of the Basic Attention Token contract that fixes some bugs in the original implementation
 
     The BAT contract is a combination of a EIP20 token contract and a crowdsale contract.
     The types and definitions in this file extends the EIP20 contract implemented in [ConCert.Execution.Examples.EIP20Token].
@@ -23,7 +23,6 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.EIP20 Require EIP20Token.
-Import RecordSetNotations.
 Import ListNotations.
 
 
@@ -474,6 +473,3 @@ End BATCommon.
 (** Definitions from EIP20Token *)
 Notation "'sum_balances' s" := (EIP20Token.sum_balances (token_state s)) (at level 60).
 Notation get_allowance := EIP20Token.get_allowance.
-Notation transfer_balance_update_correct := EIP20Token.transfer_balance_update_correct.
-Notation transfer_from_allowances_update_correct := EIP20Token.transfer_from_allowances_update_correct.
-Notation approve_allowance_update_correct := EIP20Token.approve_allowance_update_correct.

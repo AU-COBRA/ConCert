@@ -8,8 +8,8 @@ ConCert is able to find real world attacks as explained [here](https://medium.co
 ## How to build
 
 
-Our development works with Coq 8.11.2. and depends on MetaCoq installed from source,
-std++ and coq-bignums. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
+Our development works with Coq 8.14 and depends on MetaCoq installed from source,
+std++ and coq-equations. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
 
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
 
@@ -53,6 +53,8 @@ The [project documentation in HTML format](https://au-cobra.github.io/ConCert/to
 We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE)) and local table of contents by [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
 
 ## Papers
+- ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995). Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Accepted to Journal of Functional Programming (JFP), 2022.
+- ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016). Eske Hoy Nielsen, Danil Annenkov and Bas Spitters. Preprint
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
 - ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138) Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. CPP'21.
@@ -85,7 +87,7 @@ series = {CPP 2021}
 @article{ConCert,
    title={ConCert: a smart contract certification framework in Coq},
    ISBN={9781450370974},
-   url={http://dx.doi.org/10.1145/3372885.3373829},
+   url={https://dx.doi.org/10.1145/3372885.3373829},
    DOI={10.1145/3372885.3373829},
    journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
    publisher={ACM},

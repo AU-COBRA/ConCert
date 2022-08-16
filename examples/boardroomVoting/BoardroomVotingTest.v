@@ -5,16 +5,15 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon. Import AddressMap.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVoting.
 
 Import ListNotations.
-Import BoardroomMathNotations.
 
 
 Local Open Scope Z.
@@ -93,7 +92,7 @@ Definition hash_func (l : list positive) : positive :=
   
 Definition AddrSize := (2^128)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
-Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
+Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
 Module Params <: BoardroomParams.
   Definition A : Type := Z.
@@ -103,7 +102,7 @@ Module Params <: BoardroomParams.
   Definition gen : Generator axioms := _.
   Axiom d : DiscreteLog axioms gen.
   Definition discr_log : DiscreteLog axioms gen := d.
-  Definition Base := Base .
+  Definition Base := Base.
 End Params.
 
 Module BV := BoardroomVoting Params. Import BV.

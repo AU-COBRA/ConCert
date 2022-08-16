@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import LocalBlockchain.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
@@ -33,7 +33,7 @@ Instance Base : ChainBase := LocalBlockchain.LocalChainBase AddrSize.
 
 Module Params <: BoardroomParams.
   Definition H : list positive -> positive := hash_func.
-  Definition Base := Base .
+  Definition Base := Base.
   Definition prime := modulus.
   Definition generator := generator.
 End Params.  
@@ -47,6 +47,27 @@ Require Import ContractMonads.
 Definition setupWchain := (BV.Setup × Chain).
 
 Definition init_wrapper (cctx : ContractCallContext) (s : setupWchain) := (run_contract_initer BV.init) s.2 cctx s.1.
+
+
+(** In the Tezos blockchain there is no concept of initialisation
+    function. However, it's common to provide a function that computes
+    a valid initial storage that can be used for deployment.*)
+Definition init (s : Address * Setup) : option State :=
+  if (finish_registration_by s.2 <? finish_vote_by s.2)%nat
+      then
+        Some {| owner := s.1;
+                registered_voters := AddressMap.empty;
+                public_keys := [];
+                setup := s.2;
+               tally := None; |}
+      else None.
+
+Lemma init_eq_init_wrapper cctx s :
+  init_wrapper cctx s = init (cctx.(ctx_from), s.1).
+Proof.
+  unfold init_wrapper,init. cbn.
+  now destruct (_ <? _)%nat.
+Qed.
 
 Definition receive_wrapper (c : Chain)
                            (ctx : ContractCallContext)
@@ -117,7 +138,7 @@ Definition hash_func_def := "let hash_func (l :  (nat) list) = addN 1n (List.fol
 Definition callctx := "(Tezos.sender,(Tezos.self_address,(Tezos.amount,Tezos.balance)))".
 
 
-Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.State ActionBody :=
+Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) BV.State ActionBody :=
   {| (* a name for the definition with the extracted code *)
     lmd_module_name := "cameligo_boardroomvoting" ;
 
@@ -125,7 +146,7 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.Sta
     lmd_prelude := concat nl [CameLIGOPretty.CameLIGOPrelude; extra_ops; hash_func_def];
 
     (* initial storage *)
-    lmd_init := init_wrapper;
+    lmd_init := init;
 
     (* no extra operations in [init] are required *)
     lmd_init_prelude := "";
@@ -135,11 +156,10 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext setupWchain BV.Sta
     lmd_receive := receive_wrapper;
 
     (* code for the entry point *)
-    lmd_entry_point := CameLIGOPretty.printWrapper (PREFIX ++ "receive_wrapper")
+    lmd_entry_point := CameLIGOPretty.printMain (PREFIX ++ "receive_wrapper")
                         "msg"
                         "state"
-                        ++ nl
-                        ++ CameLIGOPretty.printMain "state" |}.
+  |}.
 
 Definition inline_boardroom_params : list kername :=
   [

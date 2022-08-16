@@ -41,6 +41,8 @@ Definition my_negb_syn :=
           | True -> False
           | False -> True |].
 
+Compute expr_to_tc Σ (indexify nil my_negb_syn).
+
 (** We translate and unquote using the ConCert embedding feature *)
 MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 

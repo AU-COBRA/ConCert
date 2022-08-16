@@ -1,18 +1,20 @@
+From MetaCoq.Template Require Import All.
 From Coq Require Import String.
 From Coq Require Import List.
-From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-Import MonadNotation.
+Import MCMonadNotation.
+
+Module TCString := bytestring.String.
 
 Open Scope string.
 
 (** Generation of string constants using MetaCoq *)
 Fixpoint mkNames (prefix : string) (ns : list string) (postfix : string) :=
   match ns with
-  | [] => tmPrint "Done."
+  | [] => tmPrint "Done."%bs
   | n :: ns' => n' <- tmEval all (prefix ++ n ++ postfix)%string ;;
                   str <- tmQuote n';;
-                  tmMkDefinition n str;;
+                  tmMkDefinition (TCString.of_string n) str;;
                   mkNames prefix ns' postfix
   end.

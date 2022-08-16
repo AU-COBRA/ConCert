@@ -1,13 +1,18 @@
+From Coq Require Import String.
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
+From MetaCoq.Template Require Import Typing.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.Erasure Require EAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
+From MetaCoq.SafeChecker Require Import PCUICWfEnvImpl.
+
 Import PCUICErrors.
+Import MCMonadNotation.
 
 (** Extracts a constant name, inductive name or returns None *)
 Definition to_kername (t : Ast.term) : option kername :=
@@ -45,29 +50,25 @@ Notation "<! t !>" :=
 
 Definition result_of_typing_result
            {A}
-           (Σ : PCUICAst.global_env_ext)
+           (Σ : PCUICAst.PCUICEnvironment.global_env_ext)
            (tr : typing_result A) : result A string :=
   match tr with
-  | Checked a => ret a
+  | Checked a => Ok a
   | TypeError err => Err (string_of_type_error Σ err)
   end.
+
+Open Scope bs.
 
 Definition string_of_env_error Σ e :=
   match e with
   | IllFormedDecl s e =>
     "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
   | AlreadyDeclared s => "Alreadydeclared " ++ s
-  end%string.
-
-Definition result_of_EnvCheck {A} (ec : EnvCheck A) : result A string :=
-  match ec with
-  | CorrectDecl a => ret a
-  | EnvError Σ err => Err (string_of_env_error Σ err)
   end.
 
 Definition result_of_option {A} (o : option A) (err : string) : result A string :=
   match o with
-  | Some a => ret a
+  | Some a => Ok a
   | None => Err err
   end.
 
@@ -106,14 +107,8 @@ Definition extract_def_name_exists {A : Type} (a : A) : TemplateMonad kername :=
 Notation "'unfolded' d" :=
   ltac:(let y := eval unfold d in d in exact y) (at level 100, only parsing).
 
-Definition remap (kn : kername) (new_name : string) : kername * string :=
+Definition remap (kn : kername) (new_name : String.string) : kername * String.string :=
   (kn, new_name).
-
-Definition EnvCheck_to_template {A } (ec : EnvCheck A) : TemplateMonad A :=
-  match ec with
-  | CorrectDecl a => ret a
-  | EnvError Σ e => tmFail (string_of_env_error Σ e)
-  end.
 
 Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :=
   p <- tmQuoteRecTransp def false ;;
@@ -131,15 +126,6 @@ Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :
   | _ => tmFail ("Not found: " ++ kn.2)
   end.
 
-Fixpoint update_global_env (Σ : global_env) (Σup : global_env) : global_env :=
-  match Σ with
-  | (kn, gd) :: Σ' => match lookup_env Σup kn with
-                    | Some v => (kn,v) :: update_global_env Σ' Σup
-                    | None => (kn, gd) :: update_global_env Σ' Σup
-                    end
-  | [] => []
-  end.
-
 Definition map_subterms (f : term -> term) (t : term) : term :=
   match t with
   | tEvar n ts => tEvar n (map f ts)
@@ -148,8 +134,8 @@ Definition map_subterms (f : term -> term) (t : term) : term :=
   | tLambda na ty body => tLambda na (f ty) (f body)
   | tLetIn na val ty body => tLetIn na (f val) (f ty) (f body)
   | tApp hd arg => tApp (f hd) (map f arg)
-  | tCase p ty disc brs =>
-    tCase p (f ty) (f disc) (map (on_snd f) brs)
+  | tCase ci p disc brs =>
+    tCase ci (map_predicate id f f p) (f disc) (map (map_branch f) brs)
   | tProj p t => tProj p (f t)
   | tFix def i => tFix (map (map_def f f) def) i
   | tCoFix def i => tCoFix (map (map_def f f) def) i
@@ -166,14 +152,20 @@ Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
     end
   end.
 
-Definition iota_body (body : term) : term :=
+Definition iota_body (Σ : global_env) (body : term) : term :=
   match body with
-  | tCase (ind, pars, _) _ discr brs =>
+  | tCase ci p discr brs =>
     let (hd, args) := decompose_app discr in
     match hd with
     | tConstruct _ c _ =>
       match nth_error brs c with
-      | Some (_, br) => beta_body br (skipn pars args)
+      | Some br =>
+          match TermEquality.lookup_constructor Σ ci.(ci_ind) c with
+          | Some (mib, _, cb) =>
+              let bctx := case_branch_context ci.(ci_ind) mib cb p br in
+              iota_red ci.(ci_npar) args bctx br
+          | None => body
+          end
       | None => body
       end
     | _ => body
@@ -277,3 +269,25 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
     else None
   | _ => None
   end.
+
+(* TODO: port the pretty-printers to use bytestring and use metacoq's MCString utils *)
+
+Definition parens (top : bool) (s : String.string) : String.string :=
+  if top then s else  "(" ++ s ++ ")".
+
+Definition nl : String.string := String (Ascii.ascii_of_nat 10) EmptyString.
+
+Definition string_of_list_aux {A} (f : A -> String.string) (sep : String.string) (l : list A) : String.string :=
+  let fix aux l :=
+      match l return String.string with
+      | nil => ""%string
+      | cons a nil => f a
+      | cons a l => (f a ++ sep ++ aux l)%string
+      end
+  in aux l.
+
+Definition string_of_list {A} (f : A -> String.string) (l : list A) : String.string :=
+  ("[" ++ string_of_list_aux f "," l ++ "]")%string.
+
+Definition print_list {A} (f : A -> String.string) (sep : String.string) (l : list A) : String.string :=
+  string_of_list_aux f sep l.

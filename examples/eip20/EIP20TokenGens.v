@@ -1,17 +1,15 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Examples Require Import EIP20Token.
-From ConCert.Execution.QCTest Require Import TestUtils.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
+From ConCert.Execution.Test Require Import QCTest.
+From ConCert.Examples.EIP20 Require Import EIP20Token.
+Import MonadNotation.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith.
 
 Module Type EIP20GensInfo.
   Parameter contract_addr : Address.
-  Parameter gAccount : Chain -> G Address.
+  Parameter gAccount : G Address.
 End EIP20GensInfo.
 
 Module EIP20Gens (Info : EIP20GensInfo).
@@ -39,7 +37,7 @@ Definition gTransfer (env : Environment) (state : EIP20Token.State) : G (Address
   match sample with
   | Some (addr, balance) =>
     transfer_amount <- choose (0%N, balance) ;;
-    account <- gAccount env ;;
+    account <- gAccount ;;
     randomize_mk_gen (addr, transfer account transfer_amount)
   (* if the contract state contains no accounts, just transfer 0 tokens between two arbitrary accounts *)
   | None => from_addr <- arbitrary ;;
@@ -105,9 +103,3 @@ Definition gEIP20TokenAction (env : Environment) : GOpt Action :=
   ].
 
 End EIP20Gens.
-
-Module DummyTestInfo <: EIP20GensInfo.
-  Definition contract_addr := zero_address.
-  Definition gAccount (e : Chain) := returnGen zero_address.
-End DummyTestInfo.
-Module MG := EIP20Gens DummyTestInfo. Import MG.

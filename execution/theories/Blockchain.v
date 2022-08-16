@@ -913,6 +913,14 @@ Ltac destruct_action_eval :=
   | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
+Lemma trace_reachable : forall {to},
+    ChainTrace empty_state to ->
+      reachable to.
+Proof.
+  constructor.
+  assumption.
+Qed.
+
 Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
   reachable to ->
   env_contracts to addr = Some wc ->
@@ -1446,7 +1454,8 @@ Lemma contract_induction
          forall (chain : Chain)
                 (ctx : ContractCallContext)
                 (cstate : State)
-                (outgoing_actions : list ActionBody), Prop)
+                (outgoing_actions : list ActionBody)
+                (inc_calls : option (list (ContractCallInfo Msg))), Prop)
       (P : forall (chain_height : nat)
                   (current_slot : nat)
                   (finalized_height : nat)
@@ -1460,7 +1469,7 @@ Lemma contract_induction
 
   (* Facts *)
   (forall (bstate_from bstate_to : ChainState) (step : ChainStep bstate_from bstate_to)
-          (from_reachable : reachable bstate_from)
+          (from_reachable : ChainTrace empty_state bstate_from)
           (tag : TagFacts),
       match step with
       | step_block _ _ header _ _ _ _ _ =>
@@ -1483,6 +1492,7 @@ Lemma contract_induction
             new_state
             (build_ctx origin from to (env_account_balances new_state to) amount) cstate
             (outgoing_acts bstate_from to)
+            (incoming_calls Msg from_reachable to)
       | _ => Logic.True
       end) ->
 
@@ -1540,7 +1550,7 @@ Lemma contract_induction
           prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_other : ctx_from ctx <> ctx_contract_address ctx)
-          (facts : CallFacts chain ctx prev_state prev_out_queue)
+          (facts : CallFacts chain ctx prev_state prev_out_queue (Some prev_inc_calls))
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   (ctx_contract_address ctx) dep_info prev_state
                   (ctx_contract_balance ctx - ctx_amount ctx)
@@ -1564,7 +1574,7 @@ Lemma contract_induction
           head prev_out_queue prev_inc_calls prev_out_txs
           new_state new_acts
           (from_self : ctx_from ctx = ctx_contract_address ctx)
-          (facts : CallFacts chain ctx prev_state (head :: prev_out_queue))
+          (facts : CallFacts chain ctx prev_state (head :: prev_out_queue) (Some prev_inc_calls))
           (IH : P (chain_height chain) (current_slot chain) (finalized_height chain)
                   (ctx_contract_address ctx) dep_info prev_state
                   (ctx_contract_balance ctx)
@@ -1643,14 +1653,15 @@ Proof.
   unfold contract_state in *.
   remember empty_state; induction trace as [|? ? ? ? IH];
     intros; subst; try solve [cbn in *; congruence].
+  specialize (IH ltac:(auto) ltac:(auto)).
   specialize (establish_facts mid to ltac:(auto) ltac:(auto) tag_facts).
   destruct_chain_step;
     [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *| |].
   - (* New block *)
     clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
     rewrite_environment_equiv.
-    cbn in *.
     specialize_hypotheses.
+    cbn in *.
     destruct IH as (depinfo' & cstate' & inc_calls' & -> & ? & -> & ?).
     exists depinfo', cstate', inc_calls'.
     rewrite_environment_equiv.
@@ -1699,7 +1710,7 @@ Proof.
   - (* Evaluation: Deploy *)
     clear recursive_call_case nonrecursive_call_case permute_queue_case.
     rewrite (address_eq_sym to_addr caddr) in *.
-    destruct (address_eqb_spec caddr to_addr) as [->|]; cbn in *.
+    destruct (address_eqb_spec caddr to_addr) as [<-|]; cbn in *.
     + (* Deployment of this contract *)
       replace wc with (contract : WeakContract) in * by congruence.
       match goal with
@@ -1711,31 +1722,32 @@ Proof.
              result_strong,
              [].
       rewrite_environment_equiv; cbn.
+
       rewrite address_eq_refl.
       cbn.
       rewrite deserialize_serialize.
-      assert (incoming_calls Msg trace to_addr = Some [])
+      assert (incoming_calls Msg trace caddr = Some [])
         by (apply undeployed_contract_no_in_calls; auto).
       unfold incoming_calls in *; rewrite is_contract in *.
       repeat split; cbn in *; subst; auto.
       unfold outgoing_acts.
       rewrite queue_new.
       cbn.
-      rewrite (address_eq_sym to_addr) in *.
-      fold (outgoing_txs trace to_addr).
+      rewrite (address_eq_sym caddr) in *.
+      fold (outgoing_txs trace caddr).
       pose proof (undeployed_contract_no_out_queue
-                    to_addr mid ltac:(auto) ltac:(auto) ltac:(auto)) as queue_ne_to.
+                    caddr mid ltac:(auto) ltac:(auto) ltac:(auto)) as queue_ne_to.
       rewrite queue_prev in queue_ne_to.
       inversion_clear queue_ne_to as [|? ? from_ne_to rest_ne_to].
       cbn in from_ne_to.
       cbn in *.
-      rewrite (address_eq_ne from_addr to_addr) by (destruct_address_eq; auto).
+      rewrite (address_eq_ne from_addr caddr) by (destruct_address_eq; auto).
       rewrite Forall_false_filter_nil by assumption.
       rewrite undeployed_contract_no_out_txs, undeployed_contract_balance_0 by auto.
       remember (build_ctx _ _ _ _ _) as ctx.
       replace origin with (ctx_origin ctx) by (subst; auto).
       replace from_addr with (ctx_from ctx) by (subst; auto).
-      replace to_addr with (ctx_contract_address ctx) by (subst; auto).
+      replace caddr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
       rewrite Z.add_0_r.
       apply init_case;auto.
@@ -1770,13 +1782,15 @@ Proof.
       | [ H : act = _ |- _ ] => rewrite H in *
     end.
     subst new_acts.
-    destruct IH as (depinfo & cstate & inc_calls & -> & ? & -> & IH).
+    destruct IH as (depinfo & cstate & inc_calls & -> & ? & inc_calls_eq & IH).
+    (* rewrite inc_calls_eq in *. *)
     unfold outgoing_acts in *.
     rewrite queue_prev, queue_new in *.
     cbn in *.
     rewrite filter_app, filter_map, map_app, map_map; cbn in *.
     destruct (address_eqb_spec to_addr caddr) as [->|].
     + (* Call to contract *)
+      rewrite inc_calls_eq in *.
       replace wc with (contract : WeakContract) in * by congruence.
       destruct (wc_receive_strong ltac:(eassumption))
         as (prev_state_strong & msg_strong & resp_state_strong &
@@ -2052,7 +2066,8 @@ Ltac contract_induction :=
        evar (DeployFacts : forall (chain : Chain)
                                   (ctx : ContractCallContext), Prop);
        evar (CallFacts : forall (chain : Chain) (ctx : ContractCallContext)
-                                (cstate : State) (outgoing_actions : list ActionBody), Prop);
+                                (cstate : State) (outgoing_actions : list ActionBody)
+                                (inc_calls : option (list (ContractCallInfo Msg))), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
        cbv [P]; clear P; cycle 1; clear dependent bstate; clear dependent caddr).
 
@@ -2102,7 +2117,7 @@ Proof.
   - now rewrite <- perm.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.
@@ -2150,7 +2165,7 @@ Proof.
   - now eapply Hreceive.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.
@@ -2180,7 +2195,7 @@ Proof.
   - now eapply Hreceive.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
     instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ => Logic.True).
+    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
     unset_all; subst.
     destruct step; auto.
     destruct a; auto.

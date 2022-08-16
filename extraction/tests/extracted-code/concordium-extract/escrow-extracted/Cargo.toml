@@ -14,15 +14,12 @@ concert-std = { path = "../concert-std" }
 bumpalo = "3.5.0"
 immutable-map = "0.1.2"
 
-
 [dependencies.concordium-std]
-git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
-branch = "main"
+version = "2.0.0"
 default-features = false
 
 [dev-dependencies.concordium-std]
-git = "https://github.com/Concordium/concordium-rust-smart-contracts.git"
-branch = "main"
+version = "2.0.0"
 features = ["std"] # std is needed because testing depends on std.
 
 [lib]

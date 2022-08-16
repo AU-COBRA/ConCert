@@ -3,14 +3,14 @@ From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Utils Require Import RecordUpdate.
 
 From Coq Require Import List.
 From Coq Require Import ZArith.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 
 Section FA2Client.
@@ -34,7 +34,7 @@ Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg :=
     Call_fa2_metadata_callback,
     Call_fa2_permissions_descriptor>.
 
-Definition ClientMsg := @FA2ReceiverMsg BaseTypes FA2ClientMsg _.
+Definition ClientMsg := @FA2ReceiverMsg BaseTypes FA2ClientMsg.
 
 Record ClientState :=
   build_clientstate {
@@ -103,7 +103,7 @@ Global Instance FA2TransferHookMsg_serializable : Serializable FA2TransferHookMs
   Derive Serializable FA2TransferHookMsg_rect <
     set_permission_policy>.
 
-Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg _.
+Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg.
 
 Record HookState :=
   build_hookstate {
@@ -144,7 +144,8 @@ Definition check_transfer_permissions (tr : transfer_descriptor)
                                       (operator : Address)
                                       (state : HookState)
                                       : option unit :=
-  if (address_eqb tr.(transfer_descr_from_) operator)
+  do from <- tr.(transfer_descr_from_) ;
+  if (address_eqb from operator)
   then if (FA2Token.policy_disallows_self_transfer state.(hook_policy))
     then None
     else Some tt

@@ -1,6 +1,6 @@
 (**
   This file contains an implementation of the example token that complies with the Concordium's CIS1 standard.
-  The development is inspired by the Rust implementation: https://github.com/Concordium/concordium-rust-smart-contracts/tree/main/examples/cis1-wccd
+  The development is inspired by the Rust implementation: https://github.com/Concordium/concordium-rust-smart-contracts/blob/b49a9f07131b2659de2f7b55eb5e8365d0ed4720/examples/cis1-wccd/src/lib.rs
 
   We also show that the implementation of the token complies with our formalisation of the CIS1 standard.
 *)
@@ -18,7 +18,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import Extras.
 
 Import ListNotations.
-Import RecordSetNotations.
+
 
 Definition requireTrue (cond : bool) :=
   if cond then Some tt else None.

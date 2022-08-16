@@ -467,46 +467,46 @@ Qed.
      instead we ask for equivalence. This is due to substitutions of the
      values in the environment while converting closures back to expressions *)
 
-  Lemma of_val_i_correct n Σ v1 v2 :
-    accepted_val v1 ->
-    expr_eval_i Σ n [] (of_val_i v1) = Ok v2 ->
-    v1 ≈ v2.
-  Proof.
-    intros Hav He.
-    revert dependent n.
-    revert dependent v2.
-    induction v1 using val_ind_full;intros v2 n0 H1.
-    + destruct n0;tryfalse.
-      inversion Hav;subst.
-      * cbn in H1.
-        destruct (resolve_constr Σ i n);tryfalse.
-        inversion H1.
-        reflexivity.
-      * autounfold with facts in *. simpl in H1.
-        remember (expr_eval_general false Σ n0 [] (eConstr i n)) as cv.
-        remember (expr_eval_general false Σ n0 [] (of_val_i v)) as fv.
-        destruct cv as [cv0 | | ]; try destruct cv0;try destruct c;destruct fv;tryfalse.
-        ** inversion H1 as [H1'].
-           symmetry in Heqfv.
-           apply Forall_inv in H.
-           pose proof (H H2 _ _ Heqfv) as HH. subst.
-           symmetry in Heqcv.
-           pose proof (expr_eval_econstr Heqcv) as HH1.
-           inversion HH1;subst.
-           simpl. clear H Heqfv H1.
-           (* this rewrite actually uses setoid_rewrite along the ≈ relation *)
-           rewrite HH.
-           reflexivity.
-        ** symmetry in Heqcv.
-           pose proof (expr_eval_econstr Heqcv);tryfalse.
-        ** symmetry in Heqcv;pose proof (expr_eval_econstr Heqcv);tryfalse.
-        ** symmetry in Heqcv;pose proof (expr_eval_econstr Heqcv);tryfalse.
-    + simpl in H1.
-      destruct cm.
-      * destruct n0;tryfalse.
-        simpl in H1.
-        destruct (eval_type_i 0 [] ty1);tryfalse.
-        inversion_clear H1.
+  (* Lemma of_val_i_correct n Σ v1 v2 : *)
+  (*   accepted_val v1 -> *)
+  (*   expr_eval_i Σ n [] (of_val_i v1) = Ok v2 -> *)
+  (*   v1 ≈ v2. *)
+  (* Proof. *)
+  (*   intros Hav He. *)
+  (*   revert dependent n. *)
+  (*   revert dependent v2. *)
+  (*   induction v1 using val_ind_full;intros v2 n0 H1. *)
+  (*   + destruct n0;tryfalse. *)
+  (*     inversion Hav;subst. *)
+  (*     * cbn in H1. *)
+  (*       destruct (resolve_constr Σ i n);tryfalse. *)
+  (*       inversion H1. *)
+  (*       reflexivity. *)
+  (*     * autounfold with facts in *. simpl in H1. *)
+  (*       remember (expr_eval_general false Σ n0 [] (eConstr i n)) as cv. *)
+  (*       remember (expr_eval_general false Σ n0 [] (of_val_i v)) as fv. *)
+  (*       destruct cv as [cv0 | | ]; try destruct cv0;try destruct c;destruct fv;tryfalse. *)
+  (*       ** inversion H1 as [H1']. *)
+  (*          symmetry in Heqfv. *)
+  (*          apply Forall_inv in H. *)
+  (*          pose proof (H H2 _ _ Heqfv) as HH. subst. *)
+  (*          symmetry in Heqcv. *)
+  (*          pose proof (expr_eval_econstr Heqcv) as HH1. *)
+  (*          inversion HH1;subst. *)
+  (*          simpl. clear H Heqfv H1. *)
+  (*          (* this rewrite actually uses setoid_rewrite along the ≈ relation *) *)
+  (*          rewrite HH. *)
+  (*          reflexivity. *)
+  (*       ** symmetry in Heqcv. *)
+  (*          pose proof (expr_eval_econstr Heqcv);tryfalse. *)
+  (*       ** symmetry in Heqcv;pose proof (expr_eval_econstr Heqcv);tryfalse. *)
+  (*       ** symmetry in Heqcv;pose proof (expr_eval_econstr Heqcv);tryfalse. *)
+  (*   + simpl in H1. *)
+  (*     destruct cm. *)
+  (*     * destruct n0;tryfalse. *)
+  (*       simpl in H1. *)
+  (*       destruct (eval_type_i 0 [] ty1);tryfalse. *)
+  (*       inversion_clear H1. *)
   (*       constructor. *)
   (*       unfold inst_env_i,subst_env_i;simpl. *)
   (*       rewrite <- subst_env_i_empty. *)
@@ -528,8 +528,22 @@ Qed.
   (*     destruct (eval_type_i _ _ _);tryfalse;simpl in *. *)
   (*     now inversion H1. *)
   (* Qed. *)
-Admitted.
+(* Admitted. *)
   End Values.
+
+  Section MapProperties.
+
+    Context {A : Type}
+            {B : Type}
+            {C : Type}
+            {D : Type}.
+
+    Lemma map_funprod_id (f : B -> D) (l : list (A * B)) :
+      map fst l = map fst (map (fun_prod id f) l).
+    Proof.
+      induction l;cbn;f_equal;auto.
+    Qed.
+  End MapProperties.
 
   Section FindLookupProperties.
 
@@ -631,6 +645,36 @@ Admitted.
       destruct ab as [a b];simpl in *.
       inversion Hmap;subst.
     destruct (p (fst p0));simpl in *;eauto;tryfalse.
+  Qed.
+
+  Lemma find_some_fst_map_snd {p} {f : A * B -> C} (l: list (A * B)) (v1 : A * B):
+    find (p ∘ fst) l = Some v1 ->
+     {v2 | find (p ∘ fst) (map (fun x => (fst x, f x)) l) = Some v2
+              × fst v1 = fst v2
+              × f v1 = snd v2 }.
+  Proof.
+    revert v1.
+    induction l as [ | ab l'];intros v1 Hfnd.
+    + easy.
+    + unfold compose,id in *;simpl in *.
+      destruct (p ab.1);inversion Hfnd;subst;simpl in *;eauto.
+  Qed.
+
+  Lemma find_some_fst {p} (l1: list (A * B)) ( l2 : list (A * C)) v1:
+    map fst l1 = map fst l2 ->
+    find (p ∘ fst) l1 = Some v1 ->
+    exists v2, find (p ∘ fst) l2 = Some v2
+               /\ fst v1 = fst v1.
+  Proof.
+    revert dependent l2.
+    revert v1.
+    induction l1 as [ | ab l1'];intros v1 l2 Hmap Hfnd.
+    + destruct l2;simpl in *;easy.
+    + destruct l2;simpl in *;tryfalse.
+      unfold compose,id in *;simpl in *.
+      destruct ab as [a b];simpl in *.
+      inversion Hmap;subst.
+      destruct (p (fst p0));inversion Hfnd;subst;simpl in *;eauto;tryfalse.
   Qed.
 
 End FindLookupProperties.

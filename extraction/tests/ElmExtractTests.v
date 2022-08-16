@@ -10,8 +10,16 @@ From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq Require Import utils.
+From Coq Require Import String.
 
 Local Open Scope string.
+
+Import MCMonadNotation.
+
+Local Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
+Local Notation "'s_to_bs' s" := (bytestring.String.of_string s) (at level 200).
+Local Coercion bytestring.String.of_string : string  >-> bytestring.String.t.
+
 
 Instance StandardBoxes : ElmPrintConfig :=
   {| term_box_symbol := "□";
@@ -27,11 +35,13 @@ Definition no_check_args :=
        {| optimize_prop_discr := true;
           extract_transforms := [dearg_transform (fun _ => None) true true false false false] |} |}.
 
-Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result string string :=
+Definition result_bytestring_err A := result A bytestring.String.t.
+
+Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result_bytestring_err _ :=
   entry <- match p.2 with
-           | tConst kn _ => ret kn
-           | tInd ind _ => ret (inductive_mind ind)
-           | _ => Err "Expected program to be a tConst or tInd"
+           | tConst kn _ => Ok kn
+           | tInd ind _ => Ok (inductive_mind ind)
+           | _ => Err (s_to_bs "Expected program to be a tConst or tInd")
            end;;
   Σ <- extract_template_env
          no_check_args
@@ -39,10 +49,10 @@ Definition general_extract (p : program) (ignore: list kername) (TT : list (kern
          (KernameSet.singleton entry)
          (fun k => existsb (eq_kername k) ignore);;
   let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
-  '(_, s) <- finish_print (print_env Σ TT_fun);;
-  ret s.
+  '(_, s) <- map_error (fun x => s_to_bs x) (finish_print (print_env Σ TT_fun));;
+  Ok s.
 
-Definition extract (p : program) : result string string :=
+Definition extract (p : program) : result _ _ :=
   general_extract p [] [].
 
 Module ex1.
@@ -343,8 +353,8 @@ Module ex_infix1.
 
   Definition TT : list (kername * string) :=
     [ remap <%% list %%> "List"
-    ; ((<%% list %%>.1, "nil"), "[]")
-    ; ((<%% list %%>.1, "cons"), "(::)")
+    ; ((<%% list %%>.1, s_to_bs "nil"), "[]")
+    ; ((<%% list %%>.1, s_to_bs "cons"), "(::)")
     ].
 
   MetaCoq Quote Recursively Definition ex := map.
@@ -363,7 +373,7 @@ Module ex_infix1.
 "        a :: t ->";
 "          (::) (f a) (map2 t)";
 "  in";
-"  map2" $>. reflexivity. Qed.
+"  map2" $>. vm_compute. reflexivity. Qed.
 End ex_infix1.
 
 Module recursor_ex.
@@ -383,11 +393,11 @@ End recursor_ex.
 
 Module type_scheme_ex.
 
-  Definition general_extract_tc (p : program) (ignore: list kername) (TT : list (kername * string)) : TemplateMonad string :=
+  Definition general_extract_tc (p : program) (ignore: list kername) (TT : list (kername * string)) : TemplateMonad _ :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | tInd ind _ => ret (inductive_mind ind)
-           | _ => tmFail "Expected program to be a tConst or tInd"
+           | _ => tmFail (s_to_bs "Expected program to be a tConst or tInd")
            end;;
   res <- tmEval lazy (extract_template_env
                        no_check_args
@@ -398,7 +408,7 @@ Module type_scheme_ex.
   | Ok Σ =>
     tmPrint Σ;;
     let TT_fun kn := option_map snd (List.find (fun '(kn',v) => eq_kername kn kn') TT) in
-    s <- tmEval lazy (finish_print (print_env Σ TT_fun));;
+    s <- tmEval lazy (map_error (fun x => s_to_bs x) (finish_print (print_env Σ TT_fun)));;
     match s with
     | Ok (_,s) => ret s
     | Err s => tmFail s
@@ -465,7 +475,7 @@ Module type_scheme_ex.
 
   (* [Vec] is a common example of using a type scheme to abbreviate a type *)
 
-  Definition vec (A : Type) (n : nat) := {xs : list A | length xs = n}.
+  Definition vec (A : Type) (n : nat) := {xs : list A | List.length xs = n}.
 
   Program Definition singleton_vec (n : nat) : vec nat 1 := [n].
 

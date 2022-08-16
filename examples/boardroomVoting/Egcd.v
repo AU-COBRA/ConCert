@@ -66,10 +66,6 @@ Proof.
   - apply IH; auto.
     + destruct H.
       destruct q; try lia; cycle 1.
-      {
-        pose proof (Z.mul_pos_neg r1 (Z.neg p) ltac:(lia) ltac:(lia)).
-        lia.
-      }
       assert (r + r1 <= r0).
       {
         enough (r1 <= r1 * Z.pos p) by lia.
@@ -155,10 +151,13 @@ Lemma mul_fst_egcd a n :
   rel_prime a n ->
   a * fst (egcd a n) mod n = 1 mod n.
 Proof.
-  destruct (Z.eqb_spec n 0) as [->|?].
-  { intros; now rewrite !Zmod_0_r. }
-  intros relprime.
   pose proof (egcd_spec a n).
+  destruct (Z.eqb_spec n 0) as [->|?].
+  { intros.  cbn in *.  rewrite !Zmod_0_r.
+    rewrite <- Zgcd_1_rel_prime in *.
+    rewrite Z.gcd_0_r in *.
+    unfold egcd. destruct (Z.eqb_spec a 0) as [->|?];cbn;lia. }
+  intros relprime.
   destruct (egcd a n) as [x y]; cbn.
   rewrite (proj2 (Zgcd_1_rel_prime _ _) relprime) in H.
   replace (a * x) with (1  + (-y)*n) by lia.

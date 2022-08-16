@@ -18,8 +18,8 @@ From Coq Require Import Lia.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
-Import BaseTypes StdLib.
+Import MCMonadNotation.
+Import BaseTypes.
 Open Scope list.
 
 Import Prelude.Maps.
@@ -37,7 +37,7 @@ Module CrowdfundingContract.
 
   (** ** AST of the [init] function *)
   Module Init.
-    Import Notations.
+    Import CrowdfundingData.Notations.
     Definition crowdfunding_init : expr :=
       [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
@@ -48,8 +48,9 @@ Module CrowdfundingContract.
  End Init.
 
  (** ** AST of the [receive] function *)
- Module Receive.
-   Import Notations.
+  Module Receive.
+
+   Import CrowdfundingData.Notations.
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
    Notation "'#Just' a" := [| {eConstr (to_string_name <% option %>) "Some"}  {eTy [! Result!]} {a}|]

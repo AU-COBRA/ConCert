@@ -1,29 +1,15 @@
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution.QCTest Require Import TestUtils.
-From ConCert.Execution.QCTest Require Import ChainPrinters.
-From ConCert.Execution.QCTest Require Import TraceGens.
+From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Interface.
+From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.FA2 Require Import TestContracts.
 From ConCert.Utils Require Import Extras.
-From ConCert.Utils Require Import RecordUpdate.
-Global Set Warnings "-extraction-logical-axiom".
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-From ExtLib.Structures Require Import Functor.
-From ExtLib.Structures Require Import Applicative.
-From ExtLib.Structures Require Monads.
-From Coq Require Import Strings.String.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
-Import RecordSetNotations.
-Close Scope address_scope.
 
 (** example policies *)
 
@@ -75,67 +61,58 @@ Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty;
   initial_permission_policy := policy_all;
   transfer_hook_addr_ := hook_addr;
-
 |}.
 
-Definition token_contract_base_addr : Address := BoundedN.of_Z_const AddrSize 128%Z.
+Definition token_contract_base_addr : Address := addr_of_Z 128.
 Definition fa2hook_setup : HookSetup := {|
   hook_fa2_caddr_ := token_contract_base_addr;
   hook_policy_ := policy_self_only;
 |}.
-Definition deploy_fa2hook := create_deployment 0 hook_contract fa2hook_setup.
-Definition fa2hook_contract_addr : Address := BoundedN.of_Z_const AddrSize 130%Z.
 
-Definition deploy_fa2token_with_transfer_hook : @ActionBody LocalChainBase :=
-  create_deployment 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr)) .
-Definition deploy_fa2token_without_transfer_hook : @ActionBody LocalChainBase :=
-  create_deployment 0 FA2Token.contract (token_setup None).
-
+Definition fa2hook_contract_addr : Address := addr_of_Z 130.
 Definition token_client_setup := build_clientsetup token_contract_base_addr.
-Definition deploy_fa2token_client : @ActionBody LocalChainBase := create_deployment 0 client_contract token_client_setup.
-Definition client_contract_addr : Address := BoundedN.of_Z_const AddrSize 129%Z.
-
+Definition client_contract_addr : Address := addr_of_Z 129.
 
 Definition chain_with_token_deployed_with_hook : ChainBuilder :=
-  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 10);
-    build_act creator creator (act_transfer person_2 10);
-    build_act creator creator (act_transfer person_3 10);
-    build_act creator creator deploy_fa2token_with_transfer_hook;
-    build_act creator creator deploy_fa2token_client;
-    build_act creator creator deploy_fa2hook
+    TestUtils.build_transfer creator person_1 10;
+    TestUtils.build_transfer creator person_2 10;
+    TestUtils.build_transfer creator person_3 10;
+    build_deploy creator 0 FA2Token.contract (token_setup (Some fa2hook_contract_addr));
+    build_deploy creator 0 client_contract token_client_setup;
+    build_deploy creator 0 hook_contract fa2hook_setup
   ]).
 
 Definition chain_with_token_deployed_without_hook : ChainBuilder :=
-  unpack_result (TraceGens.add_block (lcb_initial AddrSize)
+  unpack_result (TraceGens.add_block empty_chain
   [
-    build_act creator creator (act_transfer person_1 10);
-    build_act creator creator (act_transfer person_2 10);
-    build_act creator creator (act_transfer person_3 10);
-    build_act creator creator deploy_fa2token_without_transfer_hook;
-    build_act creator creator deploy_fa2token_client
+    TestUtils.build_transfer creator person_1 10;
+    TestUtils.build_transfer creator person_2 10;
+    TestUtils.build_transfer creator person_3 10;
+    build_deploy creator 0 FA2Token.contract (token_setup None);
+    build_deploy creator 0 client_contract token_client_setup
   ]).
 
 Definition chain_without_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_without_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
+    build_call person_1 token_contract_base_addr 10%Z (msg_create_tokens 0%N) ;
+    build_call person_2 token_contract_base_addr 10%Z (msg_create_tokens 0%N)
   ]).
 
 Definition chain_with_transfer_hook' : result ChainBuilder AddBlockError :=
   (TraceGens.add_block chain_with_token_deployed_with_hook
   [
-    build_act person_1 person_1 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N))) ;
-    build_act person_2 person_2 (act_call token_contract_base_addr 10%Z (serialize (msg_create_tokens 0%N)))
+    build_call person_1 token_contract_base_addr 10%Z (msg_create_tokens 0%N) ;
+    build_call person_2 token_contract_base_addr 10%Z (msg_create_tokens 0%N)
   ]).
 
 Definition chain_without_transfer_hook := unpack_result chain_without_transfer_hook'.
 Definition chain_with_transfer_hook := unpack_result chain_with_transfer_hook'.
 
 
-Definition client_other_msg := @other_msg _ FA2ClientMsg _.
+Definition client_other_msg := @other_msg _ FA2ClientMsg.
 
 Definition call_client_is_op_act :=
   let params := Build_is_operator_param
@@ -156,55 +133,41 @@ Module TestInfo <: FA2TestsInfo.
   Definition fa2_contract_addr := token_contract_base_addr.
   Definition fa2_client_addr := client_contract_addr.
   Definition fa2_hook_addr := fa2hook_contract_addr.
-  Definition gAddrWithout (ws : list Address) :=
-    let addrs := filter (fun a => negb (existsb (address_eqb a) ws)) test_chain_addrs in   
-    elems_ zero_address addrs.
-  Definition gUniqueAddrPair : GOpt (Address * Address) :=
-    addr1 <- elems_opt test_chain_addrs ;;
-    let addrs := filter (fun a => negb (address_eqb addr1 a)) test_chain_addrs in   
-    addr2 <- elems_opt addrs ;;
-    returnGenSome (addr1, addr2).
-  
-  (* A quick little sanity check that gUniqueAddrPair generator indeed always generates unique pairs *)
-  (* QuickChick (forAll gUniqueAddrPair (fun p => isSomeCheck p (fun '(addr1, addr2) => negb (address_eqb addr1 addr2)))). *)
-  (* +++ Passed 10000 tests (0 discards) *)
+  Definition accounts := test_chain_addrs_5.
 End TestInfo.
 Module MG := FA2Gens.FA2Gens TestInfo. Import MG.
 
-Definition gFA2TokenChain max_acts_per_block cb length := 
-  gChain cb (fun cb _ => gFA2TokenAction cb) length 1 max_acts_per_block.
-
-Definition gFA2ClientChain max_acts_per_block cb length := 
-  gChain cb (fun cb _ => gClientAction cb) length 1 max_acts_per_block.
-
-
-(* Sample (gFA2TokenAction chain_with_transfer_hook). *)
-(* Sample (gFA2TokenChain 1 chain_with_transfer_hook 10). *)
-
-Definition forAllFA2Traces chain n := forAllBlocks n chain (gFA2TokenChain 1).
-Definition forAllFA2TracesStatePairs chain n := forAllChainStatePairs n chain (gFA2TokenChain 1).
-Notation "{{ P }} c {{ Q }} chain" := (pre_post_assertion 7 chain (gFA2TokenChain 1) FA2Token.contract c P Q)( at level 50).
+Module NotationInfo <: TestNotationParameters.
+  Definition gAction := gFA2TokenAction.
+  Definition init_cb := chain_with_transfer_hook.
+End NotationInfo.
+Module TN := TestNotations NotationInfo. Import TN.
+Extract Constant max_acts_per_block => "1".
+(* Sample gChain. *)
 
 Local Open Scope Z_scope.
 Definition transfer_state_update_correct prev_state next_state transfers :=
   let balance_diffs_map : FMap (Address * token_id) Z := fold_left (fun current_diff_map trx =>
-    (* subtract amount from sender *)
-    let m1 :=
-      let amount := Z.of_N (trx.(amount)) in
-      let from_key := (trx.(from_), trx.(transfer_token_id)) in
-      match FMap.find from_key current_diff_map with
-      | Some current_diff => FMap.add from_key (current_diff - amount) current_diff_map
-      | None => FMap.add from_key (-amount) current_diff_map
-      end in
-    (* add amount to receiver *)
-    let m2 :=
-      let amount := Z.of_N (trx.(amount)) in
-      let to_key := (trx.(to_), trx.(transfer_token_id)) in
-      match FMap.find to_key m1 with
-      | Some current_diff => FMap.add to_key (current_diff + amount) m1
-      | None => FMap.add to_key amount m1
-      end in
-    m2
+    let from := trx.(from_) in
+    let iter := (fun diff_map trx_dst =>
+      (* subtract amount from sender *)
+      let m1 :=
+        let amount := Z.of_N (trx_dst.(amount)) in
+        let from_key := (from, trx_dst.(dst_token_id)) in
+        match FMap.find from_key current_diff_map with
+        | Some current_diff => FMap.add from_key (current_diff - amount) current_diff_map
+        | None => FMap.add from_key (-amount) current_diff_map
+        end in
+      (* add amount to receiver *)
+      let m2 :=
+        let amount := Z.of_N (trx_dst.(amount)) in
+        let to_key := (trx_dst.(to_), trx_dst.(dst_token_id)) in
+        match FMap.find to_key m1 with
+        | Some current_diff => FMap.add to_key (current_diff + amount) m1
+        | None => FMap.add to_key amount m1
+        end in
+      m2) in 
+      fold_left iter trx.(txs) current_diff_map
   ) transfers FMap.empty in
   let balance_update_correct p balance_diff :=
     let addr := fst p in
@@ -239,11 +202,11 @@ Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) ol
   | None => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{ msg_is_transfer }} *)
-(*     token_contract_base_addr *)
-(*   {{ post_transfer_correct }} *)
-(*   chain_without_transfer_hook). *)
+(* QuickChick (
+  {{ msg_is_transfer }}
+    token_contract_base_addr
+  {{ post_transfer_correct }}
+  chain_without_transfer_hook). *)
 (* 14 seconds, max size 7, 1 act per block *)
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -283,11 +246,11 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
   | None => checker true
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 1 transfer_balances_correct). *)
+(* QuickChick (forAllChainStatePairs transfer_balances_correct). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition get_transfers (acts : list Action) : list (Address * list FA2Interface.transfer) :=
+Definition get_transfers (acts : list Action) : list (Address * list FA2LegacyInterface.transfer) :=
   fold_left (fun trxs act =>
     match act.(act_body) with
     | act_call _ _ msg =>
@@ -308,7 +271,9 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
       | Some all_tokens => checker true
       | Some (some_tokens token_ids) =>
         whenFail "operator didn't have sufficient token_id permissions"
-        (checker (existsb (N.eqb trx.(transfer_token_id)) token_ids))
+        (checker (fold_right ((fun (tx_dst : transfer_destination) (acc: bool) =>
+            if acc then (existsb (N.eqb (tx_dst.(dst_token_id))) token_ids) else false
+        )) true trx.(txs)))
       | None => checker false
       end
     | None => checker false
@@ -350,7 +315,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   | None => checker false
   end.
 
-(* QuickChick (forAllFA2TracesStatePairs chain_with_transfer_hook 10 transfer_satisfies_policy_P). *)
+(* QuickChick (forAllChainStatePairs transfer_satisfies_policy_P). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
@@ -404,11 +369,11 @@ Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cc
   | None => checker false
   end.
 
-(* QuickChick ( *)
-(*   {{msg_is_update_operator}} *)
-(*   token_contract_base_addr *)
-(*   {{post_last_update_operator_occurrence_takes_effect}} *)
-(*   chain_without_transfer_hook *)
-(* ). *)
+(* QuickChick (
+  {{msg_is_update_operator}}
+  token_contract_base_addr
+  {{post_last_update_operator_occurrence_takes_effect}}
+  chain_without_transfer_hook
+). *)
 (* 40 secs, max length 7: *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)

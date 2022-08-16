@@ -1,45 +1,69 @@
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution Require Import LocalBlockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-
-From QuickChick Require Import QuickChick. Import QcNotation.
-Import MonadNotation. Open Scope monad_scope.
-
+From ConCert.Execution.Test Require Import LocalBlockchain.
+From QuickChick Require Import QuickChick.
+Import QcNotation. Import MonadNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import Program.Basics.
 
-Import SerializedType.
 Import BoundedN.Stdpp.
 
-Global Definition AddrSize := (2^8)%N.
+Global Definition AddrSize : N := (2^8)%N.
+Global Definition DepthFirst : bool := true.
 Global Instance LocalChainBase : ChainBase := LocalChainBase AddrSize.
-Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderDepthFirst AddrSize.
-Notation "f 'o' g" := (compose f g) (at level 50).
+Global Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize DepthFirst.
+Notation "f 'o' g" := (Program.Basics.compose f g) (at level 50).
 
-Definition creator : Address :=
-  BoundedN.of_Z_const AddrSize 10.
-Definition person_1 : Address :=
-  BoundedN.of_Z_const AddrSize 11.
-Definition person_2 : Address :=
-  BoundedN.of_Z_const AddrSize 12.
-Definition person_3 : Address :=
-  BoundedN.of_Z_const AddrSize 13.
-Definition person_4 : Address :=
-  BoundedN.of_Z_const AddrSize 14.
-Definition person_5 : Address :=
-  BoundedN.of_Z_const AddrSize 15.
+Definition addr_of_Z (x : Z) := BoundedN.of_Z_const AddrSize x.
+Definition addr_of_N (x : N) := BoundedN.of_Z_const AddrSize (Z.of_N x).
 
-Definition test_chain_addrs := [person_1; person_2; person_3; person_4; person_5].
+Definition zero_address : Address := addr_of_Z 0.
+Definition creator : Address := addr_of_Z 10.
+Definition person_1 : Address := addr_of_Z 11.
+Definition person_2 : Address := addr_of_Z 12.
+Definition person_3 : Address := addr_of_Z 13.
+Definition person_4 : Address := addr_of_Z 14.
+Definition person_5 : Address := addr_of_Z 15.
+Definition contract_base_addr : Address := addr_of_N (@ContractAddrBase AddrSize).
+
+Definition test_chain_addrs_3 := [person_1; person_2; person_3].
+Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].
+
+Definition empty_chain := lcb_initial AddrSize.
+Definition get_contracts (chain : LocalChainBuilder AddrSize ) := lc_contracts (lcb_lc chain).
+
+Definition build_call {A : Type}
+                      {ser : Serializable A}
+                      (from to : Address)
+                      (amount : Amount)
+                      (msg : A) 
+                      : Action :=
+  build_act from from (act_call to amount (@serialize A ser msg)).
+Definition build_transfer (from to : Address)
+                          (amount : Amount)
+                          : Action :=
+  build_act from from (act_transfer to amount).
+Definition build_transfers (from : Address)
+                           (txs : list (Address * Amount))
+                           : list Action :=
+  map (fun '(to, amount) => build_transfer from to amount) txs.
+Definition build_deploy {Setup Msg State : Type}
+                        `{Serializable Setup}
+                        `{Serializable Msg}
+                        `{Serializable State}
+                        (from : Address)
+                        (amount : Amount)
+                        (contract : Contract Setup Msg State)
+                        (setup : Setup)
+                        : Action :=
+  build_act from from (create_deployment amount contract setup).
 
 (* Misc utility functions *)
 Open Scope list_scope.
 Open Scope string_scope.
-
-Definition zero_address : Address := BoundedN.of_Z_const AddrSize 0.
 
 Definition string_of_FMap {A B : Type}
                          `{countable.Countable A}
@@ -124,11 +148,12 @@ Fixpoint backtrack_result_fix {T E} (default : E) (fuel : nat) (gs : list (nat *
 Definition backtrack_result {T E} (default : E) (gs : list (nat * G (result T E))) : G (result T E) :=
   backtrack_result_fix default (length gs) gs.
 
+(* retrieves the previous and next state of a ChainStep *)
+Definition chainstep_states {prev_bstate next_bstate} (step : ChainStep prev_bstate next_bstate) :=
+  (prev_bstate, next_bstate).
 
 (* Utils for Show instances *)
 Open Scope string_scope.
-
-Definition sep : string := ", ".
 Derive Show for unit.
 
 Definition deserialize_to_string {ty : Type}
@@ -211,31 +236,70 @@ Definition sample2UniqueFMapOpt
     )
   ).
 
-(* Although the type is GOpt ...) it will never generate None values.
-   Perhaps this is where we should use generators with property proof relevance? Future work... *)
-Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
-  n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
-  returnGen (@decode_bounded bound (Pos.of_nat n)).
+Section AddressGenerators.
+  (* Although the type is GOpt ...) it will never generate None values.
+    Perhaps this is where we should use generators with property proof relevance? Future work... *)
+  Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
+    n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
+    returnGen (@decode_bounded bound (Pos.of_nat n)).
 
-Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
-  bn <- gBoundedNOpt AddrSize ;;
-  returnGen match bn with
-    | Some b => b
-    (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
-        n <= AddrSized. **)
-    | None => BoundedN.of_Z_const AddrSize 0
-  end.
+  Definition gBoundedN : G (BoundedN.BoundedN AddrSize) :=
+    bn <- gBoundedNOpt AddrSize ;;
+    returnGen match bn with
+      | Some b => b
+      (** The None case should never happen since 'arbitrarySized' on AddrSize already ensures that
+          n <= AddrSized. **)
+      | None => BoundedN.of_Z_const AddrSize 0
+    end.
 
-Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) :=
-  {|
-    arbitrary := gBoundedN
-  |}.
+  Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) := {|
+      arbitrary := gBoundedN
+    |}.
 
-Instance genAddress : Gen (@Address LocalChainBase) :=
-  {|
-    (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
-    arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
-  |}.
+  Global Instance genAddress : Gen (@Address LocalChainBase) := {|
+      (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
+      arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
+    |}.
+  
+  (* Generator that returns random addresses from the input list.
+     Returns [default] if the list is empty *)
+  Definition gAddress_ (default : Address) (addrs : list Address) : G Address :=
+    elems_ default addrs.
+
+  (* Generator that returns random addresses from the input list.
+     Returns [zero_address] if the list is empty *)
+  Definition gAddress (addrs : list Address) : G Address :=
+    gAddress_ zero_address addrs.
+  
+  (* Generator that returns random addresses from the [test_chain_addrs_3] *)
+  Definition gTestAddrs3 : G Address :=
+    gAddress test_chain_addrs_3.
+  
+  (* Generator that returns random addresses from the [test_chain_addrs_5] *)
+  Definition gTestAddrs5 : G Address :=
+    gAddress test_chain_addrs_5.
+  
+  (* Generator that returns random addresses in the user address space *)
+  Definition gUserAddress : GOpt Address :=
+    bindGen (choose (0, (@ContractAddrBase AddrSize)-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
+  
+  (* Generator that returns random addresses in the contract address space *)
+  Definition gContractAddress : GOpt Address :=
+    bindGen (choose ((@ContractAddrBase AddrSize), AddrSize-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
+  
+  (* Generator that returns random addresses from [addrs] that are not in [ws].
+     Returns [zero_address] if the are no such addresses *)
+  Definition gAddrWithout (ws addrs : list Address) :=
+    let addrs_ := filter (fun a => negb (existsb (address_eqb a) ws)) addrs in   
+    elems_ zero_address addrs_.
+  
+  (* Generator that returns unique pairs of addresses from [addrs] *)
+  Definition gUniqueAddrPair (addrs : list Address) : GOpt (Address * Address) :=
+    addr1 <- elems_opt addrs ;;
+    let addrs_ := filter (fun a => negb (address_eqb addr1 a)) addrs in   
+    addr2 <- elems_opt addrs_ ;;
+    returnGenSome (addr1, addr2).
+End AddressGenerators.
 
 (* Helper generator and show instance for arbitrary FMaps *)
 

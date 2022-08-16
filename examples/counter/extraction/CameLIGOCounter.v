@@ -11,7 +11,7 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -29,9 +29,7 @@ Module Counter.
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (ctx : ContractCallContext) (setup : Z * address) : option storage :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+  Definition init (setup : Z * address) : option storage := Some setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -87,14 +85,13 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point :=
-          CameLIGOPretty.printWrapper ("counter") "msg" "storage" ++ nl
-          ++ CameLIGOPretty.printMain "storage" |}.
+          CameLIGOPretty.printMain "counter" "msg" "storage" |}.
 
 End Counter.
 Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-  Definition TT_remap_counter : list (kername * string) :=
+  Definition TT_remap_counter : list (kername * String.string) :=
     [ remap <%% Z %%> "int"
     ; remap <%% Z.add %%> "addInt"
     ; remap <%% Z.sub %%> "subInt"
@@ -134,6 +131,6 @@ Section CounterExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
-  MetaCoq Run (tmMsg cameLIGO_counter_1).
+  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter_1)).
 
 End CounterExtraction.
