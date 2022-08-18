@@ -18,7 +18,7 @@ From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import Certifying.
 
 Open Scope nat.
-Import MonadNotation.
+Import MCMonadNotation.
 
 Section Eta.
   Definition ctors_info := list (inductive
@@ -84,17 +84,6 @@ Definition eta_const (kn : kername) (u : Instance.t) (args : list term) : term :
   | None => mkApps (tConst kn u) args
   end.
 
-Fixpoint eta_branch (ar : nat) (body : term) : term :=
-  match ar with
-  | 0 => body
-  | S ar =>
-    match body with
-    | tLambda na ty body => tLambda na ty (eta_branch ar body)
-    | _ => tLambda (mkBindAnn nAnon Relevant) hole (eta_branch ar (mkApp (lift0 1 body) (tRel 0)))
-    end
-  end.
-
-
 Definition get_ind_info (ind : inductive) : option ind_info :=
    match lookup_env Σ ind.(inductive_mind) with
       | Some (InductiveDecl mib) =>
@@ -123,9 +112,8 @@ Fixpoint eta_expand (t : term) : term :=
   | tEvar n ts => tEvar n (map eta_expand ts)
   | tLambda na ty body => tLambda na ty (eta_expand body)
   | tLetIn na val ty body => tLetIn na (eta_expand val) ty (eta_expand body)
-  | tCase p ty disc brs =>
-    let on_branch '(ar, t) := (ar, eta_branch ar (eta_expand t)) in
-    tCase p ty (eta_expand disc) (map on_branch brs)
+  | tCase p pr disc brs =>
+    tCase p pr (eta_expand disc) (map (map_branch eta_expand) brs)
   | tProj p t => tProj p (eta_expand t)
   | tFix def i => tFix (map (map_def id eta_expand) def) i
   | tCoFix def i => tCoFix (map (map_def id eta_expand) def) i
@@ -144,7 +132,7 @@ Fixpoint eta_expand (t : term) : term :=
 End Eta.
 
 Definition from_oib (ds : dearg_set) (kn : kername) (ind_index : nat) (oib : one_inductive_body) : ctors_info :=
-  let f i '(_, ty, c) :=
+  let f i '(Build_constructor_body _ _ _ ty _) :=
       let ind := mkInd kn ind_index in
       let mm := get_mib_masks ds.(ind_masks) kn in
       match mm with
@@ -156,7 +144,7 @@ Definition from_oib (ds : dearg_set) (kn : kername) (ind_index : nat) (oib : one
   fold_lefti (fun i acc c => match f i c with Some v => v :: acc| None => acc end)
              0  oib.(ind_ctors) [].
 
-Fixpoint get_eta_info (Σ : global_env) (ds : dearg_set) : ctors_info * constansts_info :=
+Fixpoint get_eta_info (Σ : global_declarations) (ds : dearg_set) : ctors_info * constansts_info :=
   match Σ with
   | (kn, InductiveDecl mib) :: Σ' =>
     let '(ctors, consts) := get_eta_info Σ' ds in
@@ -168,7 +156,7 @@ Fixpoint get_eta_info (Σ : global_env) (ds : dearg_set) : ctors_info * constans
   end.
 
 
-Definition restrict_env (Σ : global_env) (kns : list kername) : global_env :=
+Definition restrict_env (Σ : global_declarations) (kns : list kername) : global_declarations :=
   filter (fun '(kn, _) => match find (eq_kername kn) kns with
                        | Some _ => true
                        | None => false
@@ -180,24 +168,26 @@ Definition eta_global_env
            (Σ : global_env)
            (seeds : KernameSet.t)
            (erasure_ignore : kername -> bool) :=
+  let Σp := PCUICProgram.trans_env_env (TemplateToPCUIC.trans_global_env Σ) in
   let Σe :=
       erase_global_decls_deps_recursive
-        (TemplateToPCUIC.trans_global_decls Σ) (assume_env_wellformed _)
+        (PEnv.declarations Σp) (PEnv.universes Σp) (assume_env_wellformed _)
         seeds erasure_ignore in
   let (const_masks, ind_masks) := analyze_env overridden_masks Σe in
   let const_masks := (if trim_consts then trim_const_masks else id) const_masks in
   let ind_masks := (if trim_inds then trim_ind_masks else id) ind_masks in
   let f cb :=
       match cb.(cst_body) with
-      | Some b => let (ctors, consts) := get_eta_info Σ {| ind_masks := ind_masks;
+      | Some b => let (ctors, consts) := get_eta_info (declarations Σ) {| ind_masks := ind_masks;
                                                            const_masks := const_masks |} in
                   {| cst_type := cb.(cst_type);
                      cst_body := Some (eta_expand ctors consts Σ b);
-                     cst_universes := cb.(cst_universes) |}
+                     cst_universes := cb.(cst_universes);
+                     cst_relevance := cb.(cst_relevance)|}
       | None => cb
       end in
-  let Σ' := restrict_env Σ (map (fun '(kn, _, _) => kn) Σe) in
-  map_constants_global_env id f Σ'.
+  let Σ' := restrict_env (declarations Σ) (map (fun '(kn, _, _) => kn) Σe) in
+  map_constants_global_env id f {| universes := universes Σ; declarations := Σ' |}.
 
 Definition eta_global_env_template
            (overridden_masks : kername -> option bitmask)
@@ -208,7 +198,7 @@ Definition eta_global_env_template
   : TemplateMonad global_env :=
   let suffix := "_expanded" in
   Σext <- tmEval lazy (eta_global_env overridden_masks trim_consts trim_inds Σ seeds erasure_ignore);;
-  gen_defs_and_proofs Σ Σext mpath suffix seeds;;
+  gen_defs_and_proofs (declarations Σ) (declarations Σext) mpath suffix seeds;;
   ret Σext.
 
 (* Mainly for testing purposes *)
@@ -246,10 +236,6 @@ Module Examples.
     p bool tt true.
   End Ex1.
   MetaCoq Quote Recursively Definition p_app_pair_syn := Ex1.partial_app_pair.
-
-  Definition modpath_eq_dec (mp1 mp2 : modpath) : {mp1 = mp2} + {mp1 <> mp2}.
-    repeat decide equality.
-  Defined.
 
   Module Test1.
     MetaCoq Run (cur_mod <- tmCurrentModPath tt;;
@@ -313,7 +299,7 @@ Module Examples.
 
   Module Ex4.
     (* Partially applied constructor of a recursive inductive type *)
-    Definition papp_cons {A} (x : A) (xs : list A) := let my_cons := @cons in
+    Definition papp_cons A (x : A) (xs : list A) := let my_cons := @cons in
                                                       my_cons A x xs.
 
     MetaCoq Run (eta_expand_def (fun _ => None) false false papp_cons).
@@ -350,123 +336,4 @@ Module Examples.
     MetaCoq Run (eta_expand_def (fun _ => None) false false  papp_expr).
   End Ex5.
 
-  Module Ex_branches1.
-    Definition nat_cons (x : nat) (xs : list nat) := x :: xs.
-
-    (** A hand-crafted example with the second branch requiring expansion  *)
-    Definition match_ex1_syn :=
-      (tLambda
-       {|
-       binder_name := nNamed "xs";
-       binder_relevance := Relevant |}
-       (tApp
-          (tInd
-             {|
-             inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
-                               "list");
-             inductive_ind := 0 |} [])
-          [tInd
-             {|
-             inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
-                               "nat");
-             inductive_ind := 0 |} []])
-       (tCase
-          ({|
-           inductive_mind := (MPfile ["Datatypes"; "Init"; "Coq"],
-                             "list");
-           inductive_ind := 0 |}, 1, Relevant)
-          (tLambda
-             {|
-             binder_name := nNamed "xs";
-             binder_relevance := Relevant |}
-             (tApp
-                (tInd
-                   {|
-                   inductive_mind := (MPfile
-                                      ["Datatypes"; "Init"; "Coq"],
-                                     "list");
-                   inductive_ind := 0 |} [])
-                [tInd
-                   {|
-                   inductive_mind := (MPfile
-                                      ["Datatypes"; "Init"; "Coq"],
-                                     "nat");
-                   inductive_ind := 0 |} []])
-             (tApp
-                (tInd
-                   {|
-                   inductive_mind := (MPfile
-                                      ["Datatypes"; "Init"; "Coq"],
-                                     "list");
-                   inductive_ind := 0 |} [])
-                [tInd
-                   {|
-                   inductive_mind := (MPfile
-                                      ["Datatypes"; "Init"; "Coq"],
-                                     "nat");
-                   inductive_ind := 0 |} []]))
-          (tRel 0)
-          [(0,
-           tApp
-             (tConstruct
-                {|
-                inductive_mind := (MPfile
-                                     ["Datatypes"; "Init"; "Coq"],
-                                  "list");
-                inductive_ind := 0 |} 0 [])
-             [tInd
-                {|
-                inductive_mind := (MPfile
-                                     ["Datatypes"; "Init"; "Coq"],
-                                  "nat");
-                inductive_ind := 0 |} []]);
-          (2, tApp
-             (tConstruct
-                {|
-                inductive_mind := (MPfile
-                                     ["Datatypes"; "Init"; "Coq"],
-                                  "list");
-                inductive_ind := 0 |} 1 [])
-             [tInd
-                {|
-                inductive_mind := (MPfile
-                                     ["Datatypes"; "Init"; "Coq"],
-                                  "nat");
-                inductive_ind := 0 |} []])])).
-
-    MetaCoq Unquote Definition match_ex1 := match_ex1_syn.
-
-    MetaCoq Quote Recursively Definition match_ex1__ := match_ex1.
-    MetaCoq Run (eta_expand_def
-                   (fun _ => None)
-    (* We set the trimming of masks to true, so the procedure does't perform full expansion.
-       That way we can test the expansion of branches *)
-                   true true
-                   match_ex1).
-
-    MetaCoq Quote Definition match_ex1_expanded_syn := (unfolded ConCert_Extraction_CertifyingEta_Examples_Ex_branches1_match_ex1_expanded).
-
-    (* We just check that they are not syntactically different, nothing more thorough *)
-    Lemma match_ex1_syn_neq_expanded :
-      match_ex1_syn <> match_ex1_expanded_syn.
-    Proof. intro H. inversion H. Qed.
-
-  End Ex_branches1.
-
-  (** An example requiring branch expansion from the standard library *)
-  Module Ex_branches2.
-    Definition anchor := fun x : nat => x.
-    Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
-
-    MetaCoq Quote Definition sig_rect_syn := (unfolded sig_rect).
-
-    MetaCoq Run (eta_expand_def (fun _ => None) true true sig_rect).
-
-    MetaCoq Quote Definition sig_rect_expanded_syn := (unfolded Coq_Init_Specif_sig_rect_expanded).
-
-    Lemma sig_rec_syn_neq_expanded :
-      sig_rect_syn <> sig_rect_expanded_syn.
-    Proof. intros H. inversion H. Qed.
-
-  End Ex_branches2.
 End Examples.

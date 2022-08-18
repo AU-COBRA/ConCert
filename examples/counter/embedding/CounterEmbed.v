@@ -13,7 +13,7 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Utils Require Import Env.
 From MetaCoq.Template Require Import All.
 Import ListNotations.
-Import MonadNotation.
+Import MCMonadNotation.
 
 Module Counter.
   Import AcornBlockchain.
@@ -96,14 +96,14 @@ Module Counter.
 End Counter.
 
 (** A translation table for types*)
-Definition TTty : env string :=
+Definition TTty :=
   [(to_string_name <% address_coq %>, "address");
    (to_string_name <% time_coq %>, "timestamp");
    (to_string_name <% Z %>, "tez");
    (to_string_name <% nat %>, "nat")].
 
 (** A translation table for primitive binary operations *)
-Definition TT : env string :=
+Definition TT  :=
   [(to_string_name <% Z.add %>, "addTez")].
 
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)

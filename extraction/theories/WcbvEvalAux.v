@@ -1,11 +1,15 @@
 From ConCert.Utils Require Import Automation.
 From ConCert.Extraction Require Import ClosedAux.
 From Equations Require Import Equations.
+From MetaCoq.Template Require Import MCPrelude.
+From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Erasure Require Import ECSubst.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Erasure Require Import EWcbvEval.
+From MetaCoq.Erasure Require Import EOptimizePropDiscr.
+From MetaCoq.Template Require Import utils.
 
 Set Equations Transparent.
 
@@ -77,6 +81,10 @@ Proof.
   - rewrite (eval_deterministic ev_hd ev_app1) in *.
     now eapply eval_fix_value.
   - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_fix'.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
+    now eapply eval_construct.
+  - rewrite (eval_deterministic ev_hd ev_app1) in *.
     now eapply eval_app_cong.
   - easy.
 Qed.
@@ -112,6 +120,10 @@ Proof.
     solve_discr.
   - apply eval_tLambda_inv in ev1.
     solve_discr.
+  - apply eval_tLambda_inv in ev1.
+    inversion ev1.
+  - apply eval_tLambda_inv in ev1.
+    solve_discr.
   - now apply eval_tLambda_inv in ev1 as ->.
   - easy.
 Qed.
@@ -139,22 +151,22 @@ Proof.
 Qed.
 
 Lemma lookup_env_find Σ kn :
-  ETyping.lookup_env Σ kn =
-  option_map snd (find (fun '(kn', _) => if kername_eq_dec kn kn' then true else false) Σ).
+  EGlobalEnv.lookup_env Σ kn =
+  option_map snd (find (fun '(kn', _) => if eqb kn kn' then true else false) Σ).
 Proof.
   induction Σ as [|(kn' & decl) Σ IH]; [easy|].
   cbn.
-  now destruct (kername_eq_dec kn kn').
+  now destruct (kn == kn');subst.
 Qed.
 
 Lemma closed_constant Σ kn cst body :
   env_closed Σ ->
-  ETyping.declared_constant Σ kn cst ->
+  EGlobalEnv.declared_constant Σ kn cst ->
   EAst.cst_body cst = Some body ->
   closed body.
 Proof.
   intros env_clos decl_const body_eq.
-  unfold ETyping.declared_constant in decl_const.
+  unfold EGlobalEnv.declared_constant in decl_const.
   rewrite lookup_env_find in decl_const.
   destruct (find _ _) eqn:find; [|easy].
   apply find_some in find.
@@ -168,18 +180,18 @@ Qed.
 
 Lemma closed_unfold_fix mfix idx narg fn :
   closed (tFix mfix idx) ->
-  ETyping.unfold_fix mfix idx = Some (narg, fn) ->
+  EGlobalEnv.unfold_fix mfix idx = Some (narg, fn) ->
   closed fn.
 Proof.
   cbn.
   intros clos_fix fix_eq.
   rewrite Nat.add_0_r in *.
-  unfold ETyping.unfold_fix in *.
+  unfold EGlobalEnv.unfold_fix in *.
   destruct (nth_error mfix idx) eqn:Heq; [|easy].
   noconf fix_eq.
   eapply closedn_subst0.
   - clear Heq.
-    unfold ETyping.fix_subst.
+    unfold EGlobalEnv.fix_subst.
     generalize #|mfix|.
     induction n as [|n IH]; [easy|].
     constructor.
@@ -189,23 +201,23 @@ Proof.
   - apply nth_error_In in Heq.
     apply forallb_Forall in clos_fix.
     rewrite Forall_forall in clos_fix.
-    now rewrite ETyping.fix_subst_length.
+    now rewrite EGlobalEnv.fix_subst_length.
 Qed.
 
 Lemma closed_unfold_cofix mfix idx narg fn :
   closed (tFix mfix idx) ->
-  ETyping.unfold_cofix mfix idx = Some (narg, fn) ->
+  EGlobalEnv.unfold_cofix mfix idx = Some (narg, fn) ->
   closed fn.
 Proof.
   cbn.
   intros clos_fix fix_eq.
   rewrite Nat.add_0_r in *.
-  unfold ETyping.unfold_cofix in *.
+  unfold EGlobalEnv.unfold_cofix in *.
   destruct (nth_error mfix idx) eqn:Heq; [|easy].
   noconf fix_eq.
   eapply closedn_subst0.
   - clear Heq.
-    unfold ETyping.cofix_subst.
+    unfold EGlobalEnv.cofix_subst.
     generalize #|mfix|.
     induction n as [|n IH]; [easy|].
     constructor.
@@ -215,7 +227,7 @@ Proof.
   - apply nth_error_In in Heq.
     apply forallb_Forall in clos_fix.
     rewrite Forall_forall in clos_fix.
-    now rewrite ETyping.cofix_subst_length.
+    now rewrite EGlobalEnv.cofix_subst_length.
 Qed.
 
 Lemma all_closed Σ args args' :
@@ -231,22 +243,23 @@ Proof.
   easy.
 Qed.
 
-Lemma closed_iota_red pars c args brs :
+Lemma closed_iota_red pars args br :
   Forall (fun a => closed a) args ->
-  Forall (fun t => closed t.2) brs ->
-  closed (ETyping.iota_red pars c args brs).
+  closedn #|skipn pars args| br.2 ->
+  closed (EGlobalEnv.iota_red pars args br).
 Proof.
   intros clos_args clos_brs.
-  unfold ETyping.iota_red.
-  apply closed_mkApps.
-  - rewrite nth_nth_error.
-    destruct (nth_error _ _) eqn:nth; [|easy].
-    now eapply nth_error_forall in nth; [|eassumption].
-  - now apply Forall_skipn.
+  unfold EGlobalEnv.iota_red.
+  apply closed_substl.
+  - apply forallb_Forall.
+    apply Forall_rev.
+    now apply Forall_skipn.
+  - rewrite Nat.add_0_r.
+    rewrite List.rev_length;auto.
 Qed.
 
 Lemma closed_cunfold_fix defs n narg f :
-  cunfold_fix defs n = Some (narg, f) ->
+  EGlobalEnv.cunfold_fix defs n = Some (narg, f) ->
   closed (tFix defs n) ->
   closed f.
 Proof.
@@ -256,7 +269,7 @@ Proof.
 Qed.
 
 Lemma closed_cunfold_cofix defs n narg f :
-  cunfold_cofix defs n = Some (narg, f) ->
+  EGlobalEnv.cunfold_cofix defs n = Some (narg, f) ->
   closed (tCoFix defs n) ->
   closed f.
 Proof.
@@ -265,87 +278,36 @@ Proof.
   now eapply closed_unfold_cofix.
 Qed.
 
-Lemma eval_closed Σ t v :
-  Σ e⊢ t ▷ v ->
-  env_closed Σ ->
-  closed t ->
-  closed v.
-Proof.
-  intros ev env_clos clos.
-  induction ev; cbn in *; propify.
-  - easy.
-  - apply IHev3.
-    now apply closed_csubst.
-  - apply IHev2.
-    now apply closed_csubst.
-  - apply IHev2.
-    apply closed_iota_red.
-    + now eapply closed_mkApps_args.
-    + now apply forallb_Forall.
-  - subst brs.
-    cbn in *.
-    propify.
-    apply IHev2.
-    apply closed_mkApps; [easy|].
-    clear.
-    induction n; [constructor|].
-    constructor; easy.
-  - apply IHev3.
-    split; [|easy].
-    destruct clos as (clos & _).
-    specialize (IHev1 clos).
-    apply closed_mkApps_inv in IHev1 as (? & ?).
-    apply closed_mkApps; [|easy].
-    now eapply closed_cunfold_fix.
-  - easy.
-  - apply IHev.
-    split; [|easy].
-    destruct clos as (clos & _).
-    apply closed_mkApps_inv in clos.
-    cbn in *.
-    apply closed_mkApps; [|easy].
-    now eapply closed_cunfold_cofix.
-  - apply IHev.
-    apply closed_mkApps_inv in clos.
-    apply closed_mkApps; [|easy].
-    now eapply closed_cunfold_cofix.
-  - apply IHev.
-    now eapply closed_constant.
-  - apply IHev2.
-    apply closed_mkApps_args in IHev1; [|easy].
-    rewrite nth_nth_error in *.
-    destruct (nth_error _ _) eqn:nth_eq.
-    + apply nth_error_In in nth_eq.
-      rewrite Forall_forall in IHev1.
-      now apply IHev1.
-    + easy.
-  - easy.
-  - easy.
-  - easy.
-Qed.
 
 Fixpoint deriv_length {Σ t v} (ev : Σ e⊢ t ▷ v) : nat :=
   match ev with
   | eval_atom _ _ => 1
-  | red_cofix_case _ _ _ _ _ _ _ _ _ ev
-  | red_cofix_proj _ _ _ _ _ _ _ _ ev
   | eval_delta _ _ _ _ _ _ ev
-  | eval_proj_prop _ _ _ _ _ ev _ => S (deriv_length ev)
+  | eval_proj_prop _ _ _ ev _ => S (deriv_length ev)
+  | eval_cofix_proj _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_box _ _ _ ev1 ev2
   | eval_zeta _ _ _ _ _ ev1 ev2
-  | eval_iota _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_iota_block _ _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2
+  | eval_iota _ _ _ _ _ _ _ _ _ _ ev1 _ _ _ _ ev2
   | eval_iota_sing _ _ _ _ _ _ _ _ ev1 _ _ ev2
-  | eval_fix_value _ _ _ _ _ _ _ _ ev1 ev2 _ _
-  | eval_proj _ _ _ _ _ _ ev1 _ ev2
+  | eval_fix_value _ _ _ _ _ _ _ _ _ ev1 ev2 _ _
+  | eval_cofix_case _ _ _ _ _ _ _ _ _ ev1 _ ev2
+  | eval_proj _ _ _ _ _ _ _ ev1 _ _ _ ev2
+  | eval_proj_block _ _ _ _ _ _ _ ev1 _ _ _ ev2
+  | eval_construct _ _ _ _ _ _ _ _ _ _ _ ev1 _ ev2
   | eval_app_cong _ _ _ _ ev1 _ ev2 => S (deriv_length ev1 + deriv_length ev2)
   | eval_beta _ _ _ _ _ _ ev1 ev2 ev3
-  | eval_fix _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
-    S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
+  | eval_fix' _ _ _ _ _ _ _ _ _ ev1 _ ev2 ev3
+  | eval_fix _ _ _ _ _ _ _ _ _ ev1 ev2 _ ev3 =>
+      S (deriv_length ev1 + deriv_length ev2 + deriv_length ev3)
+  | eval_construct_block _ _ _ _ _ args _ _ _ _ _ _ _ _ => S #|args|
   end.
 
 Lemma deriv_length_min {Σ t v} (ev : Σ e⊢ t ▷ v) :
   1 <= deriv_length ev.
-Proof. destruct ev; cbn in *; lia. Qed.
+Proof.
+  destruct ev; cbn in *;lia.
+Qed.
 
 Lemma eval_tApp_deriv {Σ hd arg v} (ev : Σ e⊢ tApp hd arg ▷ v) :
   ∑ hdv (ev_hd : Σ e⊢ hd ▷ hdv) argv (ev_arg : Σ e⊢ arg ▷ argv),
@@ -479,6 +441,12 @@ Proof.
     cbn; lia.
   - pose proof (eval_unique_sig ev_hd ev_app1) as H; noconf H.
     unshelve eexists _; [now eapply eval_fix_value|].
+    cbn; lia.
+  - pose proof (eval_unique_sig ev_hd ev_app1) as H; noconf H.
+    unshelve eexists _; [now eapply eval_fix'|].
+    cbn; lia.
+  - pose proof (eval_unique_sig ev_hd ev_app1) as H; noconf H.
+    unshelve eexists _; [now eapply eval_construct|].
     cbn; lia.
   - pose proof (eval_unique_sig ev_hd ev_app1) as H; noconf H.
     unshelve eexists _; [now eapply eval_app_cong|].

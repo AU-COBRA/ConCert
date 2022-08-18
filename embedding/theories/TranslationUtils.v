@@ -2,15 +2,18 @@ From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Utils Require Import Env.
+From MetaCoq.Template Require Import All.
+
 From Coq Require Import String.
 From Coq Require Import Basics.
 From Coq Require Import List.
-Import ListNotations.
-From MetaCoq.Template Require Import All.
 
-Import MonadNotation.
+
+Import MCMonadNotation.
 
 Import ListNotations.
+
+Module TCString := bytestring.String.
 
 Open Scope string.
 
@@ -100,22 +103,23 @@ Fixpoint build_prefix_table (e : expr) (deps : env string) (p : string) : env st
 Definition prefixes (defs : list (string × expr)) (deps : env string) (p : string)
   := nodup dec_pair_string (concat (map (fun def => build_prefix_table def.2 deps p) defs)).
 
-Definition stdlib_prefixes :=
+Definition stdlib_prefixes : env string :=
   fold_left
     (fun l gd => match gd with
-              | gdInd ty_name _ _ _ => let (mp,nm) := kername_of_string ty_name
-                                      in (nm, (PCUICTranslate.string_of_modpath mp  ++ "@")%string) :: l
+              | gdInd ty_name _ _ _ =>
+                  let (mp,nm) := kername_of_string ty_name
+                  in ( TCString.to_string nm, (PCUICTranslate.string_of_modpath mp  ++ "@")%string) :: l
               end) StdLib.Σ [].
 
 (** We translate and unquote a list of data type declarations in the TemplateMonad *)
-Fixpoint translateData_ (ps : env string) (es : list global_dec) :=
+Fixpoint translateData_ (ps : env string) (es : list global_dec) : TemplateMonad unit :=
   match es with
   | [] => tmPrint "Done."
   | e :: es' =>
     let e' := add_prefix_gd e ps in
-    coq_data <- tmEval all (global_to_tc e') ;;
+    coq_data <- tmEval lazy (global_to_tc e') ;;
     (* tmPrint coq_data *)
-    tmMkInductive coq_data;;
+    tmMkInductive false coq_data;;
     translateData_ ps es'
   end.
 
@@ -124,7 +128,7 @@ Definition translateData (deps : env string) (es : list global_dec) :=
   mp_ <- tmCurrentModPath tt ;;
   let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
   let ps := prefixes_gds es (stdlib_prefixes ++ deps) mp in
- (* NOTE: it is important that we first put [stdlib_prefixes] otherweise they might be shadowed by some definitions from [ps] *)
+ (* NOTE: it is important that we first put [stdlib_prefixes] otherwise they might be shadowed by some definitions from [ps] *)
   translateData_ (stdlib_prefixes ++ deps ++ ps) es.
 
 
@@ -137,7 +141,7 @@ Fixpoint translateDefs_ (ps : env string) (Σ : Ast.global_env) (es : list (stri
                       (expr_to_tc Σ (reindexify 0 (add_prefix e ps))) ;;
     (* tmPrint coq_expr;; *)
     print_nf ((add_prefix e ps));;
-    tmMkDefinition name coq_expr;;
+    tmMkDefinition (TCString.of_string name) coq_expr;;
     print_nf ("Unquoted: " ++ name)% string;;
     translateDefs_ ps Σ es'
   end.
@@ -146,8 +150,8 @@ Definition translateDefs (deps : env string) (Σ : Ast.global_env) (es : list (s
   mp_ <- tmCurrentModPath tt ;;
   let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
   let ps := prefixes es deps mp in
-  print_nf ("Exported definitions: " ++ String.concat ", " (map fst ps))%string;;
-  tmDefinition "exported" ps ;;
+  print_nf ("Exported definitions: " ++ Strings.String.concat ", " (map fst ps))%string;;
+  tmDefinition "exported"%bs ps ;;
   (* NOTE: it is important that we first put [stdlib_prefixes] otherweise they might be shadowed by some definitions from [ps] *)
   let Σ := (StdLib.Σ ++ add_prefix_genv Σ (stdlib_prefixes ++ deps ++ ps))%list in
   translateDefs_ (stdlib_prefixes ++ deps ++ ps) Σ es.
@@ -155,4 +159,4 @@ Definition translateDefs (deps : env string) (Σ : Ast.global_env) (es : list (s
 Definition define_mod_prefix :=
   mp_ <- tmCurrentModPath tt ;;
   let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-  tmDefinition "mod_prefix" mp.
+  tmDefinition "mod_prefix"%bs mp.

@@ -1,36 +1,42 @@
+From MetaCoq.Template Require Import utils.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import WcbvEvalAux.
 
+Import MCString.
+Import MCMonadNotation.
+
 Definition Transform (A : Type) := A -> result A string.
 
-Definition TemplateTransform := Transform Ast.global_env.
+Definition TemplateTransform := Transform Ast.Env.global_env.
 
 Definition ExtractTransform := Transform ExAst.global_env.
 
-Definition ExtractTransformCorrect (transform : ExtractTransform) : Type :=
-  forall Σ Σopt kn ind c (wf := EWcbvEval.opt_wcbv_flags),
+Definition ExtractTransformCorrect `{wcbvf : EWcbvEval.WcbvFlags} (transform : ExtractTransform) : Type :=
+  forall Σ Σopt kn ind c,
+    EWcbvEval.with_constructor_as_block = false ->
     transform Σ = Ok Σopt ->
-    trans_env Σ e⊢ tConst kn ▷ tConstruct ind c ->
-    trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c.
+    trans_env Σ e⊢ tConst kn ▷ tConstruct ind c [] ->
+    trans_env Σopt e⊢ tConst kn ▷ tConstruct ind c [].
 
-Definition CorrectExtractTransform := ∑ t, ExtractTransformCorrect t.
+Definition CorrectExtractTransform `{EWcbvEval.WcbvFlags} := ∑ t, ExtractTransformCorrect t.
 
 Fixpoint compose_transforms {A : Type} (transforms : list (Transform A)) : Transform A :=
   match transforms with
   | [] => Ok
   | t :: transforms =>
     fun Σ : A =>
-      Σopt <- t Σ;;
-      compose_transforms transforms Σopt
+      match t Σ with
+      | Ok Σopt => compose_transforms transforms Σopt
+      | Err e => Err e
+      end
   end.
 
-Lemma compose_transforms_correct transforms :
+Lemma compose_transforms_correct `{EWcbvEval.WcbvFlags} transforms :
   All ExtractTransformCorrect transforms ->
   ExtractTransformCorrect (compose_transforms transforms).
 Proof.
-  intros all Σ Σopt kn ind c wf success ev.
-  subst wf.
+  intros all. intros Σ Σopt kn ind c ? success ev.
   induction all in Σ, success, ev |- *; cbn in *.
   - now injection success as ->.
   - destruct x eqn:teq; [|congruence].

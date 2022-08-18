@@ -14,7 +14,7 @@ From ConCert.Extraction Require Import Certifying.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Section inlining.
   Context (should_inline : kername -> bool).
@@ -29,7 +29,7 @@ Section inlining.
         (* Often the first beta will expose an iota (record projection),
                and the projected field is often a function, so we do another beta *)
         let (hd, args) := decompose_app (beta_body body args) in
-        beta_body (iota_body hd) args
+        beta_body (iota_body Σ hd) args
       | None => tApp const args
       end
     | _ => tApp const args
@@ -42,19 +42,19 @@ Section inlining.
       (* NOTE: removing casts leads to producing more definitions at the proof
          generation phase, even for the cases when there isn't anything to
          inline, because the structure of the term has changed.
-         We cannot determine at this point if we should inline something or
-         nothing at all, since [should_inline] is a function*)
+         We cannot determine at this point whether we should inline something or
+         nothing at all, since [should_inline] is a function *)
       inline_aux args t0
     | tConst kn u =>
       if should_inline kn then
         match lookup_env Σ kn with
         | Some (ConstantDecl cst) =>
           match cst_body cst with
-          | Some body (* once told me *) =>
+          | Some body =>
             let (hd, args) := decompose_app (beta_body body args) in
           (* NOTE: Often the first beta will expose an iota (record projection),
              and the projected field is often a function, so we do another beta *)
-            let res := beta_body (iota_body hd) args in
+            let res := beta_body (iota_body Σ hd) args in
           (* NOTE: after we beta-reduced the function coming from projection,
              it might intorduce new redexes. This is often the case when using
              option monads. Therefore, we do a pass that find the redexes and
@@ -74,15 +74,19 @@ Section inlining.
   Definition inline_in_constant_body cst :=
     {| cst_type := inline (cst_type cst);
        cst_universes := cst_universes cst;
-       cst_body := option_map inline (cst_body cst) |}.
+       cst_body := option_map inline (cst_body cst);
+       cst_relevance := cst.(cst_relevance) |}.
 
-  Definition inline_oib (oib : one_inductive_body) :=
+  Definition inline_oib (npars arities : nat) (oib : one_inductive_body) :=
     {| ind_name := oib.(ind_name);
+       ind_indices := oib.(ind_indices);
+       ind_sort := oib.(ind_sort);
        ind_type := inline oib.(ind_type);
        ind_kelim := oib.(ind_kelim);
-       ind_ctors := map (fun '(c_nm,c_ty,i) => (c_nm, inline c_ty,i)) oib.(ind_ctors);
-       ind_projs := map (fun '(p_nm, p_ty) => (p_nm, inline p_ty)) oib.(ind_projs);
-       ind_relevance := oib.(ind_relevance) |}.
+       ind_ctors := map (map_constructor_body npars arities (fun _ => inline )) oib.(ind_ctors);
+      ind_projs := map (fun '(Build_projection_body p_nm p_rel p_ty) =>
+                          Build_projection_body p_nm p_rel (inline p_ty)) oib.(ind_projs);
+      ind_relevance := oib.(ind_relevance) |}.
 
   Definition inline_context_decl (cd : context_decl) : context_decl :=
     {| decl_name := cd.(decl_name);
@@ -97,7 +101,10 @@ Section inlining.
         {| ind_finite := mib.(ind_finite);
            ind_npars := mib.(ind_npars);
            ind_params :=map inline_context_decl mib.(ind_params);
-           ind_bodies := map inline_oib mib.(ind_bodies);
+           ind_bodies :=
+             let arities := #|arities_context mib.(ind_bodies)| in
+             let npars := (context_assumptions mib.(ind_params)) in
+             map (inline_oib npars arities) mib.(ind_bodies);
            ind_universes := mib.(ind_universes);
            ind_variance := mib.(ind_variance) |}
     end.
@@ -105,22 +112,38 @@ Section inlining.
 End inlining.
 
 
-Definition inline_in_env (should_inline : kername -> bool) (Σ : global_env) : global_env:=
+(* Definition inline_in_decls (should_inline : kername -> bool) (Σ : global_declarations) : global_env:= *)
+(*   let newΣ := *)
+(*     fold_right (fun '(kn, decl) decls => *)
+(*                   let Σ0 := {| universes := Σ.(universes); *)
+(*                                declarations := decls |} in *)
+(*                   (kn, inline_in_decl should_inline Σ0 decl) :: decls) []) Σ in *)
+(*   map_global_env_decls (filter (fun '(kn, _) => negb (should_inline kn))) newΣ. *)
+
+
+
+Definition inline_globals (should_inline : kername -> bool) (Σ : global_declarations) : global_declarations :=
   let newΣ :=
-      fold_right (fun '(kn, decl) Σ => (kn, inline_in_decl should_inline Σ decl) :: Σ) [] Σ in
+    fold_right (fun '(kn, decl) decls =>
+                  (* Universes play no role in inlining, but carrying
+                     universes is expensive if the set is big. However, all
+                     the lookup functions take [global_env]. *)
+                  let Σ0 := {| universes := ContextSet.empty;
+                              declarations := decls |} in
+                  (kn, inline_in_decl should_inline Σ0 decl) :: decls) [] Σ in
   filter (fun '(kn, _) => negb (should_inline kn)) newΣ.
 
 
-Definition inline_global_env_template
+Definition inline_globals_template
            (mpath : modpath)
-           (Σ : global_env)
+           (Σ : global_declarations)
            (should_inline : kername -> bool)
            (seeds : KernameSet.t)
-  : TemplateMonad global_env :=
+  : TemplateMonad global_declarations :=
   let suffix := "_after_inlining" in
-  Σinlined <- tmEval lazy (inline_in_env should_inline Σ);;
-  gen_defs_and_proofs Σ Σinlined mpath suffix seeds;;
-  ret Σinlined.
+  decls_inlined <- tmEval lazy (inline_globals should_inline Σ);;
+  gen_defs_and_proofs Σ decls_inlined mpath suffix seeds;;
+  ret decls_inlined.
 
 (* Mainly for testing purposes *)
 Definition inline_def {A}
@@ -129,11 +152,11 @@ Definition inline_def {A}
   mpath <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
   kn <- Common.extract_def_name def ;;
-  inline_global_env_template mpath p.1 should_inline (KernameSet.singleton kn).
+  inline_globals_template mpath (declarations p.1) should_inline (KernameSet.singleton kn).
 
 
 Definition template_inline (should_inline : kername -> bool): TemplateTransform :=
-  fun Σ => Ok (timed "Inlining" (fun _ => inline_in_env should_inline Σ)).
+  fun Σ => Ok (timed "Inlining" (fun _ => (Build_global_env (universes Σ) (inline_globals should_inline (declarations Σ))))).
 
 Module Tests.
 
@@ -147,7 +170,7 @@ Module Tests.
     MetaCoq Run (env <- inline_def (fun kn => eq_kername <%% foo %%> kn
                                           ||  eq_kername <%% bar %%> kn)
                                   baz ;;
-                 t <- tmEval lazy (map (Basics.compose snd fst) env);;
+                 t <- tmEval lazy (map fst env);;
                  tmPrint t).
   End Ex1.
 

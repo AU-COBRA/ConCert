@@ -18,17 +18,19 @@ From ConCert.Utils Require Import StringExtra.
 
 Local Open Scope string_scope.
 
+Notation s_to_bs := bytestring.String.of_string.
+
 (** Printing configuration *)
 
 (** We print long names for data types and constructors to avoid clashes, but keep constants' names short (no module name added) *)
 Instance dexter2_print_config : CameLIGOPrintConfig :=
   {| print_ctor_name := PrintConfAddModuleNames.print_ctor_name_;
      print_type_name := PrintConfAddModuleNames.print_ind_type_name_;
-     print_const_name := snd |}.
+     print_const_name := (fun x => bs_to_s (snd x)) |}.
 
 (** * Common extraction setup *)
 
-Definition call_to_token_ligo : string :=
+Definition call_to_token_ligo : String.string :=
   <$ "let call_to_token (type msg) (addr : address) (amt : nat) (msg : msg) : operation =" ;
      "  let token_ : msg contract =";
      "  match (Tezos.get_contract_opt (addr) : msg contract option) with";
@@ -36,35 +38,35 @@ Definition call_to_token_ligo : string :=
      "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
-Definition mk_callback_ligo : string :=
+Definition mk_callback_ligo : String.string :=
   "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
 (** Next two definition are borrowed from the actual Dexter 2 implementation
      https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo *)
-Definition natural_to_mutez_ligo : string :=
+Definition natural_to_mutez_ligo : String.string :=
   "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
 
-Definition mutez_to_natural_ligo : string :=
+Definition mutez_to_natural_ligo : String.string :=
   "[@inline] let mutez_to_natural (a: tez): nat = a / 1mutez".
 
 (** We change the signature of the original definition slightly, so it takes a [nat] and converts
     in to [tez]. We also return [operation option] instead of failing *)
-Definition xtz_transfer_ligo : string :=
+Definition xtz_transfer_ligo : String.string :=
   <$ "let xtz_transfer (to_ : address) (amount_ : nat) : operation option =";
      "  match (Tezos.get_contract_opt to_ : unit contract option) with";
      "    | None -> None";
      "    | Some c -> Some (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
 
-Definition subNatTruncated_ligo : string :=
+Definition subNatTruncated_ligo : String.string :=
   "let subNTruncated (n : nat) (m : nat) : nat = if n < m then 0n else abs (n-m)".
 
-Definition edivNatTrancated_ligo : string :=
+Definition edivNatTrancated_ligo : String.string :=
   "let edivTruncated (a : nat) (b : nat) = match ediv a b with Some v -> v | None -> (0n,0n)".
 
 (** Remapping arithmetic operations. *)
 (** We override the default remappings of aritmetic operations since it remaps [Z] to
     [tez], and [N] to [int], which is not sutable for our purposes. *)
-Definition TT_remap_arith : list (kername * string) :=
+Definition TT_remap_arith : list (kername * String.string) :=
 [   remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"
 
@@ -91,7 +93,7 @@ Definition TT_remap_arith : list (kername * string) :=
 ].
 
 (** Remapping key-value maps *)
-Definition TT_remap_dexter2 : list (kername * string) :=
+Definition TT_remap_dexter2 : list (kername * String.string) :=
    [
     remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
   ; remap <%% @FMap %%> "map"
@@ -228,11 +230,9 @@ Module Dexter2LqtExtraction.
 
   Time Definition cameLIGO_dexter2lqt := Eval vm_compute in cameLIGO_dexter2lqt_prepared.
 
-  MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
-
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2fa12.mligo"
-           MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
+           MetaCoq Run (tmMsg (s_to_bs cameLIGO_dexter2lqt)).
 
   End D2LqtE.
 End Dexter2LqtExtraction.
@@ -348,11 +348,9 @@ Section D2E.
 
   Time Definition cameLIGO_dexter2 := Eval vm_compute in cameLIGO_dexter2_prepared.
 
-  MetaCoq Run (tmMsg cameLIGO_dexter2).
-
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
-           MetaCoq Run (tmMsg cameLIGO_dexter2).
+           MetaCoq Run (tmMsg (s_to_bs cameLIGO_dexter2)).
 
 End D2E.
 End Dexter2Extraction.

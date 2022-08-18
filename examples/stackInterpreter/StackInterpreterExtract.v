@@ -1,6 +1,5 @@
 (** * Extraction of an interpreter for a stack based DSL **)
 From MetaCoq.Template Require Import All.
-From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require LPretty.
@@ -14,11 +13,12 @@ From Coq Require Import Notations.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 Local Open Scope string_scope.
-Import MonadNotation.
+Import MCMonadNotation.
 
 Definition map_key_type := (string * Z).
 Definition action := ActionBody.
 
+(* TODO: use the interpreter defined in StackInterpreter.v to avoid duplication. *)
 Module Interpreter.
 
   Inductive op : Set :=  Add | Sub | Mult | Lt | Le | Equal.
@@ -302,15 +302,15 @@ Module LiquidityInterp.
 
   Time MetaCoq Run
        (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
-        tmDefinition INTERP_MODULE.(lmd_module_name) t
+        tmDefinition (String.of_string INTERP_MODULE.(lmd_module_name)) t
        ).
 
   (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
-  MetaCoq Run (tmMsg liquidity_interp).
+  MetaCoq Run (tmMsg (String.of_string liquidity_interp)).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/StackInterpreter.liq"
-  MetaCoq Run (tmMsg liquidity_interp).
+  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/StackInterpreter.liq" *)
+  MetaCoq Run (tmMsg (String.of_string liquidity_interp)).
 
 End LiquidityInterp.
 
@@ -383,9 +383,9 @@ Module CameLIGOInterp.
 
     Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
-    MetaCoq Run (tmMsg cameligo_interp).
+    MetaCoq Run (tmMsg (String.of_string cameligo_interp)).
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
     Redirect "../extraction/tests/extracted-code/cameligo-extract/StackInterpreter.mligo"
-    MetaCoq Run (tmMsg cameligo_interp).
+    MetaCoq Run (tmMsg (String.of_string cameligo_interp)).
 
 End CameLIGOInterp.

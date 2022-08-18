@@ -1,10 +1,16 @@
-From ConCert.Extraction Require Import ResultMonad.
-From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.SafeChecker Require Import PCUICErrors.
+From Coq Require Import List.
 From Coq Require Import Ascii.
 From Coq Require Import String.
+From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.SafeChecker Require Import PCUICErrors.
+From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import Common.
 
+Import monad_utils.MCMonadNotation.
+Import ListNotations.
 Local Open Scope string.
+
+Import Kernames.
 
 Record PrettyPrinterState :=
   {
@@ -13,6 +19,11 @@ Record PrettyPrinterState :=
     output_lines : list (nat * string);
     cur_output_line : nat * string;
   }.
+
+Notation bs_to_s := bytestring.String.to_string.
+Notation s_to_bs := bytestring.String.of_string.
+
+Local Coercion bs_to_s : bytestring.string >-> string.
 
 Definition PrettyPrinter A := PrettyPrinterState -> result (A * PrettyPrinterState) string.
 
@@ -41,9 +52,11 @@ Fixpoint prefix_spaces n s :=
   end.
 
 Definition collect_output_lines pps :=
-  rev_map (fun '(n, l) => prefix_spaces n l) (cur_output_line pps :: output_lines pps).
+  MCList.rev_map (fun '(n, l) => prefix_spaces n l) (cur_output_line pps :: output_lines pps).
 
-Definition finish_print_lines {A} (pp : PrettyPrinter A) : result (A * list string) string :=
+Definition result_string_err A := result A string.
+
+Definition finish_print_lines {A} (pp : PrettyPrinter A) : result_string_err (A * list string) :=
   '(a, pps) <- pp {| indent_stack := [];
                      used_names := [];
                      output_lines := [];
@@ -82,16 +95,16 @@ Definition push_use (n : ident) : PrettyPrinter unit :=
   map_used_names (cons n).
 
 Definition pop_use : PrettyPrinter unit :=
-  map_used_names (@tl string).
+  map_used_names (@tl _).
 
 Definition get_current_line_length : PrettyPrinter nat :=
-  fun pps => Ok ((cur_output_line pps).1 + String.length (cur_output_line pps).2, pps).
+  fun pps => Ok ((fst (cur_output_line pps)) + String.length (snd (cur_output_line pps)), pps).
 
 Definition map_cur_output_line (f : nat * string -> nat * string) : PrettyPrinter unit :=
   map_pps id id id f.
 
 Definition append (s : string) : PrettyPrinter unit :=
-  map_cur_output_line (fun '(n, prev) => (n, prev ^ s)).
+  map_cur_output_line (fun '(n, prev) => (n, prev ++ s)).
 
 Definition append_nl : PrettyPrinter unit :=
   fun pps =>
@@ -120,13 +133,13 @@ Definition append_concat (xs : list string) : PrettyPrinter unit :=
 Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter ident :=
   used <- get_used_names;;
   let used := (extra_used ++ used)%list in
-  if existsb (String.eqb name) used then
+  if existsb (bytestring.String.eqb name) used then
     (fix f n i :=
        match n with
-       | 0 => ret "unreachable"
+       | 0 => ret (s_to_bs "unreachable")
        | S n =>
-         let numbered_name := (name ++ string_of_nat i)%string in
-         if existsb (String.eqb numbered_name) used then
+         let numbered_name := bytestring.String.append name (MCString.string_of_nat i) in
+         if existsb (bytestring.String.eqb numbered_name) used then
            f n (S i)
          else
            ret numbered_name
@@ -137,23 +150,23 @@ Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter i
 Definition string_of_env_error Σ e :=
   match e with
   | IllFormedDecl s e =>
-    "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
+    ("IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e)%string
   | AlreadyDeclared s => "Alreadydeclared " ++ s
   end%string.
 
-Definition wrap_EnvCheck {A} (ec : EnvCheck A) : PrettyPrinter A :=
+Definition wrap_EnvCheck {astr A} f (ec : EnvCheck astr A) : PrettyPrinter A :=
   match ec with
   | CorrectDecl a => ret a
   | EnvError Σ err =>
-    printer_fail ("EnvError: " ++ string_of_env_error Σ err)
+    printer_fail ("EnvError: " ++ string_of_env_error (f Σ) err)
   end.
 
 Module P := PCUICAst.
-Definition wrap_typing_result {A} (Σ : P.global_env) (tr : typing_result A) : PrettyPrinter A :=
+Definition wrap_typing_result {A} (Σ : P.PCUICEnvironment.global_env) (tr : typing_result A) : PrettyPrinter A :=
   match tr with
   | Checked et => ret et
   | TypeError te =>
-    printer_fail ("TypeError: " ++ string_of_type_error (P.empty_ext Σ) te)
+    printer_fail ("TypeError: " ++ string_of_type_error (P.PCUICEnvironment.empty_ext Σ) te)
   end.
 
 Definition wrap_option {A} (o : option A) (err : string) : PrettyPrinter A :=

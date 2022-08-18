@@ -1,3 +1,5 @@
+From Coq Require Import List.
+From Coq Require Import String.
 From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import Annotations.
 From ConCert.Extraction Require Import ErasureTests.
@@ -7,13 +9,25 @@ From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import TypeAnnotations.
 From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import Loader.
+From MetaCoq.Template Require Import config.
+From MetaCoq.Template Require Import MCUtils.
 
-Module P := PCUICAst.
+
+Module P := PCUICAst.PCUICEnvironment.
 Module T := Ast.
 
+Import ListNotations.
+
+Open Scope bs_scope.
+
+Local  Notation "s1 ^ s2" := (String.append s1 s2) : bs_scope.
+
 Section printing.
-  Context (Σ : P.global_env).
-  Definition print_box_type := erase_type_tests.print_box_type Σ [].
+  Context (Σ : P.global_env_ext).
+  Definition print_box_type := erase_type_tests.print_box_type Σ (todo "assume wf_env") [].
+
+  Import BasicAst.
 
   Definition print_name (na : name) : string :=
     match na with
@@ -22,12 +36,12 @@ Section printing.
     end.
 
   Definition print_ind_ctor (ind : inductive) (c : nat) : string :=
-    match P.lookup_env Σ (inductive_mind ind) with
+    match P.lookup_env Σ.1 (inductive_mind ind) with
     | Some (P.InductiveDecl mib) =>
       match nth_error (P.ind_bodies mib) (inductive_ind ind) with
       | Some oib =>
         match nth_error (P.ind_ctors oib) c with
-        | Some ((id, _), _) => id
+        | Some (P.Build_constructor_body id _ _ _ _) => id
         | None => "<ctor not found>"
         end
       | None => "<OIB not found>"
@@ -54,11 +68,13 @@ Section printing.
         "(" ^ print_term_annotated Γ hd hda ^ ") "
         ^ "(" ^ print_term_annotated Γ arg arga ^ ") : " ^ print_box_type bt
     | tConst s => fun bt => s.2 ^ " : "  ^ print_box_type bt
-    | tConstruct ind c =>
+    | tConstruct ind c [] =>
       fun bt =>
         print_ind_ctor ind c ^ " : " ^ print_box_type bt
+    | tConstruct ind c (_ :: _) => fun _ => "Error(constructors_as_blocks_not_supported)"
     | _ => fun _ => "error: cannot print"
     end.
+
 End printing.
 
 Definition opt_args :=
@@ -77,7 +93,7 @@ Definition no_opt_args :=
 
 Axiom does_not_happen : forall {A}, A.
 
-Definition general_extract_typed (p : T.program) (opt : bool) (ignore : list kername) (TT : list (kername * string)) : string.
+Definition general_extract_typed (p : T.Env.program) (opt : bool) (ignore : list kername) (TT : list (kername * string)) : string.
 Proof.
   refine (let entry := match p.2 with
            | T.tConst kn _ => kn
@@ -98,7 +114,8 @@ Proof.
   cbn in *.
   unfold constant_body_annots in *.
   destruct Ex.cst_body; [|exact does_not_happen].
-  exact (print_term_annotated (TemplateToPCUIC.trans_global_decls p.1) [] t0 annot).
+  SearchPattern (_ -> P.global_env_ext).
+  exact (print_term_annotated (P.empty_ext (PCUICProgram.trans_env_env (TemplateToPCUIC.trans_global_env p.1))) [] t0 annot).
 Defined.
 
 Definition extract_opt p := general_extract_typed p true [] [].

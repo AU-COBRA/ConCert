@@ -12,6 +12,10 @@ Import ListNotations.
 
 Open Scope string.
 
+Module TCString := bytestring.String.
+
+Coercion TCString.to_string : TCString.t  >-> string.
+
 (* Names for two mandatory argument for the main function. Used when generating code for [wrapper] and for the entry point *)
 Definition MSG_ARG := "msg".
 Definition STORAGE_ARG := "st".
@@ -46,7 +50,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   | tyInd nm =>
     (* ignore module path on prining *)
     let (_, nm') := PCUICTranslate.kername_of_string nm in
-    Extras.with_default nm' (look TT nm)
+    TCString.to_string (Extras.with_default nm' (option_map TCString.of_string (look TT nm)))
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
   (* is it a product? *)
   | tyApp ty1 ty2 =>
@@ -54,7 +58,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
       | (tyApp (tyInd ty_nm) A) =>
         (* ignore module path on prining *)
         let (_, nm') := PCUICTranslate.kername_of_string ty_nm in
-        if nm' =? "prod" then
+        if TCString.to_string nm' =? "prod" then
           inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT ty2)
         else inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
       | _ => inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
@@ -198,7 +202,7 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
   | eConst cst =>
     (* ignore module path *)
     let (_, cst') := PCUICTranslate.kername_of_string cst in
-    Extras.with_default cst' (look TT cst)
+    Extras.with_default cst' (option_map TCString.of_string (look TT cst))
   | eCase (ind,_) _ d bs =>
     match bs with
     | [b1;b2] => (* Handling if-then-else *)

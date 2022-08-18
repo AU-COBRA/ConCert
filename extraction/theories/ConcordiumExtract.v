@@ -1,4 +1,8 @@
-From MetaCoq Require Import utils.
+(* From MetaCoq Require Import utils. *)
+From Coq Require Import List.
+From Coq Require Import String.
+From Coq Require Import ZArith.
+
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 From ConCert.Utils Require Import StringExtra.
@@ -13,15 +17,28 @@ From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Utils.
 
+Import MCMonadNotation.
+
+Local Open Scope string_scope.
+Local Notation bs_to_s := bytestring.String.to_string.
+Local Notation s_to_bs := bytestring.String.of_string.
+
+Local Coercion bytestring.String.of_string : String.string >-> bytestring.string.
+
+
 Module ConcordiumRemap.
 
-Definition lookup_const (TT : list (kername * string)) (name : kername): option string :=
+Definition lookup_const (TT : list (kername * bytestring.string)) (name : kername): option bytestring.string :=
   match find (fun '(key, _) => eq_kername key name) TT with
   | Some (_, val) => Some val
   | None => None
   end.
 
-Definition remap_pos_arith : list (kername * string) :=
+Open Scope bs_scope.
+
+Definition remap (kn : kername) (new_name : string) := (kn, new_name).
+
+Definition remap_pos_arith : list (kername * bytestring.string) :=
   [ remap <%% Pos.succ %%> "fn ##name##(&'a self, a: u64) -> u64 { a.checked_add(1).unwrap() }" ;
     remap <%% Pos.pred %%> "fn ##name##(&'a self, a: u64) -> u64 { if a == 1 { 1 } else { a.checked_sub(1).unwrap() } }" ;
     remap <%% Pos.add %%> "fn ##name##(&'a self, a: u64, b: u64) -> u64 { a.checked_add(b).unwrap() }" ;
@@ -176,8 +193,7 @@ Definition remap_std_types :=
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)
   ; (<! unit !>, remap_unit)
-  ; (<! string !>, remap_string)
-  ].
+  ; (<! String.string !>, remap_string) ].
 
 Definition remap_SerializedValue : remapped_inductive :=
   {| re_ind_name := "&'a SerializedValue<'a>";
@@ -222,7 +238,7 @@ Definition build_remaps
 End ConcordiumRemap.
 
 Module ConcordiumPreamble.
-  Instance concordium_extract_preamble : Preamble :=
+  Local Instance concordium_extract_preamble : Preamble :=
 {| top_preamble := [
 "#![allow(dead_code)]";
 "#![allow(unused_imports)]";
@@ -372,8 +388,11 @@ Definition get_fn_arg_type (Σ : Ex.global_env) (fn_name : kername) (n : nat)
   match Ex.lookup_env Σ fn_name with
   | Some (Ex.ConstantDecl cb) =>
     match decompose_TArr cb.(Ex.cst_type).2 with
-    | (tys, _) => result_of_option (nth_error tys n)
-                                  ("No argument at position " ++ string_of_nat n)
+    | (tys, _) =>
+        match nth_error tys n with
+        | Some v => Ok v
+        | None => Err("No argument at position " ++ string_of_nat n)
+        end
     end
   | _ => Err "Init declaration must be a constant in the global environment"
   end.
@@ -382,7 +401,7 @@ Definition specialize_extract_template_env
            (params : extract_template_env_params)
            (Σ : global_env)
            (seeds : KernameSet.t)
-           (ignore : kername -> bool) : result ExAst.global_env string :=
+           (ignore : kername -> bool) : result ExAst.global_env _ :=
   extract_template_env_general SpecializeChainBase.specialize_ChainBase_env
                        params
                        Σ
@@ -393,25 +412,29 @@ Section ConcordiumPrinting.
 
   Context `{RustPrintConfig}.
 
+  Definition result_string_err A := result A bytestring.string.
+
+  Existing Instance ConcordiumPreamble.concordium_extract_preamble.
+
   Definition extract_lines
              (seeds : KernameSet.t)
              (Σ : global_env)
              (remaps : remaps)
-             (params : extract_template_env_params) : result (list string) string :=
+             (params : extract_template_env_params) : result_string_err (list String.string) :=
     let should_ignore kn :=
         if remap_inductive remaps (mkInd kn 0) then true else
         if remap_constant remaps kn then true else
-        if remap_inline_constant remaps kn then true else false in
+          if remap_inline_constant remaps kn then true else false in
     Σ <- specialize_extract_template_env params Σ seeds should_ignore;;
-    let attrs _ := "#[derive(Clone, ConCertSerial, ConCertDeserial, PartialEq)]" in
+    let attrs _ := bs_to_s "#[derive(Clone, ConCertSerial, ConCertDeserial, PartialEq)]" in
     let p := print_program Σ remaps attrs in
-    '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
+    '(_, s) <- timed (bs_to_s "Printing") (fun _ => map_error s_to_bs (finish_print_lines p));;
     ret s.
-
-  Open Scope string.
 
   Definition print_init_attrs (contract_name : string) : string :=
     "#[init(contract = """ ++ contract_name ++ """" ++ ", payable, enable_logger, low_level)]".
+
+  Notation "<$ x ; y ; .. ; z $>" := (String.concat MCString.nl (cons x (cons y .. (cons z nil) ..))) : bs_scope.
 
   Definition init_wrapper (contract_name : string) (init_name : kername) :=
     <$ print_init_attrs contract_name ;
@@ -535,14 +558,18 @@ Section ConcordiumPrinting.
      "    }";
 "}" $>.
 
-  Definition print_lines (lines : list string) : TemplateMonad unit :=
+  Definition print_lines (lines : list bytestring.string) : TemplateMonad unit :=
     monad_iter tmMsg lines.
 
-Definition concordium_extraction
+  Open Scope bool.
+
+  Definition WITH_UNIVERSES := false.
+
+  Definition concordium_extraction
            {init_type receive_type : Type}
            (m : ConcordiumMod init_type receive_type)
            (remaps : remaps)
-           (should_inline : kername -> bool) : TemplateMonad _ :=
+           (should_inline : kername -> bool) : TemplateMonad unit :=
   init_tm <- tmEval cbn m.(concmd_init);;
   recv_tm <- tmEval cbn m.(concmd_receive);;
   '(Σ,_) <- tmQuoteRecTransp (init_tm, recv_tm) false ;;
@@ -556,13 +583,17 @@ Definition concordium_extraction
         None in
   let seeds := KernameSetProp.of_list (init_nm :: receive_nm :: extra) in
   let params := extract_rust_within_coq overridden_masks should_inline in
+  Σ <- tmEval lazy (if WITH_UNIVERSES then
+                     Ast.Env.Build_global_env (Ast.Env.universes Σ) (declarations Σ)
+                   else
+                     Ast.Env.Build_global_env (ContextSet.empty) (declarations Σ));;
   Σ <- run_transforms Σ params;;
   res <- tmEval lazy (extract_lines seeds Σ remaps params);;
   match res with
   | Ok lines =>
     let init_wrapper := init_wrapper m.(concmd_contract_name) init_nm in
     let receive_wrapper := receive_wrapper m.(concmd_contract_name) receive_nm in
-    print_lines (lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
+    print_lines (map s_to_bs lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
   | Err e => tmFail e
   end.
 

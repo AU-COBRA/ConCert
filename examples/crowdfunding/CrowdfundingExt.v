@@ -20,7 +20,7 @@ From Coq Require Import Lia.
 From MetaCoq.Template Require Import All.
 
 Import ListNotations.
-Import MonadNotation.
+Import MCMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
@@ -107,7 +107,7 @@ Module CrowdfundingContract.
 
    Import CrowdfundingDataExt.Notations.
    Import Validate.
-   Import StdLib.
+
 
 (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
@@ -232,7 +232,7 @@ Definition CFModule : LiquidityModule :=
        [simpleCallCtx] |}.
 
 (** A translation table for types *)
-Definition TTty : env string :=
+Definition TTty  :=
   [(to_string_name <% address_coq %>, "address");
    (to_string_name <% PreludeExt.Maps.addr_map_coq %>, "(address,tez) map");
    (to_string_name <% time_coq %>, "timestamp");
@@ -241,7 +241,7 @@ Definition TTty : env string :=
    (to_string_name <% AcornBlockchain.SimpleActionBody_coq %>, "operation")].
 
 (** A translation table for primitive binary operations *)
-Definition TT : env string :=
+Definition TT  :=
   [(to_string_name <% Z.add %>, "addTez");
   (to_string_name <% Z.eqb %>, "eqTez");
   (to_string_name <% Z.leb %>, "lebTez");

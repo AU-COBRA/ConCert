@@ -16,7 +16,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 Module TC := Template.BasicAst.
 
 Import ListNotations.
-Import MonadNotation.
+Import MCMonadNotation.
 Import BaseTypes.
 Import StdLib.
 
@@ -26,22 +26,28 @@ Import BasicAst.
 
 (** MetaCoq demo *)
 
-(* Quote *)
-MetaCoq Quote Definition id_nat_syn := (fun x : nat => x).
-Print id_nat_syn.
-(* Ast.tLambda (nNamed "x")
-   (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
-      []) (Ast.tRel 0) : Ast.term *)
+Section MCDemo.
 
-(* Unquote *)
-MetaCoq Unquote Definition plus_one :=
-  (MC.tLambda (aRelevant (nNamed "x"))
-              (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
-              (MC.tApp (MC.tConstruct (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
-                       (MC.tRel 0 :: nil))).
+  Import bytestring.
 
-(* fun x : nat => S x : nat -> nat *)
+  Local Open Scope bs.
 
+  (* Quote *)
+  MetaCoq Quote Definition id_nat_syn := (fun x : nat => x).
+  Print id_nat_syn.
+  (* Ast.tLambda (nNamed "x")
+     (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
+        []) (Ast.tRel 0) : Ast.term *)
+
+  (* Unquote *)
+  MetaCoq Unquote Definition plus_one :=
+    (MC.tLambda (aRelevant (nNamed "x"))
+                (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
+                (MC.tApp (MC.tConstruct (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
+                         (MC.tRel 0 :: nil))).
+
+  (* fun x : nat => S x : nat -> nat *)
+End MCDemo.
 
 Definition x := "x".
 Definition y := "y".
@@ -91,7 +97,7 @@ Proof. reflexivity. Qed.
 
 MetaCoq Unquote Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Definition is_zero_syn :=
   [|
@@ -322,10 +328,11 @@ MetaCoq Unquote Inductive (global_to_tc Nat_syn).
 
 Import Template.Ast.
 
+Unset Primitive Projections.
+
 Definition State_syn :=
   [\ record "State" := "mkState" { "balance" : Nat ; "day" : Nat }  \].
 
 MetaCoq Unquote Inductive (global_to_tc State_syn).
 
-Check balance.
-Check day.
+Print State.

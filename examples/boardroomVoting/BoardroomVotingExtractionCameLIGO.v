@@ -5,17 +5,21 @@
     
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import CameLIGOExtract.
+From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution.Test Require Import LocalBlockchain.
+(* From ConCert.Execution.Test Require LocalBlockchain. *)
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
+
 Local Open Scope string_scope.
 Open Scope Z.
+
+Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition PREFIX := "".
 
@@ -29,11 +33,10 @@ Definition hash_func (l : list positive) : positive :=
 
   (* Instance Base : ChainBase := LocalChainBase AddrSize. *)
 Definition AddrSize := (2^128)%N.
-Instance Base : ChainBase := LocalBlockchain.LocalChainBase AddrSize.
 
 Module Params <: BoardroomParams.
+  Parameter Base : ChainBase.
   Definition H : list positive -> positive := hash_func.
-  Definition Base := Base.
   Definition prime := modulus.
   Definition generator := generator.
 End Params.  
@@ -226,15 +229,15 @@ Definition to_inline : list kername :=
   ; <%% @BV.setter_from_getter_VoterInfo_vote_hash %%>
   ; <%% @BV.setter_from_getter_VoterInfo_public_vote %%>
 
-  ; <%% @BV.set_State_owner %%>
-  ; <%% @BV.set_State_registered_voters %%>
-  ; <%% @BV.set_State_public_keys %%>
-  ; <%% @BV.set_State_setup %%>
-  ; <%% @BV.set_State_tally %%>
+  (* ; <%% @BV.set_State_owner %%> *)
+  (* ; <%% @BV.set_State_registered_voters %%> *)
+  (* ; <%% @BV.set_State_public_keys %%> *)
+  (* ; <%% @BV.set_State_setup %%> *)
+  (* ; <%% @BV.set_State_tally %%> *)
 
-  ; <%% @BV.set_VoterInfo_voter_index %%>
-  ; <%% @BV.set_VoterInfo_vote_hash %%>
-  ; <%% @BV.set_VoterInfo_public_vote %%>
+  (* ; <%% @BV.set_VoterInfo_voter_index %%> *)
+  (* ; <%% @BV.set_VoterInfo_vote_hash %%> *)
+  (* ; <%% @BV.set_VoterInfo_public_vote %%> *)
 
   ].
 
@@ -298,15 +301,13 @@ Definition TT_rename : list (string * string):=
   ; ("true", "true")
   ; ("false", "false")
   ; ("hash", "hash_")
-  ; (string_of_kername <%% BV.State %%>, "state")  (* we add [storage] so it is printed without the prefix *)
+  ; (String.to_string (string_of_kername <%% BV.State %%>), "state")  (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 
-(* NOTE: the extraction process takes ~15 min. We comment out these lines to avoid the recompiling it for each build *)
-
-(* Time MetaCoq Run (CameLIGO_prepare_extraction PREFIX to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
+Time MetaCoq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
 Redirect "../extraction/tests/extracted-code/cameligo-extract/BoardroomVoting.mligo"
-MetaCoq Run (tmMsg cameLIGO_boardroomvoting). *)
+MetaCoq Run (tmMsg (String.of_string cameLIGO_boardroomvoting)).

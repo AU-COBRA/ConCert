@@ -1,5 +1,10 @@
+From Coq Require Import List.
+From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Erasure Require Export EAst.
 From MetaCoq.Erasure Require EPretty.
+
+Import ListNotations.
 
 Inductive box_type :=
 | TBox
@@ -66,11 +71,12 @@ Record type_var_info :=
 Record one_inductive_body :=
   { ind_name : ident;
     ind_propositional : bool;
-    ind_kelim : allowed_eliminations;
+    ind_kelim : Universes.allowed_eliminations;
     ind_type_vars : list type_var_info;
-    ind_ctors : list (ident * list (name * box_type));
-    (* unfortunately needed for erases_one_inductive_body *)
-    ind_ctor_original_arities : list nat;
+    ind_ctors : list (ident *
+                      list (name * box_type) *
+                      nat (* original arities, unfortunately needed for erases_one_inductive_body *)
+                     );
     ind_projs : list (ident * box_type); }.
 
 Record mutual_inductive_body :=
@@ -108,22 +114,38 @@ Definition lookup_inductive (Σ : global_env) (ind : inductive) : option one_ind
 
 Definition lookup_constructor
            (Σ : global_env)
-           (ind : inductive) (c : nat) : option (ident * list (name * box_type)) :=
+           (ind : inductive) (c : nat) : option (ident * list (name * box_type) * nat) :=
   match lookup_inductive Σ ind with
   | Some oib => nth_error (ind_ctors oib) c
+  | None => None
+  end.
+
+Definition lookup_constructor_full (Σ : global_env)
+           (ind : inductive) (c : nat) :
+  option (mutual_inductive_body * one_inductive_body * (ident * list (name * box_type) * nat)) :=
+  match lookup_minductive Σ (inductive_mind ind) with
+  | Some mib => match nth_error (ind_bodies mib) (inductive_ind ind) with
+               | Some oib => match nth_error (ind_ctors oib) c with
+                            | Some c => Some (mib, oib, c)
+                            | None => None
+                            end
+               | None => None
+               end
   | None => None
   end.
 
 Definition trans_cst (cst : constant_body) : EAst.constant_body :=
   {| EAst.cst_body := cst_body cst |}.
 
+Definition trans_ctors (ctors : list (ident * list (name * box_type) * nat))  :=
+  map (fun '(nm, _, nargs) => mkConstructor nm nargs) ctors.
+
 Definition trans_oib (oib : one_inductive_body) : EAst.one_inductive_body :=
   {| EAst.ind_name := oib.(ind_name);
      EAst.ind_kelim := oib.(ind_kelim);
      EAst.ind_propositional := oib.(ind_propositional);
-     EAst.ind_ctors :=
-       combine (map fst oib.(ind_ctors)) oib.(ind_ctor_original_arities);
-     EAst.ind_projs := map fst oib.(ind_projs) |}.
+     EAst.ind_ctors := trans_ctors oib.(ind_ctors);
+     EAst.ind_projs := map (Basics.compose mkProjection fst) oib.(ind_projs) |}.
 
 Definition trans_mib
            (mib : mutual_inductive_body) : EAst.mutual_inductive_body :=
@@ -138,8 +160,20 @@ Definition trans_global_decl (decl : global_decl) : EAst.global_decl :=
     EAst.ConstantDecl {| EAst.cst_body := option_map (fun _ => tBox) o |}
   end.
 
+Definition fresh_global (s : kername) (g : global_env) :=
+  Forall (fun '(kn,_,decl) => kn <> s) g.
+
+
+Inductive fresh_globals : global_env -> Prop :=
+    fresh_globals_empty : fresh_globals []
+  | fresh_globals_cons : forall kn b d g,
+                         fresh_globals g ->
+                         fresh_global kn g ->
+                         fresh_globals ((kn,b,d) :: g).
+
+
 Definition trans_env (Σ : global_env) : EAst.global_context :=
   map (fun '(kn, _, decl) => (kn, trans_global_decl decl)) Σ.
 
-Definition print_term (Σ : global_env) (t : term) : string :=
-  EPretty.print_term (trans_env Σ) [] true false t.
+Definition print_term (Σ : global_env) (t : term) : bytestring.String.t :=
+  EPretty.print_program (trans_env Σ,t).

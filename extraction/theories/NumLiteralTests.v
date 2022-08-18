@@ -1,11 +1,15 @@
 
-From Coq Require Import ZArith.
-From Coq Require Import String.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import monad_utils.
+From Coq Require Import ZArith.
+From Coq Require Import String.
+
+Local Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
+Local Notation "'s_to_bs' s" := (bytestring.String.of_string s) (at level 200).
+Local Coercion bytestring.String.to_string : bytestring.String.t >-> string.
 
 
 Example pos_syn_to_nat_5 :
@@ -23,7 +27,7 @@ Proof. reflexivity. Qed.
 Open Scope string.
 
 Example N_syn_to_nat_fail :
-  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tVar ""))) = None.
+  N_syn_to_nat (EAst.tApp _Npos (EAst.tApp _xI (EAst.tVar (s_to_bs "")))) = None.
 Proof. reflexivity. Qed.
 
 Example Z_syn_to_Z_0 :
@@ -39,16 +43,18 @@ Example Z_syn_to_Z_minus_5 :
 Proof. reflexivity. Qed.
 
 Example Z_syn_to_Z_fail :
-  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
+  Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar (s_to_bs "")))) = None.
 Proof. reflexivity. Qed.
 
-Import MonadNotation Core.
+Import MCMonadNotation Core.
 Open Scope monad_scope.
 
-Definition extract_ (p : program) :=
+Definition result_err_bytestring A := result A bytestring.String.t.
+
+Definition extract_ (p : program) : result_err_bytestring _ :=
   entry <- match snd p with
            | tConst kn _ => ret kn
-           | _ => Err "Expected program to be a tConst"
+           | _ => Err (s_to_bs "Expected program to be a tConst")
            end;;
   extract_template_env_within_coq
          (fst p)
@@ -59,7 +65,7 @@ Definition extract_body {A} (def : A) : TemplateMonad _ :=
   p <- tmQuoteRec def ;;
   entry <- match snd p with
            | tConst kn _ => ret kn
-           | _ => tmFail "Expected program to be a tConst"
+           | _ => tmFail (s_to_bs "Expected program to be a tConst")
           end ;;
   res <- tmEval Common.lazy (extract_template_env_within_coq
                (fst p)
@@ -68,9 +74,9 @@ Definition extract_body {A} (def : A) : TemplateMonad _ :=
   match res with
   | Ok env => match Erasure.Ex.lookup_env env entry with
              | Some (Erasure.Ex.ConstantDecl (Erasure.Ex.Build_constant_body _ (Some b))) =>
-                 tmDefinition (snd entry ++ "_extracted") b
-             | Some _ => tmFail "Not a constant or body is missing"
-             | None => tmFail "No constant in the extracted env"
+                 tmDefinition (s_to_bs (snd entry ++ "_extracted")) b
+             | Some _ => tmFail (s_to_bs "Not a constant or body is missing")
+             | None => tmFail (s_to_bs "No constant in the extracted env")
              end
   | Err e => tmFail e
   end.

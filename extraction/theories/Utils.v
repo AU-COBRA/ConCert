@@ -4,6 +4,8 @@ From MetaCoq Require Import utils.
 From MetaCoq.Template Require Import BasicAst.
 From MetaCoq.Template Require Import Kernames.
 
+Import MCMonadNotation.
+
 Derive Signature for Alli.
 Derive Signature for Forall.
 Derive Signature for Forall2.
@@ -14,34 +16,6 @@ Definition map_fst {A B C} (f : A -> B) (p : A × C) : B × C :=
 
 Definition map_snd {A B C} (f : B -> C) (p : A × B) : A × C :=
   (p.1, f p.2).
-
-Lemma alli_Alli {A} (f : nat -> A -> bool) (l : list A) (n : nat) :
-  alli f l n -> Alli (fun n a => f n a) n l.
-Proof.
-  intros a.
-  induction l in n, a |- *.
-  - constructor.
-  - cbn in *.
-    propify.
-    constructor; [easy|].
-    now apply IHl.
-Qed.
-
-Lemma Alli_alli {A} (f : nat -> A -> bool) (n : nat) (l : list A) :
-  Alli (fun n a => f n a) n l -> alli f l n.
-Proof.
-  intros a.
-  induction l in n, a |- *.
-  - easy.
-  - depelim a.
-    cbn.
-    now rewrite i, IHl.
-Qed.
-
-Lemma Alli_map {A B} (P : nat -> B -> Type) n (f : A -> B) (l : list A) :
-  Alli (fun n a => P n (f a)) n l ->
-  Alli P n (map f l).
-Proof. now induction 1; cbn; constructor. Qed.
 
 Lemma Forall_snoc {A} (P : A -> Prop) (l : list A) (a : A) :
   Forall P (l ++ [a]) ->
@@ -187,7 +161,7 @@ Definition kername_set_of_list (l : list kername) : KernameSet.t :=
   fold_left (fun s k => KernameSet.add k s) l KernameSet.empty.
 
 (* When extracting this can be remapped as something that measures and outputs some info *)
-Definition timed {A} (part : string) (f : unit -> A) : A :=
+Definition timed {A} (part : String.string) (f : unit -> A) : A :=
   f tt.
 
 Arguments timed /.

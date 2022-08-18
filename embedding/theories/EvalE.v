@@ -10,8 +10,11 @@ From ConCert.Utils Require Import Env.
 (* We need some definitions like [All] from utils *)
 From MetaCoq.Template Require Import utils.
 
+From Coq Require Import String.
+From Coq Require Import List.
+
 Import ListNotations.
-Import MonadNotation.
+Import MCMonadNotation.
 
 (* Common definitions *)
 
@@ -25,6 +28,7 @@ Arguments Ok {_}.
 Arguments NotEnoughFuel {_}.
 Arguments EvalError {_}.
 
+#[global]
 Instance res_monad : Monad res :=
   { ret := @Ok;
     bind := fun _ _ r f => match r with
@@ -123,12 +127,10 @@ Definition ind_name (v : val) :=
   | _ => None
   end.
 
-Open Scope string.
-
 (** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterised inductives *)
 Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
            (constr_args : list A) (bs : list (pat * expr)) :=
-  pe <- option_to_res (find (fun x => (fst x).(pName) =? cn) bs) (cn ++ ": not found");;
+  pe <- option_to_res (find (fun x => (fst x).(pName) =? cn)%string bs) (cn ++ ": not found");;
   let '(p,e) := pe in
   let ctr_len := length constr_args in
   let pt_len := nparam + length p.(pVars) in
@@ -141,8 +143,8 @@ Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
       Ok (assignments,e)
     else EvalError (cn ++ ": constructor arity does not match")
   else EvalError (cn ++ ": pattern arity does not match (constructor: "
-                     ++ string_of_nat ctr_len ++ ",
-                  pattern: "  ++ string_of_nat pt_len ++ ")").
+                     ++ String.to_string (string_of_nat ctr_len) ++ ",
+                  pattern: "  ++ String.to_string (string_of_nat pt_len) ++ ")").
 
 Fixpoint inductive_name (ty : type) : option ename :=
   match ty with
@@ -213,7 +215,7 @@ Fixpoint print_type (ty : type) : string :=
   | tyForall x x0 => "forall " ++ x ++ "," ++ print_type x0
   | tyApp x x0 => "(" ++ print_type x ++ " " ++ print_type x0 ++ ")"
   | tyVar x => x
-  | tyRel x => "^" ++ string_of_nat x
+  | tyRel x => "^" ++ String.to_string (string_of_nat x)
   | tyArr x x0 => print_type x ++ "->" ++ print_type x0
   end.
 
@@ -309,7 +311,15 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
             end
           | vTyClos ρ' nm b, v =>
               eval n (ρ' # [nm ~> v]) b
-          | vConstr ind n vs, v => Ok (vConstr ind n (List.app vs [v]))
+          | vConstr ind n vs, v =>
+              match (resolve_constr Σ ind n) with
+              | Some (nparam,_,tys) =>
+                  if #|vs| + 1 <=? nparam + #|tys| (* constructor's arity*) then
+                    Ok (vConstr ind n (List.app vs [v]))
+                  else
+                    EvalError "eApp: constructor applied to too many args"
+              | None => EvalError "eApp : No constructor or inductive found"
+              end
           | _, _ => EvalError "eApp : not a constructor or closure"
           end
       | eConstr ind ctor =>
@@ -348,7 +358,7 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
         validate enamed ρ 1 e;;
         Ok (vTyClos ρ nm e)
       | eTy ty =>
-        let error := "Error while evaluating type: " ++ print_type ty in
+        let error := ("Error while evaluating type: " ++ print_type ty)%string in
         ty' <- eval_ty enamed ρ ty error;; ret (vTy ty')
       end
     end.

@@ -1,10 +1,17 @@
+From MetaCoq.Template Require Import monad_utils.
 From ConCert.Extraction Require Import Extraction.
 From ConCert.Extraction Require Import ExAst.
 From ConCert.Extraction Require Import ResultMonad.
-From Coq Require Import Ascii.
-From Coq Require Import String.
+From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
+From Coq Require Import Ascii.
+From Coq Require Import String.
+From Coq Require Import List.
+
+Import ListNotations.
+Import MCMonadNotation.
+Import PrettyPrinterMonad.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
@@ -19,9 +26,19 @@ Local Open Scope string.
 
 Local Definition indent_size := 2.
 
+Import Kernames.
+
 Section FixEnv.
 Context (Σ : Ex.global_env).
 Context (translate : kername -> option string).
+
+Local Open Scope string_scope.
+Local Notation bs_to_s := bytestring.String.to_string.
+Local Notation s_to_bs := bytestring.String.of_string.
+Local Coercion bytestring.String.to_string : bytestring.string >-> string.
+
+Local Infix "^" := String.append.
+
 
 (** A printing config for Elm *)
 Class ElmPrintConfig :=
@@ -40,29 +57,31 @@ Definition elm_false_rec :=
 
 Context `{ElmPrintConfig}.
 
+Import MCOption.
+
 Definition get_fun_name (name : kername) : string :=
   let get_name kn := if print_full_names then
                        replace_char "." "_" (string_of_kername name)
-                     else name.2 in
+                     else (snd name) in
   option_get
     (uncapitalize (get_name name))
     (translate name).
 
 Definition get_ty_name (name : kername) : string :=
   option_get
-    (capitalize (replace_char "." "_" name.2))
+    (capitalize (replace_char "." "_" (snd name)))
     (translate name).
 
 Definition get_ctor_name (name : kername) : string :=
   option_get
-    (capitalize name.2)
+    (capitalize (snd name))
     (translate name).
 
-Definition get_ident_name (name : ident) : string :=
-  uncapitalize (remove_char "'" (replace_char "." "_" name)).
+Definition get_ident_name (name : ident) : ident :=
+  s_to_bs (uncapitalize (remove_char "'" (replace_char "." "_" name))).
 
 Definition get_ty_arg_name (name : ident) : ident :=
-  uncapitalize name.
+  s_to_bs (uncapitalize name).
 
 Definition lookup_mind (name : kername) : option Ex.mutual_inductive_body :=
   match Ex.lookup_env Σ name with
@@ -85,14 +104,14 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
 
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
   oib <- wrap_result (lookup_ind_decl ind) id;;
-  let kn := ((inductive_mind ind).1, Ex.ind_name oib) in
+  let kn := (fst (inductive_mind ind), Ex.ind_name oib) in
   append (get_ty_name kn).
 
 Definition print_ind_ctor (ind : inductive) (i : nat) : PrettyPrinter unit :=
   oib <- wrap_result (lookup_ind_decl ind) id;;
   match nth_error (Ex.ind_ctors oib) i with
-  | Some (name, _) =>
-    let kn := ((inductive_mind ind).1, name) in
+  | Some (name, _, _) =>
+    let kn := (fst (inductive_mind ind), name) in
     append (get_ctor_name kn)
   | None =>
     printer_fail (Ex.ind_name oib ^ " does not have a ctor " ^ string_of_nat i)
@@ -136,14 +155,15 @@ Definition parenthesize_case_discriminee (t : term) : bool :=
 Definition parenthesize_case_branch (t : term) : bool :=
   false.
 
+(* TODO: move to printing utils *)
 Definition fresh (name : ident) (used : list ident) : ident :=
-  if existsb (String.eqb name) used then
+  if existsb (bytestring.String.eqb name) used then
     (fix f n i :=
        match n with
-       | 0 => "unreachable"
+       | 0 => s_to_bs "unreachable"
        | S n =>
-         let numbered_name := name ^ string_of_nat i in
-         if existsb (String.eqb numbered_name) used then
+         let numbered_name := bytestring.String.append name (MCString.string_of_nat i) in
+         if existsb (bytestring.String.eqb numbered_name) used then
            f n (S i)
          else
            numbered_name
@@ -151,17 +171,19 @@ Definition fresh (name : ident) (used : list ident) : ident :=
   else
     name.
 
+Import BasicAst.
+
 Definition fresh_ident (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
-  | nAnon => ret (fresh "x" (Γ ++ used_names))
+  | nAnon => ret (fresh (s_to_bs "x") (Γ ++ used_names))
   | nNamed name => ret (fresh (get_ident_name name) (Γ ++ used_names))
   end.
 
 Definition fresh_ty_arg_name (name : name) (Γ : list ident) : PrettyPrinter ident :=
   used_names <- get_used_names;;
   match name with
-  | nAnon => ret (fresh "a" (Γ ++ used_names))
+  | nAnon => ret (fresh (s_to_bs "a") (Γ ++ used_names))
   | nNamed name => ret (fresh (get_ty_arg_name name) (Γ ++ used_names))
   end.
 
@@ -231,11 +253,13 @@ Definition print_define_term
       end in
 
   match t with
-  | tFix [d] 0 => print_decompose (name :: Γ) (dbody d)
+  | tFix [d] 0 => print_decompose (name :: Γ) (EAst.dbody d)
   | _ => print_decompose Γ t
   end.
 
-(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm*)
+Local Open Scope bool.
+
+(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm *)
 Definition get_infix (s : string) : option string:=
   let len := String.length s in
   let begins := substring_count 1 s in
@@ -245,15 +269,15 @@ Definition get_infix (s : string) : option string:=
   else
     None.
 
-(* Print a constructor as an infix operatior in patterns.
+(** Print a constructor as an infix operatior in patterns.
 
-   E.g. for [infix_op = "::"] it expects the [t] starts with two lambdas
-   [fun x => fun xs => ...],
-   so the corresponding pattern will look like
-   [x :: xs => ...] *)
-Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (t : term) :=
-  match t with
-    | tLambda name1 (tLambda name2 t) =>
+   E.g. for [infix_op = "::"] it expects the branch context contains
+   two names (the context is reversed)
+   [nNamed "xs", nNamed "x"],
+   so the corresponding pattern will look like [x :: xs => ...] *)
+Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (br_ctx : list name) (br : term) :=
+  match br_ctx with
+    | [name2; name1] =>
       name1 <- fresh_ident name1 Γ;;
       let Γ := name1 :: Γ in
       name2 <- fresh_ident name2 Γ;;
@@ -262,7 +286,7 @@ Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter
       append (" " ^ name2);;
       append " ->";;
       append_nl;;
-      print_parenthesized (parenthesize_case_branch t) (print (name2 :: Γ) t)
+      print_parenthesized (parenthesize_case_branch br) (print (name2 :: Γ) br)
     | _ => printer_fail "could not decompose branch for infix constructor"
   end.
 
@@ -352,7 +376,10 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     print_parenthesized (parenthesize_app_arg arg) (print_term Γ arg)
 
   | tConst name => append (get_fun_name name)
-  | tConstruct ind i => print_ind_ctor ind i
+  | tConstruct ind i [] => print_ind_ctor ind i
+  | tConstruct ind i (_ :: _) =>
+           printer_fail ("Costructors-as-blocks is not supported: "
+                         ^ bs_to_s (string_of_kername ind.(inductive_mind)))
 
   | tCase (ind, npars) discriminee branches =>
     match branches with
@@ -370,45 +397,40 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     (* Take care that this is structurally recursive... *)
       (fix print_branches
-           (branches : list (nat * term))
-           (ctors : list (ident * list (name * Ex.box_type))) :=
+           (branches : list (list name * term))
+           (ctors : list (ident * list (name * Ex.box_type) * nat)) :=
          match branches, ctors with
          | [], [] => ret tt
-         | (arity, t) :: branches, (ctor_name, data) :: ctors =>
+         | (bctx, t) :: branches, (ctor_name, data, _) :: ctors =>
            append_nl;;
 
            ctor_indent <- get_indent;;
            push_indent (ctor_indent + indent_size);;
 
-           let ctor_name := get_ctor_name ((inductive_mind ind).1, ctor_name) in
+           let ctor_name := get_ctor_name (fst (inductive_mind ind), ctor_name) in
            (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
            match get_infix ctor_name with
-           | Some op => print_infix_match_branch print_term op Γ t
+           | Some op => print_infix_match_branch print_term op Γ bctx t
            | None =>
-             append (get_ctor_name ((inductive_mind ind).1, ctor_name));;
+             append (get_ctor_name (fst (inductive_mind ind), s_to_bs ctor_name));;
 
              (* In Coq, parameters are not part of branches. But erasure
             adds the parameters to each constructor, so we need to get those
             out of the way first. These won't have any uses so we just print _. *)
-             append (concat "" (map (fun _ => " _") (seq 0 npars)));;
+             append (String.concat "" (map (fun _ => " _") (seq 0 npars)));;
 
-             (fix print_branch (n : nat) (Γ : list ident) (t : term) {struct t} :=
-                match n with
-                | 0 =>
+             (fix print_branch (bctx : list name) (args : list ident) (Γ : list ident) :=
+                match bctx with
+                | [] =>
                   append " ->";;
                   append_nl;;
                   print_parenthesized (parenthesize_case_branch t) (print_term Γ t)
 
-                | S n =>
-                  match t with
-                  | tLambda name t =>
+                | name :: bctx0 =>
                     name <- fresh_ident name Γ;;
                     append (" " ^ name);;
-                    print_branch n (name :: Γ) t
-
-                  | _ => printer_fail "could not decompose branch"
-                  end
-                end) arity Γ t
+                    print_branch bctx0 (name :: args) (name :: Γ)
+                end) (List.rev bctx) [] Γ
            end;;
 
            pop_indent;;
@@ -427,7 +449,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     (* Add names of fixes to context *)
     Γ <- monad_fold_left
-           (fun Γ d => name <- fresh_ident (dname d) Γ;;
+           (fun Γ d => name <- fresh_ident (EAst.dname d) Γ;;
                        ret (name :: Γ)) mfix Γ;;
     let names := rev (firstn (List.length mfix) Γ) in
 
@@ -435,12 +457,12 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
 
     push_indent (let_col + indent_size);;
 
-    (fix print_fixes (ds : list (def term)) (names : list ident) :=
+    (fix print_fixes (ds : list (EAst.def term)) (names : list ident) :=
        match ds, names with
        | [], _ => ret tt
        | d :: ds, name :: names =>
          append_nl;;
-         print_define_term Γ name (dbody d) print_term;;
+         print_define_term Γ name (EAst.dbody d) print_term;;
          print_fixes ds names
        | _, _ =>
          printer_fail "unreachable"
@@ -459,12 +481,12 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     pop_indent
 
   | tCoFix _ _ => printer_fail "Cannot handle cofix"
-  | tPrim _ => printer_fail "Cannot handle Coq primitive types"
+  (* | tPrim _ => printer_fail "Cannot handle Coq primitive types" *)
   end.
 
 Definition print_constant
            (kn : kername)
-           (type : (list name × box_type))
+           (type : (list name * box_type))
            (body : E.term) : PrettyPrinter string :=
 
   let ml_name := get_fun_name kn in
@@ -483,7 +505,7 @@ Definition print_constant
     append_nl
   end;;
 
-  print_define_term [] ml_name body print_term;;
+  print_define_term [] (s_to_bs ml_name) body print_term;;
   pop_indent;;
 
   ret ml_name.
@@ -522,37 +544,37 @@ Definition print_mutual_inductive_body
   (fix print_ind_bodies
        (l : list one_inductive_body)
        (first : bool)
-       (names : list (kername * string)) :=
+       (names : list (kername * string)) : PrettyPrinter (list (kername * string)) :=
      match l with
      | [] => ret names
      | oib :: l =>
 
        (if first then ret tt else append_nl);;
 
-       (* Add type parameters. Note that since we are in prenex form,
-          our context will have last type parameter last, not first. *)
+       (* Add type parameters. Note that since we are in prenex form, *)
+       (*    our context will have last type parameter last, not first. *)
        Γ <- monad_fold_left
               (fun Γ name =>
                  name <- fresh_ty_arg_name (tvar_name name) Γ;;
                  ret (Γ ++ [name])%list) (Ex.ind_type_vars oib) [];;
 
        append "type ";;
-       let ind_name := (kn.1, ind_name oib) in
+       let ind_name := (fst kn, ind_name oib) in
        let ind_ml_name := get_ty_name ind_name in
        append ind_ml_name;;
 
        (* Print type args *)
-       monad_fold_left (fun _ name => append (" " ^ name)) Γ tt;;
+       monad_fold_left (fun _ name => append (" " ^ name)) (map bs_to_s Γ) tt;;
 
        push_indent (col + indent_size);;
 
-       (fix print_ind_ctors (ctors : list (ident * list (name * box_type))) prefix :=
+       (fix print_ind_ctors (ctors : list (ident * list (name * box_type) * nat)) prefix :=
           match ctors with
           | [] => ret tt
-          | (name, data) :: ctors =>
+          | (name, data, _) :: ctors =>
             append_nl;;
             append (prefix ^ " ");;
-            print_ind_ctor_definition Γ (kn.1, name) data;;
+            print_ind_ctor_definition Γ (fst kn, name) data;;
 
             print_ind_ctors ctors "|"
           end) (ind_ctors oib) "=";;
@@ -577,13 +599,13 @@ Definition print_type_alias
                                          ret (name :: Γ))
                           tvars [];;
   let Γ := rev Γrev in
-  append (String.concat "" (map (fun x => " " ^ x) Γ));;
+  append (String.concat "" (map (fun x => " " ^ x) (map bs_to_s Γ)));;
   append " = ";;
   print_type Γ bt;;
   ret ty_ml_name.
 
 Definition print_env : PrettyPrinter (list (kername * string)) :=
-  monad_iter push_use (map (fun '(kn, _, _) => get_fun_name kn) Σ);;
+  monad_iter push_use (map (fun '(kn, _, _) => s_to_bs (get_fun_name kn)) Σ);;
   sig_col <- get_current_line_length;;
   push_indent sig_col;;
 

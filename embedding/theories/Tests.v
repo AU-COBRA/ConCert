@@ -16,7 +16,6 @@ Import ListNotations.
 Import BaseTypes.
 Import StdLib.
 
-
 Definition x := "x".
 Definition y := "y".
 Definition z := "z".

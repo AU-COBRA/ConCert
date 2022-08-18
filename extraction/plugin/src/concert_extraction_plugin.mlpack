@@ -10,10 +10,10 @@ Ssreflect
 Monad_utils
 WGraph
 UGraph0
-EnvironmentTyping
 OrderedTypeAlt
 Kernames
 Reflect
+MCProd
 
 PCUICPrimitive
 PCUICAst
@@ -21,17 +21,21 @@ PCUICAstUtils
 PCUICChecker
 PCUICCumulativity
 PCUICEquality
+PCUICEqualityDec
 PCUICLiftSubst
 PCUICPretty
 PCUICErrors
+PCUICCases
+PCUICWfUniverses
 PCUICNormal
 PCUICPosition
 PCUICReduction
-PCUICUnivSubst
 PCUICTyping
+PCUICWfEnv
+PCUICWfEnvImpl
 PCUICSafeReduce
-PCUICSafeChecker
-PCUICSafeConversion
+EnvMap
+PCUICProgram
 PCUICSafeRetyping
 Int63
 PrimFloat
@@ -40,16 +44,19 @@ SpecFloat
 TemplateToPCUIC
 
 EAst
+EEnvMap
+ECSubst
 EAstUtils
 ELiftSubst
 ETyping
+EGlobalEnv
 EPretty
 Extract
 EOptimizePropDiscr
 ErasureFunction
 Typing0
-SafeTemplateChecker
 
+Common1
 Utils
 StringExtra
 ResultMonad
@@ -57,11 +64,12 @@ ExAst
 ClosedAux
 Printing
 Transform
-Common1
 Erasure
 ExpandBranches
+Transform0
 Optimize
 OptimizePropDiscr
+Certifying
 CertifyingBeta
 CertifyingInlining
 TopLevelFixes

@@ -26,9 +26,9 @@ Record pat := pConstr {pName : ename; pVars : list ename}.
 
 (** ** λsmart AST *)
 
-(** We have both named variables and de Bruijn indices.  Translation to Meta Coq requires indices, while named representation is what we might get from the integration API. We can define relations on type of expressions ensuring that either names are used, or indices, but not both at the same time. *)
+(** We have both named variables and de Bruijn indices. Translation to MetaCoq requires indices, while named representation is what we might get from the integration API. We can define relations on type of expressions ensuring that either names are used, or indices, but not both at the same time. *)
 
-(** Note also that AST must be explicitly annotated with types. This is required for the translation to Meta Coq. *)
+(** Note also that AST must be explicitly annotated with types. This is required for the translation to MetaCoq. *)
 Inductive expr : Set :=
 | eRel       : nat -> expr (* de Bruijn index *)
 | eVar       : ename -> expr (* named variables *)
@@ -141,7 +141,7 @@ Fixpoint lookup_global ( Σ : global_env) (key : ename) : option global_dec :=
   end.
 
 (** Looks up for the given inductive by name and if succeeds, returns a list of constructors with corresponding arities *)
-Definition resolve_inductive (Σ : global_env) (ind_name : BasicTC.ident)
+Definition resolve_inductive (Σ : global_env) (ind_name : ename)
   : option (nat * list constr) :=
   match (lookup_global Σ ind_name) with
   | Some (gdInd n nparam cs _) => Some (nparam, cs)
@@ -151,7 +151,7 @@ Definition resolve_inductive (Σ : global_env) (ind_name : BasicTC.ident)
 Definition remove_proj (c : constr) := map snd (snd c).
 
 (** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor's arity *)
-Definition resolve_constr (Σ : global_env) (ind_name constr_name : BasicTC.ident)
+Definition resolve_constr (Σ : global_env) (ind_name constr_name : ename)
   : option (nat * nat * list type)  :=
   match (resolve_inductive Σ ind_name) with
   | Some n_cs =>
