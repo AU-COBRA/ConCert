@@ -152,9 +152,39 @@ Next Obligation.
   decide equality;apply Nat.eq_dec.
 Qed.
 Next Obligation.
-Admitted.
+  assert (cnat : countable.Countable (nat + nat)) by typeclasses eauto.
+  destruct cnat as [e d H].
+  unshelve econstructor.
+  * intros addr. destruct addr.
+    exact (e (inl n)).
+    exact (e (inr n)).
+  * intros i.
+    destruct (d i).
+    ** destruct s as [n | n].
+       exact (Some (ContractAddr_coq n)).
+       exact (Some (UserAddr_coq n)).
+    ** exact None.
+  * cbn;intros addr.
+    destruct addr;
+    now rewrite H.
+Defined.
 Next Obligation.
-Admitted.
+  assert (snat : Serializable.Serializable (nat + nat)) by typeclasses eauto.
+  destruct snat as [s d H].
+  unshelve econstructor.
+  * intros addr. destruct addr.
+    exact (s (inl n)).
+    exact (s (inr n)).
+  * intros i.
+    destruct (d i) as [v | ].
+    ** destruct v as [n | n].
+       exact (Some (ContractAddr_coq n)).
+       exact (Some (UserAddr_coq n)).
+    ** exact None.
+  * cbn;intros addr.
+    destruct addr;
+      now rewrite H.
+Defined.
 
 Definition init_wrapper {setup storage}
            (init : SimpleCallCtx -> setup -> storage)

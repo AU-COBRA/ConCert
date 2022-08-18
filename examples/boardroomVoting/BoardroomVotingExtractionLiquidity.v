@@ -14,7 +14,7 @@ From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import String.
 
-Import MonadNotation.
+Import MCMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -342,7 +342,7 @@ Definition TT_rename : list (string * string):=
   ; ("nil", "[]")
   ; ("true", "true")
   ; ("false", "false")
-  ; (string_of_kername <%% BV.State %%>, "state")  (* we add [storage] so it is printed without the prefix *) 
+  ; (String.to_string (string_of_kername <%% BV.State %%>), "state")  (* we add [storage] so it is printed without the prefix *) 
   ; ("tt", "()")
   ].
 

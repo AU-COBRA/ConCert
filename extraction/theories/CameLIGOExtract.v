@@ -218,7 +218,7 @@ Section LigoExtract.
 
   Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
   Local Coercion bytestring.String.to_string : bytestring.String.t >-> String.string.
-  
+
 Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (Σ : Ast.Env.global_env)
            (TT_defs : list (kername *  String.string))
@@ -328,7 +328,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let TT :=
-      (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
+    (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
   let res := unwrap_string_sum (printCameLIGODefs Σ TT_defs TT_ctors extra_ignore
                                                   build_call_ctx
                                                   init_nm receive_nm

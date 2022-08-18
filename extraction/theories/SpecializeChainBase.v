@@ -155,11 +155,12 @@ Section ChainBaseSpecialization.
                            '(s_ctx, _) <- monad_fold_right
                                      (fun '(l0, Γ1) decl =>
                                         let decl_ty := decl.(decl_type) in
+                                        let Γty := Γ1 ++ Γ0 in
                                         remove <-
                                           match decl_ty with
                                           | tProd _ (tInd ind _) _ =>
                                               Ok (eq_kername (inductive_mind ind) (ChainBase_kername))
-                                          | tProd _ (tRel n) _ => match nth_error Γ1 n with
+                                          | tProd _ (tRel n) _ => match nth_error Γty n with
                                                      | Some vi => match vi with
                                                                  | replace => Ok true
                                                                  | _ => Ok false
@@ -168,7 +169,7 @@ Section ChainBaseSpecialization.
                                                      end
                                           | _ => Ok false
                                           end;;
-                                        ty <- specialize_type f "branch context" Γ1 remove decl_ty;;
+                                        ty <- specialize_type f "branch context" Γty remove decl_ty;;
                                         ret (l0 ++ [mkdecl decl.(decl_name) decl.(decl_body) ty], none :: Γ1))%list
                                      ctx ([],Γ);;
                            let s_ctx := rev s_ctx in
