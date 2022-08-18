@@ -120,9 +120,6 @@ Section ChainBaseSpecialization.
         else
           ret t
       | tCase (mk_case_info ind npars relevance) pr disc brs =>
-          (* FIXME: there might be some issues with specialisation of cases,
-             there was an example that failed with "Unbound Rel" for complex
-             dependent pattern-matching *)
         remove <-
             match pr.(pparams) with
             | tRel n :: _ =>

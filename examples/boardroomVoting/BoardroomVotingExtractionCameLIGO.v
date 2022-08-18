@@ -305,12 +305,7 @@ Definition TT_rename : list (string * string):=
   ; ("tt", "()")
   ].
 
-(* NOTE: the extraction process takes ~15 min. We comment out these lines to avoid the recompiling it for each build *)
-
 Time MetaCoq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
-
-Check cameligo_boardroomvoting_prepared.
-(* Print Coq_NArith_BinNat_N_eq_dec_cert_pass. *)
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
