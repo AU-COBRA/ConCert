@@ -706,39 +706,22 @@ Next Obligation.
   reduce_term_sound.
   destruct r.
   specialize (princK rΣ wfrΣ) as HH.
+  assert (∥ wf rΣ ∥) by now apply HΣ.
+  assert (∥ wf_ext rΣ ∥) by now apply heΣ.
   assert (tyT : ∥ isType rΣ Γ T ∥) by eauto.
   assert (tyNf : ∥ isType rΣ Γ nf ∥).
-  { sq. eapply isType_red;eauto. }
+  { sq.  eapply isType_red;eauto. }
   sq.
   destruct tyT as [u tyT].
   destruct tyNf as [v tyNf].
   apply typing_wf_local in tyT.
-  assert (∥ wf rΣ ∥) by now apply HΣ.
-  assert (∥ wf_ext rΣ ∥) by now apply heΣ.
-  sq.
   apply BDToPCUIC.infering_typing in HH;sq;eauto.
-  specialize (PCUICPrincipality.common_typing _ _ HH tyNf) as [?[?[??]]].
-  (* eapply PCUICCumulProp.cumul_sort_confluence in tyNf as w1;eauto. *)
-  specialize (ws_cumul_pb_Sort_r_inv _ w0) as (? & ? & ?).
-  eapply validity in HH as [uK tyK].
-  (* TODO: we should be able to show that [K ⇝* tSort u] for some u,
-     then we can instantiate a hypothesis to prove the contradiction *)
-  (* specialize (ws_cumul_pb_Sort_r_inv _ w) as (? & ? & ?). *)
-  (* destruct b. *)
-  (* assert (arity_v : isArity (tSort v)) by easy. *)
-
-  (* inversion tyNf. *)
-  (* assert (Σ;;; Γ |- T : K). *)
-  (* { eapply type_reduction;eauto. } *)
-  (* red_cumul *)
-  (* Search (  _ -> _ ;;; _ |- _ ⇝* _). *)
-  (* reduce_validity *)
-  (* cumul_Sort *)
-  (* destruct princK as [(typK & princK)]. *)
-  (* specialize (princK _ typ). *)
-  (* eapply invert_cumul_sort_r in princK as (? & ? & ?). *)
-  (* eauto. *)
-Admitted.
+  specialize (PCUICPrincipality.common_typing _ _ HH tyNf) as [x[x_le_K[x_le_sort?]]].
+  apply ws_cumul_pb_Sort_r_inv in x_le_sort as (? & x_red & ?).
+  specialize (ws_cumul_pb_red_l_inv _ x_le_K x_red) as K_ge_sort.
+  apply ws_cumul_pb_Sort_l_inv in K_ge_sort as (? & K_red & ?).
+  exact (H _ K_red).
+Qed.
 
 Equations erase_type_discr (t : term) : Prop := {
   | tRel _ := False;

@@ -314,8 +314,8 @@ Proof.
     (*   alpha_eq_inst_case_context *)
     (* inst_case_branch_context *)
     split;[|now auto].
-    apply (todo "todo").
-    apply (todo "todo").
+    (* admit. *) apply (todo "todo").
+    (* admit. *) apply (todo "todo").
     (* compare_decls_conv *)
     (*   PCUICContextConversionTyp.context_conversion *)
   (* econstructor; eauto. *)
