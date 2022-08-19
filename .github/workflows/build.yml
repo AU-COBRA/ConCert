@@ -99,8 +99,6 @@ jobs:
         rm -rf docs/graphs
         mkdir -p docs
         mkdir -p docs/graphs
-        make file-dependency-graph
-        mv file-dep.svg docs/graphs/index.svg
 
         make dependency-graphs
         mv utils/svg/* docs/graphs/
