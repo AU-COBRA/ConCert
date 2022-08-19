@@ -94,7 +94,7 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
   let from := act.(act_from) in
   let amount := act_amount act in
   let contract_balance := (env_account_balances cb contract_base_addr + amount)%Z in
-    match get_contract_state BATCommon.State cb.(builder_env) contract_base_addr with
+    match get_contract_state BATCommon.State (builder_env cb) contract_base_addr with
     | Some state =>
       let from_token_balance := with_default 0%N (FMap.find from (balances state)) in
       let enough_balance := Z.leb (Z.of_N (from_token_balance / state.(tokenExchangeRate)))
@@ -1258,7 +1258,7 @@ Definition final_is_final :=
 
 Definition can_only_finalize_once :=
   let chain_gen := gChain in
-  let blocks cb := trace_states_step_block cb.(builder_trace) in
+  let blocks cb := trace_states_step_block (builder_trace cb) in
   let is_finalize action :=
     match action.(act_body) with
     | Blockchain.act_call _ _ ser_msg =>

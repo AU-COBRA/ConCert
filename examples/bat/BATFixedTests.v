@@ -951,7 +951,7 @@ Definition final_is_final :=
 
 Definition can_only_finalize_once :=
   let chain_gen := gChain in
-  let blocks cb := trace_states_step_block cb.(builder_trace) in
+  let blocks cb := trace_states_step_block (builder_trace cb) in
   let is_finalize action :=
     match action.(act_body) with
     | Blockchain.act_call _ _ ser_msg =>

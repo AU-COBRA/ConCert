@@ -7,9 +7,11 @@ From ConCert.Examples.FA2 Require Import TestContracts.
 Local Open Scope string_scope.
 
 
+Arguments return_addr {_ _}.
+
 Instance showCallback {A : Type}: Show (FA2LegacyInterface.callback A) :=
 {|
-  show v := "return address: " ++ show v.(return_addr A)
+  show v := "return address: " ++ show v.(return_addr)
 |}.
 
 Instance showFA2InterfaceTransferDestination : Show FA2LegacyInterface.transfer_destination :=

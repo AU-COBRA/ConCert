@@ -28,6 +28,7 @@ Import BoundedN.Stdpp.
 Import ListNotations.
 
 Section TraceGens.
+  
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
   Global Definition BlockReward : Amount := 50.
@@ -124,7 +125,7 @@ Section TraceGens.
   Instance shrinkChainBuilder : Shrink ChainBuilder :=
   {
     shrink cb :=
-      let cb_blocks := trace_blocks cb.(builder_trace) in
+      let cb_blocks := trace_blocks (builder_trace cb) in
       let shrunk_blocks := shrinkChainBuilderAux cb_blocks in
         rebuild_chains shrunk_blocks builder_initial
   }.
@@ -314,7 +315,7 @@ Section TraceGens.
                               : Checker :=
     let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (pf cs)) in
     forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => discard_empty (trace_states cb.(builder_trace)) (conjoin_map printOnFail)).
+    (fun cb => discard_empty (trace_states (builder_trace cb)) (conjoin_map printOnFail)).
 
   (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
   Definition forAllBlocks {prop : Type}
@@ -325,7 +326,7 @@ Section TraceGens.
                           (pf : ChainState -> prop)
                           : Checker :=
     forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => ChainTrace_ChainTraceProp cb.(builder_trace) pf).
+    (fun cb => ChainTrace_ChainTraceProp (builder_trace cb) pf).
 
   (* Checker combinators on ChainTrace, asserting holds a property on
     each pair of succeeding ChainStates in the trace. *)
@@ -351,7 +352,7 @@ Section TraceGens.
       | clnil  => checker true
       end in
     forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => all_statepairs cb.(builder_trace) (last_cstate cb.(builder_trace))).
+    (fun cb => all_statepairs (builder_trace cb) (last_cstate (builder_trace cb))).
 
   (* Asserts that property holds on all action evaluations *)
   Definition forAllActionExecution {prop : Type}
@@ -364,7 +365,7 @@ Section TraceGens.
     let printOnFail x : Checker :=
     let '(action, new_acts, cs_from, cs_to) := x in
         whenFail (show cs_from) (checker (pf action new_acts cs_from cs_to)) in
-    let trace_list cb := trace_states_step_action cb.(builder_trace) in
+    let trace_list cb := trace_states_step_action (builder_trace cb) in
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => discard_empty (trace_list cb) (conjoin_map printOnFail)).
 
@@ -382,7 +383,7 @@ Section TraceGens.
                           (pf : ChainState -> bool)
                           : Checker :=
     existsP (gTrace init_lc maxLength) (fun cb =>
-      existsb_chaintrace pf cb.(builder_trace)).
+      existsb_chaintrace pf (builder_trace cb)).
 
   Definition reachableFrom_chaintrace init_lc gTrace pf : Checker :=
     sized (fun n => reachableFromSized_chaintrace n init_lc gTrace pf).
@@ -400,7 +401,7 @@ Section TraceGens.
                         : Checker :=
   forAllShrink (gTrace init_cb maxLength) shrink
   (fun cb =>
-    let trace := cb.(builder_trace) in
+    let trace := builder_trace cb in
     let reachable_prop_bool := isSome o reachable_prop in
     let tracelist := trace_states_step_block trace in
     match split_at_first_satisfying reachable_prop_bool tracelist with
@@ -485,6 +486,6 @@ Section TraceGens.
        snd (fold_left (fun '(b, checkers) state => 
         (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
     forAllShrink (gTrace init_lc maxLength) shrink
-    (fun cb => conjoin (map_implication (trace_states cb.(builder_trace)))).
+    (fun cb => conjoin (map_implication (trace_states (builder_trace cb)))).
 
 End TraceGens.

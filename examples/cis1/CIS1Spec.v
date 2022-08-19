@@ -660,7 +660,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     + simpl.
       destruct (Hiff a) as [H1 H2];cbn in *.
       specialize (H1 (or_introl eq_refl)) as HH.
-      rewrite remove_owner with (st0 := st) (owner := a) (owners:=owners2);auto with hints.
+      rewrite remove_owner with (st := st) (owner := a) (owners:=owners2);auto with hints.
       inversion Hnodup1;subst.
       rewrite IHowners1 with (owners2 := (remove addr_eq_dec a owners2));eauto with hints.
       intros. split.
@@ -930,7 +930,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       transitivity (sum_balances st token_id (get_owners st token_id)).
       + destruct (token_id_eqb_spec token_id a.(cis1_td_token_id)).
         * subst. symmetry.
-          now eapply transfer_single_spec_preserves_balances with (next_st0 := st).
+          now eapply transfer_single_spec_preserves_balances with (next_st := st).
         * destruct Hsingle as [? [HH [? ?]]].
           apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
           ** intros. repeat rewrite get_owners_balances.

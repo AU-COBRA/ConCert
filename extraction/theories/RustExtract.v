@@ -114,7 +114,7 @@ Definition clean_local_ident (name : ident) : string :=
   remove_char "'" (bs_to_s name).
 
 Definition is_polymorphic (cst : Ex.constant_body) : bool :=
-  0 <? #|fst (Ex.cst_type cst)|.
+  (0 <? #|fst (Ex.cst_type cst)|)%nat.
 
 Definition print_ind (ind : inductive) : PrettyPrinter unit :=
   get_ind_ident ind >>= fun x => append (bs_to_s x).
@@ -216,7 +216,7 @@ Fixpoint print_type_aux (Γ : list ident) (t : box_type) (args : list (PrettyPri
       print_ind ind;;
       print_parenthesized_with
         "<" ">"
-        (0 <? #|args|)
+        (0 <? #|args|)%nat
         (monad_append_join (append ", ") args)
     else
       append "&'a ";;
@@ -256,7 +256,7 @@ Definition print_app
   head;;
   push_indent (col + indent_size);;
   append "(";;
-  (if 0 <? #|args| then append_nl else ret tt);;
+  (if 0 <? #|args| then append_nl else ret tt)%nat;;
   monad_append_join (append ",";; append_nl) args;;
   append ")";;
   pop_indent.
@@ -270,7 +270,7 @@ Definition print_constructor
     s <- wrap_option (nth_error (re_ind_ctors rem) c)
                      (bs_to_s (string_of_inductive ind)
                       ^ "' does not remap enough constructors ");;
-    if 0 <? #|args| then
+    if (0 <? #|args|)%nat then
       print_app (append (bs_to_s s)) args
     else
       append (bs_to_s s)
@@ -297,7 +297,7 @@ Definition print_constructor
 Definition print_const (kn : kername) (args : list (PrettyPrinter unit)) : PrettyPrinter unit :=
   num_inline_args <- get_num_inline_args kn;;
   let (expr, num_inline_args) :=
-      if #|args| <? num_inline_args then
+      if (#|args| <? num_inline_args)%nat then
         (* Not enough args, use curried version *)
         ("self." ^ const_global_ident_of_kername kn ^ "__curried", 0)
       else
@@ -370,7 +370,7 @@ Section print_term.
               let nextra := if rem then npars else S npars in
               let extra := List.repeat "_" nextra in
               let args := (extra ++ map bs_to_s (rev args))%list in
-              print_parenthesized (0 <? #|args|) (append_join ", " args);;
+              print_parenthesized (0 <? #|args|)%nat (append_join ", " args);;
               append " => {";;
               append_nl  ;;
               print_term Γ t
@@ -629,7 +629,7 @@ Definition print_constant
     else
       append ("fn " ++ rname);;
       print_parenthesized_with
-        "<" ">" (0 <? #|Γty|)
+        "<" ">" (0 <? #|Γty|)%nat
         (append_join ", " (map (fun na => na ++ ": Copy") (map bs_to_s Γty)));;
       append "(&'a self";;
 
@@ -659,11 +659,11 @@ Definition print_constant
 
   (* Print curried version if there were inlined args *)
   num_inline_args <- get_num_inline_args kn;;
-  (if 0 <? num_inline_args then
+  (if (0 <? num_inline_args)%nat then
      append_nl;;
      append ("fn " ++ rname ++ "__curried");;
      print_parenthesized_with
-       "<" ">" (0 <? #|Γty|)
+       "<" ">" (0 <? #|Γty|)%nat
        (append_join ", " (map (fun na => na ++ ": Copy") (map bs_to_s Γty)));;
      append "(&'a self) -> ";;
      print_type Γty ty;;

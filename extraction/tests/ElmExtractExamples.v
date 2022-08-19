@@ -20,7 +20,7 @@ From MetaCoq Require Import utils.
 From Coq Require Import String.
 
 Import MCMonadNotation.
-Open Scope string.
+Local Open Scope string.
 
 Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
@@ -211,6 +211,7 @@ Module ElmExamples.
     extract foldl_syn = Ok result_foldl.
   Proof. reflexivity. Qed.
 
+  Local Open Scope nat.
   Program Definition inc_counter (st : nat) (inc : {z : nat | 0 <? z}) :
     {new_st : nat | st <? new_st} :=
     st + inc.

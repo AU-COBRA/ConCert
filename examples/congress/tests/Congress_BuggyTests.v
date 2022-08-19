@@ -89,8 +89,8 @@ Definition num_cacts_safe_P (msg : Congress_Buggy.Msg)
                   | create_proposal ls => length ls
                   | _ => 0
                   end in
-  num_cacts_in_state new_state + length resp_acts <=?
-  num_cacts_in_state old_state + nr_cacts.
+  (num_cacts_in_state new_state + length resp_acts <=?
+  num_cacts_in_state old_state + nr_cacts)%nat.
 
 Definition receive_state_well_behaved_P (chain : Chain)
                                         (cctx : ContractCallContext)

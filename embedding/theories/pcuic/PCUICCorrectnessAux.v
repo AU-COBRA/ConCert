@@ -29,6 +29,7 @@ Notation "M { j := N }" := (subst (N :: nil) j M) (at level 10, right associativ
 
 Import ListNotations Lia ssrbool.
 Open Scope list_scope.
+Open Scope nat.
 
 Module TCString := bytestring.String.
 
@@ -580,7 +581,7 @@ Proof.
   revert dependent cs.
   induction Σ;intros;tryfalse.
   cbn in *. destruct a. cbn in *.
-  destruct (e0 =? ind);now propify.
+  destruct (e0 =? ind)%string;now propify.
 Qed.
 
 Lemma constrs_ok_in s c (cs : list constr) nparam :
@@ -894,7 +895,7 @@ Proof.
       intros ctor Hin. destruct ctor as [s l0] eqn:Hconsr. unfold on_snd,etrans_branch.
       unfold fun_prod,id. cbn. destruct (find _ _) eqn:Hfnd;simpl.
       ** eapply find_map with
-             (p2 := (fun x => pName (fst x) =? s))
+             (p2 := (fun x => pName (fst x) =? s)%string)
              (f:= fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := t⟦ e0 ⟧ Σ})) in Hfnd;auto.
          rewrite map_map in Hfnd. simpl in Hfnd. unfold fun_prod,id. simpl.
          assert ( Hmap :
@@ -917,8 +918,8 @@ Proof.
          rewrite_all map_length. rewrite PeanoNat.Nat.eqb_eq in Hlen.
          rewrite Hlen. replace (min _ _) with #|l0| by lia.
          f_equal.
-      ** change (fun x : pat * term => pName (fst x) =? s) with
-                                ((fun x : pat => pName x =? s) ∘ fst (B:=term)) in *.
+      ** change (fun x : pat * term => pName (fst x) =? s)%string with
+                                ((fun x : pat => pName x =? s) ∘ fst (B:=term))%string in *.
          erewrite find_none_fst with (l1:=(map (fun x : pat × expr => (x.1, t⟦ x.2 ⟧ Σ)) l));eauto.
          now repeat rewrite map_map.
   + (* eFix *)
@@ -1337,18 +1338,17 @@ Qed.
 Import Basics.
 Open Scope program_scope.
 
-Open Scope string.
 
 Lemma pat_match_succeeds {A : Type } cn arity (vals : list A) brs e
       assig n :
     match_pat cn n arity vals brs = Ok (assig, e) ->
-    { p | find (fun x => pName (fst x) =? cn) brs = Some (p,e)
+    { p | find (fun x => pName (fst x) =? cn)%string brs = Some (p,e)
          /\ n+#|arity| = n+#|p.(pVars)| /\ #|vals| = n+#|p.(pVars)|
          /\ assig = combine p.(pVars) (skipn n vals)}.
 Proof.
   intros Hpm.
   unfold match_pat in Hpm. simpl in Hpm.
-  destruct (find (fun x => pName (fst x) =? cn) brs) eqn:Hfnd;tryfalse.
+  destruct (find (fun x => pName (fst x) =? cn)%string brs) eqn:Hfnd;tryfalse.
   destruct p as [p' e0]. simpl in *.
   destruct (Nat.eqb #|vals| (n+#|pVars p'|)) eqn:Hlength;tryfalse.
   destruct (Nat.eqb #|vals| (n+#|arity|)) eqn:Hlength';tryfalse.
@@ -1877,8 +1877,6 @@ Qed.
   subst_env_compose_1 subst_env_compose_2 : hints.
 
 #[export] Hint Constructors PcbvCurr.value : hints.
-
-Open Scope string.
 
 Lemma mkApps_nonempty_neq args t f :
   #|args| > 0 ->
