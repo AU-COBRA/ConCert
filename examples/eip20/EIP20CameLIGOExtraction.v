@@ -86,6 +86,7 @@ Section EIP20TokenExtraction.
 
   Definition TT_inlines_eip20token : list kername :=
     [ <%% OptionMonad.Monad_option %%>
+    ; <%% @ConCert.Execution.ResultMonad.Monad_result %%>
     ; <%% @Monad.bind %%>
     ; <%% @Monad.ret %%>
     ; <%% bool_rect %%>

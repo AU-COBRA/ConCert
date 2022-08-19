@@ -107,6 +107,7 @@ Definition TT_remap_dexter2 : list (kername * String.string) :=
 (** Definitions to inline *)
 Definition TT_inlines_dexter2 : list kername :=
   [ <%% OptionMonad.Monad_option %%>
+  ; <%% @ConCert.Execution.ResultMonad.Monad_result %%>
   ; <%% @Monad.bind %%>
   ; <%% @Monad.ret %%>
   ; <%% @Extras.with_default %%>

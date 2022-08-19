@@ -5,7 +5,6 @@ From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Monad.
-From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
@@ -95,7 +94,7 @@ Module EscrowCameLIGOExtraction.
     |}.
 
   Definition to_inline : list kername :=
-    [ <%% OptionMonad.Monad_option %%>
+    [ <%% @ConCert.Execution.ResultMonad.Monad_result %%>
     ; <%% @Monad.bind %%>
     ; <%% @Monad.ret %%>
     ; <%% @Monad.lift %%>
@@ -110,6 +109,8 @@ Module EscrowCameLIGOExtraction.
     ; <%% @setter_from_getter_State_buyer %%>
     ; <%% @setter_from_getter_State_seller_withdrawable %%>
     ; <%% @setter_from_getter_State_buyer_withdrawable %%>
+
+    ; <%% default_error %%>
     ].
 
   Time MetaCoq Run

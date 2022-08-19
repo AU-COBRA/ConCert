@@ -1000,6 +1000,13 @@ Section PPLigo.
   ; "let finalized_height (c : chain) = c.finalized_height_"
   $>.
 
+  Definition result_def :=
+  <$
+    "type ('t,'e) result ="
+  ; "  Ok of 't"
+  ; "| Err of 'e"
+  $>.
+
   Definition CameLIGO_Chain_CallContext :=
   <$ CameLIGO_call_ctx_type
    ; CameLIGO_call_ctx_instance
@@ -1010,6 +1017,7 @@ Section PPLigo.
     print_list id (nl ++ nl)
                [int_ops; tez_ops; nat_ops;
                 bool_ops; time_ops; address_ops;
+                result_def;
                 get_contract_def; CameLIGO_Chain_CallContext].
 
   Definition printMain (contract parameter_name storage_name : string) : string :=

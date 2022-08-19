@@ -128,7 +128,8 @@ Module EscrowLiquidityExtraction.
     ].
 
   Definition to_inline : list kername :=
-    [  <%% OptionMonad.Monad_option %%>
+    [ <%% OptionMonad.Monad_option %%>
+    ; <%% @ConCert.Execution.ResultMonad.Monad_result %%>
     ; <%% @Monad.bind %%>
     ; <%% @Monad.ret %%>
     ; <%% @Monad.lift %%>

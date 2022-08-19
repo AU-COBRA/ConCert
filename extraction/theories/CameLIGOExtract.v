@@ -122,6 +122,7 @@ Definition TT_remap_default : list (kername * String.string) :=
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
+  ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
   ; remap <%% gmap.gmap %%> "map"
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
@@ -199,6 +200,8 @@ Definition TT_rename_ctors_default : list (String.string * String.string) :=
   ; ("false", "false")
   ; ("Some", "Some")
   ; ("None", "None")
+  ; ("Ok", "Ok")
+  ; ("Err", "Err")
   ; ("tt", "()")].
 
 Definition wrap_in_delimiters s :=

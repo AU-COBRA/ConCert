@@ -53,6 +53,7 @@ Open Scope bool.
 Definition should_inline kn :=
   eq_kername kn <%% @Monad.bind %%>
   || eq_kername kn <%% OptionMonad.Monad_option %%>
+  || eq_kername kn <%% @ConCert.Execution.ResultMonad.Monad_result %%>
   || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
 Definition extract_params :=

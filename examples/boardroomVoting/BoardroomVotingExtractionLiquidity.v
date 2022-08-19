@@ -206,6 +206,7 @@ Definition to_inline : list kername :=
   ++ inline_boardroom_params
   ++ [
     <%% OptionMonad.Monad_option %%>
+  ; <%% @ConCert.Execution.ResultMonad.Monad_result %%>
   ; <%% ContractIniterSetupState %%>
   ; <%% ContractReceiverStateMsgState %%>
   ; <%% @contract_initer_monad %%>
