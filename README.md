@@ -19,6 +19,13 @@ opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inri
 eval $(opam env)
 ```
 
+If Coq 8.15 is already installed, run
+
+```bash
+opam repo add coq-released https://coq.inria.fr/opam/released
+opam install ./coq-concert.opam --deps-only
+```
+
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation. 
 The documentation will be located in the docs folder after `make html`.
 Example contracts can be built by running `make examples`.

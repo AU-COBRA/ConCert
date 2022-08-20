@@ -14,6 +14,7 @@ bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 
 depends: [
+  "coq" {>= "8.15" & < "8.16~"}
   "coq-bignums" {= "8.15.0"}
   "coq-quickchick" {= "1.6.0"}
   "coq-metacoq-template" {= "1.0+8.15"}
