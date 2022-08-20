@@ -18,7 +18,7 @@ opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inri
 eval $(opam env)
 ```
 
-If Coq 8.15 is already installed, run
+If Coq 8.14 is already installed, run
 
 ```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
