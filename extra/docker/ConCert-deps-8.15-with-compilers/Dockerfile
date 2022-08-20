@@ -1,12 +1,13 @@
-FROM aucobra/concert:deps-coq-8.14
+FROM aucobra/concert:deps-coq-8.15
 
 LABEL maintainer="The COBRA Team"
 
-# some extra packages
-RUN sudo apt update && sudo apt install libcurl4-gnutls-dev libsodium-dev build-essential -y
-
 # install liquidity 2.1-beta12
 COPY liquidity /usr/local/bin
+
+
+# some extra packages
+RUN sudo apt update && sudo apt install libcurl4-gnutls-dev libsodium-dev build-essential -y
 
 # install Rust and cargo-concordium
 
