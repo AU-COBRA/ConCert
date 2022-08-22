@@ -79,14 +79,14 @@ file-dependency-graph:
 	@coqdep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
 	@coqdep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
 	@coqdep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
-	
+
 	@echo "Add node colors"
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFEE93"\]/' execution-file-dep.dot ; rm -f execution-file-dep.dot.tmp
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FCF5C7"\]/' embedding-file-dep.dot ; rm -f embedding-file-dep.dot.tmp
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#A0CED9"\]/' extraction-file-dep.dot ; rm -f extraction-file-dep.dot.tmp
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#ADF7B6"\]/' examples-file-dep.dot ; rm -f examples-file-dep.dot.tmp
-	
+
 	@echo "Fix paths"
 	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
 	@sed -i.tmp 's/"[^"^\/]*\/\.\.\//"/g' execution-file-dep.dot ; rm -f execution-file-dep.dot.tmp
@@ -117,8 +117,7 @@ html: all
 		--toc \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
 		--external https://metacoq.github.io/html MetaCoq \
-		--external https://coq-community.org/coq-ext-lib/v0.11.6 ExtLib \
-		--coqlib http://coq.inria.fr/distrib/V8.11.2/stdlib \
+		--external https://coq-community.org/coq-ext-lib/v0.11.7 ExtLib \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
@@ -143,7 +142,7 @@ html: all
 		-R examples/boardroomVoting ConCert.Examples.BoardroomVoting \
 		-R examples/counter ConCert.Examples.Counter \
 		-R examples/crowdfunding ConCert.Examples.Crowdfunding \
-		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v" ! -name "AllTests.v"`
+		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v" ! -name "AllTests.v" ! -wholename "./_opam/*"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs
 	cp extra/resources/toc/*.js docs
