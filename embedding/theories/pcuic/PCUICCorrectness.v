@@ -27,6 +27,8 @@ Import NamelessSubst.
 
 Local Set Keyed Unification.
 
+Open Scope nat.
+
 #[local]
  Hint Resolve assumption_context_subst
               assumption_context_map_vass
@@ -320,8 +322,6 @@ Proof.
       destruct x as [[mib oib] cb].
 
       (* Constructing PCUIC eval derivation for the pattern-matching case *)
-      (* specialize (Hsync _ _ _ _ _ HresC) as Hsync'. *)
-      (* destruct Hsync' as [[[??]?] [Hdctor?]]. *)
       specialize Hctor_decl as [H1 H2].
       destruct H2 as  [Hdctor?].
       eapply PcbvCurr.eval_iota;eauto.
@@ -331,7 +331,7 @@ Proof.
         unfold etrans_branch.
         unfold fun_prod,id;cbn.
         remember (fun (x : pat * expr) => t⟦ x.2.[ exprs ρ] (#|pVars x.1|+0)⟧ Σ1) as f.
-        specialize (find_some_fst_map_snd (p:=fun (x : pat) => pName x =? c.1) (f:=f) _ _ Hfnd) as Hv2.
+        specialize (find_some_fst_map_snd (p:=fun (x : pat) => (pName x =? c.1)%string) (f:=f) _ _ Hfnd) as Hv2.
         destruct Hv2 as [v2 [Hfindv2 [Heqv2 Hf]]];unfold compose in Hfindv2;subst f;cbn in *.
         rewrite Hfindv2. rewrite <- Heqv2.
         inversion Hnth_eq;subst;clear Hnth_eq.
@@ -348,7 +348,7 @@ Proof.
         unfold etrans_branch;cbn.
         unfold fun_prod,id;cbn.
         remember (fun (x : pat * expr) => t⟦ x.2.[ exprs ρ] (#|pVars x.1|+0)⟧ Σ1) as f.
-        specialize (find_some_fst_map_snd (p:=fun (x : pat) => pName x =? c.1) (f:=f) _ _ Hfnd) as Hv2.
+        specialize (find_some_fst_map_snd (p:=fun (x : pat) => (pName x =? c.1)%string) (f:=f) _ _ Hfnd) as Hv2.
         destruct Hv2 as [v2 [Hfindv2 [Heqv2 Hf]]];unfold compose in Hfindv2;subst f;cbn in *.
         rewrite Hfindv2. rewrite <- Heqv2.
         inversion Hnth_eq;subst;clear Hnth_eq.

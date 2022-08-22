@@ -126,7 +126,7 @@ Proof.
   intros cl_t cl_env wfg ev.
   rewrite OptimizePropDiscr.trans_env_optimize_env.
   remember (EEnvMap.GlobalContextMap.make _ _) as Σ0.
-  unshelve eapply (EOptimizePropDiscr.optimize_correct (fl:=default_wcbv_flags) (Σ:=Σ0)) with (t0:=t) (v0:=v);subst;cbn;eauto.
+  unshelve eapply (EOptimizePropDiscr.optimize_correct (fl:=default_wcbv_flags) (Σ:=Σ0)) with (t:=t) (v:=v);subst;cbn;eauto.
 Qed.
 
 

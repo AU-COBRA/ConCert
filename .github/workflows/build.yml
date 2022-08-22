@@ -22,7 +22,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: aucobra/concert:deps-8.14-with-compilers
+      image: aucobra/concert:deps-8.15-with-compilers
       options: --user root
     steps:
     - name: Checkout branch ${{ github.ref_name }}

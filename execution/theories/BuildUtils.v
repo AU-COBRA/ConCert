@@ -650,7 +650,7 @@ Proof.
    (cbn; destruct_address_eq; easy).
   assert (step : ChainStep bstate bstate').
   - eapply step_action; eauto.
-    eapply eval_call with (msg0:= Some ((@serialize Msg _) msg)); eauto.
+    eapply eval_call with (msg:= Some ((@serialize Msg _) msg)); eauto.
     + rewrite new_to_balance_eq.
       now apply wc_receive_to_receive in receive_some.
     + constructor; reflexivity.

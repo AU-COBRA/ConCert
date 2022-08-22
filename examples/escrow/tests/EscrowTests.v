@@ -192,7 +192,7 @@ Section TestProperties.
   so we use QuickChick's 'collect' to collect length distribution statistics *)
   Definition collect_steps_length_distribution g :=
   forAll (g escrow_chain 10%nat) (fun cb =>
-  collect (length (escrow_next_states escrow_contract_addr (cb.(builder_trace))))
+  collect (length (escrow_next_states escrow_contract_addr (builder_trace cb)))
   true).
   (* QuickChick (collect_steps_length_distribution gEscrowTrace). *)
   (* 

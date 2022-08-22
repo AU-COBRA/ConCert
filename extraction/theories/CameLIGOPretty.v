@@ -297,7 +297,7 @@ Section PPTerm.
     let nm := print_ctor_name (fst ind_kn, nm) in
     match tys with
     | [] => nm
-    | _ => let ctor_type := parens (#|tys| <=? 1) <| String.concat " * " (map (print_ind_box_type ty_ctx TT ∘ snd) tys)
+    | _ => let ctor_type := parens (#|tys| <=? 1)%nat <| String.concat " * " (map (print_ind_box_type ty_ctx TT ∘ snd) tys)
            in nm ^ " of " ^ ctor_type
     end.
 

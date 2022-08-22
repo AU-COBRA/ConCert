@@ -36,7 +36,7 @@ Record Entry :=
     passwordAgain : string }.
 
 Definition validPassword (p : string) : Prop :=
-  8 <=? length p.
+  (8 <=? length p)%nat.
 
 Definition nonEmptyString (s : string) : Prop :=
   s <> "".
@@ -103,7 +103,7 @@ Program Definition validateModel : Model -> list string
        let res :=
            [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError)           ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
            ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
-           ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)] in
+           ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)%nat] in
        map snd (filter (fun x => ~~ x.1) res).
 
 
@@ -134,7 +134,7 @@ Tactic Notation "destruct_validation" :=
            eqn:name_empty;
   destruct (password _ =? passwordAgain _)
            eqn: passwords_eq;
-  destruct (8 <=? length (password _))
+  destruct (8 <=? length (password _))%nat
            eqn:password_long_enough;try discriminate.
 
 Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg

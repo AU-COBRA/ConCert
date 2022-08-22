@@ -20,6 +20,7 @@ Import MCMonadNotation.
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.
+Open Scope nat.
 
 (** ** Wrappers for some primitive types *)
 

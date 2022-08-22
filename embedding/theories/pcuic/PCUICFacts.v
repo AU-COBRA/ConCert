@@ -189,6 +189,8 @@ Section Values.
 
   Hint Unfold is_true : facts.
 
+  Open Scope nat.
+
   Lemma iclosed_ty_env_ok n ρ ty : iclosed_ty n ty -> ty_env_ok n ρ ty.
   Proof.
     revert n ρ.
@@ -271,7 +273,7 @@ Section Values.
           rewrite <- PeanoNat.Nat.ltb_lt in *.
           destruct (lookup_i_length _ (n-n1) Hc') as [e0 He0].
           rewrite He0. simpl.
-          eapply All_lookup_i with (ρ0 := ρ) (P:=fun e1 => iclosed_n n1 e1 = true);eauto.
+          eapply All_lookup_i with (ρ := ρ) (P:=fun e1 => iclosed_n n1 e1 = true);eauto.
           apply (All_impl (P:=fun e1 => iclosed_n 0 (snd e1) = true));eauto.
           intros a H. unfold compose.
           change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.
@@ -603,6 +605,8 @@ End FindLookupProperties.
 
 
 Section Validate.
+
+  Open Scope nat.
 
   Lemma valid_ty_env_ty_env_ok ρ n ty:
     valid_ty_env n ρ ty -> ty_env_ok n (exprs ρ) ty.

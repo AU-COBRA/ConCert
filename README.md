@@ -8,14 +8,20 @@ ConCert is able to find real world attacks as explained [here](https://medium.co
 ## How to build
 
 
-Our development works with Coq 8.14 and depends on MetaCoq installed from source,
-std++ and coq-equations. The tests depend on QuickChick. Most of the dependencies can be installed through `opam`.
+Our development works with Coq 8.15 and depends on MetaCoq, std++ and coq-equations. 
+The tests depend on QuickChick. 
+The dependencies can be installed through `opam`.
 
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
 
 ```bash
-opam switch create . 4.08.1
+opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released --deps-only
 eval $(opam env)
+```
+
+If Coq 8.15 is already installed, run
+
+```bash
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install ./coq-concert.opam --deps-only
 ```

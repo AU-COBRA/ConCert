@@ -113,6 +113,7 @@ Definition receive_state_well_behaved_P (chain : Chain)
 ). *)
 (* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
+Open Scope nat.
 
 (* A property about the way States are generated. *)
 (* It says that a State generated at some time slot cannot contain proposals later than this time slot. *)

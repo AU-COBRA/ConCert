@@ -22,14 +22,14 @@ Notation "f '&&&' g" := (fun a => (f a) && (g a)) (at level 10).
 
 (* Get value of isFinalized in last state of a chain *)
 Definition get_chain_finalized (cb : ChainBuilder) : bool :=
-  match get_contract_state BATCommon.State cb.(builder_env) contract_base_addr with
+  match get_contract_state BATCommon.State (builder_env cb) contract_base_addr with
   | Some state => state.(isFinalized)
   | None => true
   end.
 
 (* Get chain length *)
 Definition get_chain_height (cb : ChainBuilder) : nat :=
-  cb.(builder_env).(chain_height).
+  (builder_env cb).(chain_height).
 
 (* Check if an action is finalize *)
 Definition action_is_finalize (action : Action) : bool :=
@@ -85,7 +85,7 @@ Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to)
 
 (* Get the number of tokens in last state before finalize/refund in a chain *)
 Definition get_chain_tokens (cb : ChainBuilder) : TokenValue :=
-  let cs := get_last_funding_state cb.(builder_trace) empty_state in
+  let cs := get_last_funding_state (builder_trace cb) empty_state in
   match get_contract_state BATCommon.State cs contract_base_addr with
   | Some state => (total_supply state)
   | None => 0%N
