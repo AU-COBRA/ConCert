@@ -88,29 +88,29 @@ A video collection, presenting various parts of ConCert can be found on [Youtube
    }
 
 @inproceedings{ConCert-extraction-testing,
-author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
-title = {Extracting Smart Contracts Tested and Verified in Coq},
-year = {2021},
-isbn = {9781450382991},
-publisher = {Association for Computing Machinery},
-url = {https://doi.org/10.1145/3437992.3439934},
-doi = {10.1145/3437992.3439934},
-pages = {105–121},
-numpages = {17},
-location = {Virtual, Denmark},
-series = {CPP 2021}
+  author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
+  title = {Extracting Smart Contracts Tested and Verified in Coq},
+  year = {2021},
+  isbn = {9781450382991},
+  publisher = {Association for Computing Machinery},
+  url = {https://doi.org/10.1145/3437992.3439934},
+  doi = {10.1145/3437992.3439934},
+  pages = {105–121},
+  numpages = {17},
+  location = {Virtual, Denmark},
+  series = {CPP 2021}
 }
 
 @article{ConCert,
-   title={ConCert: a smart contract certification framework in Coq},
-   ISBN={9781450370974},
-   url={https://dx.doi.org/10.1145/3372885.3373829},
-   DOI={10.1145/3372885.3373829},
-   journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
-   publisher={ACM},
-   author={Annenkov, Danil and Nielsen, Jakob Botsch and Spitters, Bas},
-   year={2020},
-   month={Jan}
+  title={ConCert: a smart contract certification framework in Coq},
+  ISBN={9781450370974},
+  url={https://dx.doi.org/10.1145/3372885.3373829},
+  DOI={10.1145/3372885.3373829},
+  journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
+  publisher={ACM},
+  author={Annenkov, Danil and Nielsen, Jakob Botsch and Spitters, Bas},
+  year={2020},
+  month={Jan}
 }
 
 @inproceedings{smart-contract-interactions,
