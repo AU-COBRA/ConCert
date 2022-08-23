@@ -59,7 +59,7 @@ The [project documentation in HTML format](https://au-cobra.github.io/ConCert/to
 We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE)) and local table of contents by [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
 
 ## Papers
-- ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995). Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Accepted to Journal of Functional Programming (JFP), 2022.
+- ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995). Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Journal of Functional Programming (JFP), Volume 32, 2022, e11. [DOI: 10.1017/S0956796822000077](https://doi.org/10.1017/S0956796822000077)
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016). Eske Hoy Nielsen, Danil Annenkov and Bas Spitters. Preprint
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
@@ -76,6 +76,17 @@ A video collection, presenting various parts of ConCert can be found on [Youtube
 
 ### Citing the papers
 ```
+@article{annenkov_milo_nielsen_spitters_2022,
+   author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
+   title={{Extracting functional programs from Coq, in Coq}},
+   volume={32},
+   DOI={10.1017/S0956796822000077},
+   journal={Journal of Functional Programming},
+   publisher={Cambridge University Press},
+   year={2022}, 
+   pages={e11}
+   }
+
 @inproceedings{ConCert-extraction-testing,
 author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
 title = {Extracting Smart Contracts Tested and Verified in Coq},
