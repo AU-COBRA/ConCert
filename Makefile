@@ -17,7 +17,7 @@ typed-extraction:
 	+make -C typed-extraction
 .PHONY: typed-extraction
 
-extraction: utils execution
+extraction: utils execution typed-extraction
 	+make -C extraction
 .PHONY: extraction
 
