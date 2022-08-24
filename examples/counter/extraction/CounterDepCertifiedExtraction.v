@@ -13,7 +13,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import CertifyingEta.
+From MetaCoq.TypedExtraction Require Import CertifyingEta.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 From Coq Require Import String.
