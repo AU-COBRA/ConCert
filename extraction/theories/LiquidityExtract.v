@@ -29,9 +29,9 @@ Definition to_constant_decl (gd : option global_decl) :=
 Record LiquidityMod (msg init_ctx params storage operation error : Type) :=
   { lmd_module_name : String.string ;
     lmd_prelude : String.string ;
-    lmd_init : init_ctx -> params -> ConCert.Execution.ResultMonad.result storage;
+    lmd_init : init_ctx -> params -> ConCert.Execution.ResultMonad.result storage error;
     lmd_init_prelude : String.string ;
-    lmd_receive : msg -> storage -> ConCert.Execution.ResultMonad.result (list operation * storage);
+    lmd_receive : msg -> storage -> ConCert.Execution.ResultMonad.result (list operation * storage) error;
     lmd_entry_point : String.string }.
 
 Arguments lmd_module_name {_ _ _ _ _ _}.

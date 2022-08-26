@@ -7,6 +7,7 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.EIP20 Require EIP20Token.
 
@@ -24,8 +25,8 @@ Section EIP20TokenExtraction.
 
   Context `{ChainBase}.
 
-  Definition init (setup : EIP20Token.Setup) : option EIP20Token.State :=
-    Some {| total_supply := setup.(init_amount);
+  Definition init (setup : EIP20Token.Setup) : result EIP20Token.State unit :=
+    Ok {| total_supply := setup.(init_amount);
             balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
             allowances := ContractCommon.AddressMap.empty |}.
 
@@ -37,13 +38,13 @@ Section EIP20TokenExtraction.
        (ctx : ContractCallContext)
        (state : EIP20Token.State)
        (maybe_msg : option EIP20Token.Msg)
-    : option (list ActionBody * EIP20Token.State) :=
+    : result (list ActionBody * EIP20Token.State) unit :=
     match EIP20Token.receive chain ctx state maybe_msg with
-    | Some x => Some (x.2, x.1)
-    | None => None
+    | Ok x => Ok (x.2, x.1)
+    | Err e => Err e
     end.
 
-  Definition LIGO_EIP20Token_MODULE  : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
+  Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody unit :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_eip20token" ;
 

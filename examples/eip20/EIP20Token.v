@@ -8,6 +8,7 @@
 From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
@@ -62,13 +63,16 @@ Section EIP20Token.
   End Serialization.
   (* end hide *)
 
+  Definition error {T : Type} : result T unit :=
+    Err tt.
+
 (** * Contract functions *)
   (** ** init *)
   (** Initialize contract storage *)
   Definition init (chain : Chain)
        (ctx : ContractCallContext)
-       (setup : Setup) : option State :=
-    Some {| total_supply := setup.(init_amount);
+       (setup : Setup) : result State unit :=
+    Ok {| total_supply := setup.(init_amount);
             balances := AddressMap.add setup.(owner) setup.(init_amount) AddressMap.empty;
             allowances := AddressMap.empty |}.
 
@@ -83,13 +87,13 @@ Section EIP20Token.
   Definition try_transfer (from : Address)
        (to : Address)
        (amount : TokenValue)
-       (state : State) : option State :=
+       (state : State) : result State unit :=
     let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
     if from_balance <? amount
-    then None
+    then error
     else let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
          let new_balances := increment_balance new_balances to amount in
-         Some (state<|balances := new_balances|>).
+         Ok (state<|balances := new_balances|>).
 
   (** ** transfer_from *)
   (** The delegate tries to transfer [amount] tokens from [from] to [to].
@@ -98,28 +102,28 @@ Section EIP20Token.
        (from : Address)
        (to : Address)
        (amount : TokenValue)
-       (state : State) : option State :=
-  do from_allowances_map <- AddressMap.find from state.(allowances) ;
-  do delegate_allowance <- AddressMap.find delegate from_allowances_map ;
+       (state : State) : result State unit :=
+  do from_allowances_map <- result_of_option (AddressMap.find from state.(allowances)) tt ;
+  do delegate_allowance <- result_of_option (AddressMap.find delegate from_allowances_map) tt ;
   let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
   if (delegate_allowance <? amount) || (from_balance <? amount)
-  then None
+  then error
   else let new_allowances := AddressMap.add delegate (delegate_allowance - amount) from_allowances_map in
        let new_balances := AddressMap.add from (from_balance - amount) state.(balances) in
        let new_balances := increment_balance new_balances to amount in
-       Some (state<|balances := new_balances|><|allowances ::= AddressMap.add from new_allowances|>).
+       Ok (state<|balances := new_balances|><|allowances ::= AddressMap.add from new_allowances|>).
 
   (** ** approve *)
   (** The caller approves the delegate to transfer up to [amount] tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
        (delegate : Address)
        (amount : TokenValue)
-       (state : State) : option State :=
+       (state : State) : result State unit :=
     match AddressMap.find caller state.(allowances) with
     | Some caller_allowances =>
-      Some (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances) |>)
+      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances) |>)
     | None =>
-      Some (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty) |>)
+      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty) |>)
     end.
 
   (** ** receive *)
@@ -129,22 +133,22 @@ Section EIP20Token.
        (ctx : ContractCallContext)
        (state : State)
        (maybe_msg : option Msg)
-    : option (State * list ActionBody) :=
+    : result (State * list ActionBody) unit :=
     let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => (new_state, [])) in
+    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (** Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
-    then None
+    then error
     else match maybe_msg with
    | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
    | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
    (** transfer actions to this contract are not allowed *)
-   | None => None
+   | None => error
    end.
   Close Scope Z_scope.
 
-  Definition contract : Contract Setup Msg State :=
+  Definition contract : Contract Setup Msg State unit :=
     build_contract init receive.
 
   (* sum of all balances in the token state *)

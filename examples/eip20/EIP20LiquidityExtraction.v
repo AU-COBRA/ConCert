@@ -6,6 +6,8 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
+From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Execution Require Import ContractCommon.
@@ -74,28 +76,28 @@ Section EIP20TokenExtraction.
       (ctx : ContractCallContext)
       (state : EIP20Token.State)
       (maybe_msg : option EIP20Token.Msg)
-    : option (list ActionBody * EIP20Token.State) :=
+    : result (list ActionBody * EIP20Token.State) unit :=
     let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => ([], new_state)) in
+    let without_actions x := x >>= (fun new_state => Ok ([], new_state)) in
     match maybe_msg with
     | Some (transfer to_addr amountt) => without_actions (try_transfer sender to_addr amountt state)
     | Some (transfer_from from to_addr amountt) => without_actions (try_transfer_from sender from to_addr amountt state)
-   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-    | _ => None
+    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
+    | _ => Err tt
     end.
 
   Definition receive_wrapper
              (params : params)
-             (st : State) : option (list ActionBody × State) :=
+             (st : State) : result (list ActionBody × State) unit :=
     test_receive params.1 st params.2.
 
   (* The same as for [test_receive].
      TODO: remove, once the [LiquidityMod] is fixed. *)
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : result EIP20Token.State unit :=
     (* ensure extraction does not optimize unused ctx away
        NOTE: can be dealt with in a better way using the mask-override mechanism of dearging *)
     let ctx_ := ctx in
-    Some {| total_supply := setup.(init_amount);
+    Ok {| total_supply := setup.(init_amount);
             balances := AddressMap.add (EIP20Token.owner setup) (init_amount setup) AddressMap.empty;
             allowances := AddressMap.empty |}.
   Open Scope Z_scope.
@@ -104,10 +106,10 @@ Section EIP20TokenExtraction.
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " (" ++ liquidity_call_ctx ++ ", param) st" ++ " with"
-        ++ "| Some v -> v"
-        ++ "| None -> failwith ()".
+        ++ "| Ok v -> v"
+        ++ "| Err e -> failwith e".
 
-  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
+  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody unit :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_eip20token" ;
 
