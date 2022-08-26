@@ -1,4 +1,4 @@
-From Coq Require Import List.
+From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith.
 From Coq Require Import Znumtheory.
 From Coq Require Import Permutation.
@@ -9,12 +9,11 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require ContractMonads.
 From ConCert.Execution Require Import ContractCommon. Import AddressMap.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
-
-Import ListNotations.
 
 
 
@@ -95,7 +94,6 @@ Local Open Scope broom.
 Definition encodeA : A -> positive := countable.encode.
 Definition encodeNat : nat -> positive := countable.encode.
 
-
 Definition hash_sk_data (gv pk : A) (i : nat) : positive :=
   H [encodeA (generator : A); encodeA gv; encodeA pk; encodeNat i].
 
@@ -160,13 +158,25 @@ Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) (w
   submit_vote (compute_public_vote rk sk sv)
               (secret_vote_proof sk rk sv my_index w r d).
 
+Definition assert_true_init (check : bool) : ContractIniter Setup unit unit :=
+  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
+Definition assert_true (check : bool) : ContractReceiver State Msg unit unit :=
+  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
+Definition assert_false (check : bool) : ContractReceiver State Msg unit unit :=
+  @lift _ (fun T => result T unit) _ _ (if check then Err tt else Ok tt).
+Definition assert_some {A : Type} (check : option A) : ContractReceiver State Msg unit unit :=
+  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
+Definition assert_none {A : Type} (check : option A) : ContractReceiver State Msg unit unit :=
+  @lift _ (fun T => result T unit) _ _ (if check then Err tt else Ok tt).
+
 (* A necessary aliasing to make extraction work *)
-Definition ContractIniterSetupState := ContractIniter Setup State.
+Definition ContractIniterSetupState := ContractIniter Setup unit State.
 
 Definition init : ContractIniterSetupState :=
   do owner <- lift caller_addr;
   do setup <- deployment_setup;
-  do lift (if finish_registration_by setup <? finish_vote_by setup then Some tt else None)%nat;
+  do assert_true_init
+    (finish_registration_by setup <? finish_vote_by setup)%nat;
   accept_deployment
     {| owner := owner;
        registered_voters := AddressMap.empty;
@@ -174,17 +184,17 @@ Definition init : ContractIniterSetupState :=
        setup := setup;
        tally := None; |}.
 
-Definition ContractReceiverStateMsgState := ContractReceiver State Msg State.
+Definition ContractReceiverStateMsgState := ContractReceiver State Msg unit State.
 
 Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState :=
-  do lift (if finish_registration_by (setup state) <? cur_slot then None else Some tt)%nat;
-  do lift (if AddressMap.find caller (eligible_voters (setup state)) then Some tt else None);
-  do lift (if AddressMap.find caller (registered_voters state) then None else Some tt);
+  do assert_false (finish_registration_by (setup state) <? cur_slot)%nat;
+  do assert_some (AddressMap.find caller (eligible_voters (setup state)));
+  do assert_none (AddressMap.find caller (registered_voters state));
   do amt <- lift call_amount;
-  do lift (if (amt =? (registration_deposit (setup state)))%Z then Some tt else None);
-  do lift (if Z.of_nat (length (public_keys state)) <? order - 2 then Some tt else None);
+  do assert_true (amt =? (registration_deposit (setup state)))%Z;
+  do assert_true (Z.of_nat (length (public_keys state)) <? order - 2);
   let index := length (public_keys state) in
-  do lift (if verify_secret_key_proof pk index prf then Some tt else None);
+  do assert_true (verify_secret_key_proof pk index prf);
   let inf := {| voter_index := index;
                 vote_hash := 1%positive;
                 public_vote := zero; |} in
@@ -192,46 +202,45 @@ Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsg
                         <|public_keys ::= fun l => l ++ [pk]|> in
   accept_call new_state.
 
-
 Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState :=
-  do commit_by <- lift (finish_commit_by (setup state));
-  do lift (if commit_by <? cur_slot then None else Some tt)%nat;
-  do inf <- lift (AddressMap.find caller (registered_voters state));
+  do commit_by <- lift (result_of_option (finish_commit_by (setup state)) tt);
+  do assert_false (commit_by <? cur_slot)%nat;
+  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) tt);
   let inf := inf<|vote_hash := hash|> in
   accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
 
 Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverStateMsgState :=
-  do lift (if finish_vote_by (setup state) <? cur_slot then None else Some tt)%nat;
-  do inf <- lift (AddressMap.find caller (registered_voters state));
-  do lift (if finish_commit_by (setup state) then
-             if (H [encodeA v] =? vote_hash inf)%positive then Some tt else None
+  do assert_false (finish_vote_by (setup state) <? cur_slot)%nat;
+  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) tt);
+  do @lift _ (fun T => result T unit) _ _ (if finish_commit_by (setup state) then
+             if (H [encodeA v] =? vote_hash inf)%positive then Ok tt else Err tt
            else
-             Some tt);
-  do lift (if verify_secret_vote_proof
+             Ok tt);
+  do @lift _ (fun T => result T unit) _ _ (if verify_secret_vote_proof
                 (nth (voter_index inf) (public_keys state) 0)
                 (reconstructed_key (public_keys state) (voter_index inf))
                 v
                 (voter_index inf)
-                proof then Some tt else None);
+                proof then Ok tt else Err tt);
   let inf := inf<|public_vote := v|> in
   accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
 
 Definition handle_tally_votes state cur_slot : ContractReceiverStateMsgState :=
-  do lift (if cur_slot <? finish_vote_by (setup state) then None else Some tt)%nat;
-  do lift (match tally state with | Some _ => None | None => Some tt end);
+  do assert_false (cur_slot <? finish_vote_by (setup state))%nat;
+  do assert_none (tally state);
   let voters := AddressMap.values (registered_voters state) in
-  do lift (if existsb
+  do assert_false (existsb
                 (fun vi => if elmeqb (public_vote vi) zero then true else false)
-                voters then None else Some tt);
+                voters);
   let votes := map public_vote voters in
-  do res <- lift (bruteforce_tally votes);
+  do res <- lift (result_of_option (bruteforce_tally votes) tt);
   accept_call (state<|tally := Some res|>).
 
 Definition receive : ContractReceiverStateMsgState :=
   do state <- my_state;
   do caller <- lift caller_addr;
   do cur_slot <- lift current_slot;
-  do msg <- call_msg >>= lift;
+  do msg <- call_msg tt;
   match msg with
   | signup pk prf => handle_signup pk prf state caller cur_slot
   | commit_to_vote hash => handle_commit_to_vote hash state caller cur_slot
@@ -239,7 +248,7 @@ Definition receive : ContractReceiverStateMsgState :=
   | tally_votes => handle_tally_votes state cur_slot
   end.
 
-Definition boardroom_voting : Contract Setup Msg State :=
+Definition boardroom_voting : Contract Setup Msg State unit :=
   build_contract init receive.
 
 Section Theories.

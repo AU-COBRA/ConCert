@@ -84,10 +84,10 @@ Global Instance contract_reader_to_contract_initer
        let '(chain, ctx, res) := reader chain ctx in
        (chain, ctx, setup, Ok res) |}.
 
-Global Instance option_to_contract_initer
+Global Instance result_to_contract_initer
         {Setup Error : Type}
         : MonadTrans (ContractIniter Setup Error) (fun T => result T Error) :=
-  {| lift _ (opt : result _ _) chain ctx setup := (chain, ctx, setup, opt) |}.
+  {| lift _ (opt : result _ Error) chain ctx setup := (chain, ctx, setup, opt) |}.
 
 Definition ContractReceiver (State Msg Error T : Type) : Type :=
   Chain -> ContractCallContext -> State -> option Msg -> list ActionBody ->
@@ -141,10 +141,10 @@ Global Instance contract_reader_to_receiver
        let '(chain, ctx, res) := reader chain ctx in
        (chain, ctx, state, msg, acts, Ok res) |}.
 
-Global Instance option_to_contract_receiver
+Global Instance result_to_contract_receiver
         {State Msg Error : Type}
         : MonadTrans (ContractReceiver State Msg Error) (fun T => result T Error)  :=
-  {| lift _ (opt : result _ _) chain ctx state msg acts := (chain, ctx, state, msg, acts, opt) |}.
+  {| lift _ (opt : result _ Error) chain ctx state msg acts := (chain, ctx, state, msg, acts, opt) |}.
 
 Definition chain_height : ContractReader nat :=
   fun chain ctx => (chain, ctx, chain_height chain).
@@ -183,8 +183,9 @@ Definition accept_deployment
 
 Definition call_msg
             {State Msg Error: Type}
-            : ContractReceiver State Msg Error (option Msg) :=
-  fun chain ctx state msg acts => (chain, ctx, state, msg, acts, Ok msg).
+            (err : Error)
+            : ContractReceiver State Msg Error Msg :=
+  fun chain ctx state msg acts => (chain, ctx, state, msg, acts, result_of_option msg err).
 
 Definition my_state
            {State Msg Error : Type}

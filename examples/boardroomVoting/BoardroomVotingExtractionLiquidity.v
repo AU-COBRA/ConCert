@@ -8,6 +8,8 @@ From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require Import ContractMonads.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import ZArith.
@@ -73,8 +75,6 @@ Definition svs : list bool :=
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
 Definition modulus_ := StringExtra.string_of_Z modulus.
 
-Require Import ContractMonads.
-
 Definition init_ctx := (Chain × ContractCallContext).
 
 Definition init_wrapper (cctx : init_ctx) := (run_contract_initer BV.init) cctx.1 cctx.2.
@@ -82,19 +82,19 @@ Definition init_wrapper (cctx : init_ctx) := (run_contract_initer BV.init) cctx.
 Notation msg := (Chain × ContractCallContext × option BV.Msg).
 
 Definition receive_wrapper (msg : msg)
-                           (st : BV.State) : option (list ActionBody * BV.State):= 
-                           (* None. *)
+                           (st : BV.State)
+                           : result (list ActionBody * BV.State) unit := 
   match (run_contract_receiver BV.receive) msg.1 msg.2.1 st msg.2.2 with
-  | Some (st, acts) => Some (acts, st)
-  | None => None
+  | Ok (st, acts) => Ok (acts, st)
+  | Err e => Err e
   end.
 
-Definition dummy_init : init_ctx -> BV.Setup -> option BV.State := fun _ _ => None.
+Definition dummy_init : init_ctx -> BV.Setup -> result BV.State unit := fun _ _ => Err tt.
 
-Definition dummy_receive : msg -> BV.State -> option (list ActionBody × BV.State) := 
+Definition dummy_receive : msg -> BV.State -> result (list ActionBody × BV.State) unit := 
   fun m s  => 
     let x := handle_signup 0 (0, 0) s s.(owner) 0%nat  in
-    None.
+    Err tt.
 
 Definition storage_alias := "type storage = state".
 
@@ -152,7 +152,7 @@ Definition extra_ops :=
 Definition hash_func_def := "let hash_func (l : ( (nat) list)) = addNat 1p (List.fold (fun (p,a) -> lxorNat p a) l 1p)".
 
 
-Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody :=
+Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody unit :=
   {| (* a name for the definition with the extracted code *)
     lmd_module_name := "liquidity_boardroomvoting" ;
 
@@ -213,9 +213,9 @@ Definition to_inline : list kername :=
   ; <%% @run_contract_receiver %%>
   ; <%% @contract_receiver_monad %%>
   ; <%% @contract_reader_to_contract_initer %%>
-  ; <%% @option_to_contract_initer %%>
+  ; <%% @result_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
-  ; <%% @option_to_contract_receiver %%>
+  ; <%% @result_to_contract_receiver %%>
   
   ; <%% @ContractReceiver %%>
   ; <%% @ContractIniter %%>

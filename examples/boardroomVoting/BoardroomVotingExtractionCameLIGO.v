@@ -9,7 +9,9 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
-(* From ConCert.Execution.Test Require LocalBlockchain. *)
+From ConCert.Execution Require Import ContractMonads.
+From ConCert.Execution Require Import ResultMonad.
+From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
@@ -45,8 +47,6 @@ Module BV := BoardroomVoting Params. Import BV.
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
 Definition modulus_ := StringExtra.string_of_Z modulus.
 
-Require Import ContractMonads.
-
 Definition setupWchain := (BV.Setup × Chain).
 
 Definition init_wrapper (cctx : ContractCallContext) (s : setupWchain) := (run_contract_initer BV.init) s.2 cctx s.1.
@@ -55,15 +55,15 @@ Definition init_wrapper (cctx : ContractCallContext) (s : setupWchain) := (run_c
 (** In the Tezos blockchain there is no concept of initialisation
     function. However, it's common to provide a function that computes
     a valid initial storage that can be used for deployment.*)
-Definition init (s : Address * Setup) : option State :=
+Definition init (s : Address * Setup) : result State unit :=
   if (finish_registration_by s.2 <? finish_vote_by s.2)%nat
       then
-        Some {| owner := s.1;
+        Ok {| owner := s.1;
                 registered_voters := AddressMap.empty;
                 public_keys := [];
                 setup := s.2;
                tally := None; |}
-      else None.
+      else Err tt.
 
 Lemma init_eq_init_wrapper cctx s :
   init_wrapper cctx s = init (cctx.(ctx_from), s.1).
@@ -76,11 +76,10 @@ Definition receive_wrapper (c : Chain)
                            (ctx : ContractCallContext)
                            (st : BV.State) 
                            (msg : option BV.Msg)
-                           : option (list ActionBody * BV.State):= 
-                           (* None. *)
+                           : result (list ActionBody * BV.State) unit := 
   match (run_contract_receiver BV.receive) c ctx st msg with
-  | Some (st, acts) => Some (acts, st)
-  | None => None
+  | Ok (st, acts) => Ok (acts, st)
+  | Err e => Err e
   end.
 
 Definition storage_alias := "type storage = state".
@@ -141,7 +140,7 @@ Definition hash_func_def := "let hash_func (l :  (nat) list) = addN 1n (List.fol
 Definition callctx := "(Tezos.sender,(Tezos.self_address,(Tezos.amount,Tezos.balance)))".
 
 
-Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) BV.State ActionBody :=
+Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) BV.State ActionBody unit :=
   {| (* a name for the definition with the extracted code *)
     lmd_module_name := "cameligo_boardroomvoting" ;
 
@@ -204,9 +203,9 @@ Definition to_inline : list kername :=
   ; <%% @run_contract_receiver %%>
   ; <%% @contract_receiver_monad %%>
   ; <%% @contract_reader_to_contract_initer %%>
-  ; <%% @option_to_contract_initer %%>
+  ; <%% @result_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
-  ; <%% @option_to_contract_receiver %%>
+  ; <%% @result_to_contract_receiver %%>
   
   ; <%% @ContractReceiver %%>
   ; <%% @ContractIniter %%>
