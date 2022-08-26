@@ -3,6 +3,7 @@ From Coq Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Serializable.
+From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import CameLIGOPretty.
@@ -21,22 +22,22 @@ From MetaCoq.Template Require Import TemplateMonad.
 
 Import monad_utils.MCMonadNotation ListNotations.
 
-Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation : Type) :=
+Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation error : Type) :=
   { lmd_module_name : string ;
     lmd_prelude : string ;
-    lmd_init : setup -> option storage;
+    lmd_init : setup -> ConCert.Execution.ResultMonad.result storage error;
     lmd_init_prelude : string ;
     lmd_receive_prelude : string;
-    lmd_receive : Chain -> ctx -> storage -> option msg -> option (list operation * storage);
+    lmd_receive : Chain -> ctx -> storage -> option msg -> ConCert.Execution.ResultMonad.result (list operation * storage) error;
     lmd_entry_point : string }.
 
-Arguments lmd_module_name {_ _ _ _ _ _}.
-Arguments lmd_prelude {_ _ _ _ _ _}.
-Arguments lmd_init {_ _ _ _ _ _}.
-Arguments lmd_init_prelude {_ _ _ _ _ _}.
-Arguments lmd_receive {_ _ _ _ _ _}.
-Arguments lmd_receive_prelude {_ _ _ _ _ _}.
-Arguments lmd_entry_point {_ _ _ _ _ _}.
+Arguments lmd_module_name {_ _ _ _ _ _ _}.
+Arguments lmd_prelude {_ _ _ _ _ _ _}.
+Arguments lmd_init {_ _ _ _ _ _ _}.
+Arguments lmd_init_prelude {_ _ _ _ _ _ _}.
+Arguments lmd_receive {_ _ _ _ _ _ _}.
+Arguments lmd_receive_prelude {_ _ _ _ _ _ _}.
+Arguments lmd_entry_point {_ _ _ _ _ _ _}.
 
 (* We override masks for *some* constants that have only logical parameters, like
    [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
@@ -219,7 +220,7 @@ Section LigoExtract.
   Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
   Local Coercion bytestring.String.to_string : bytestring.String.t >-> String.string.
 
-Definition printCameLIGODefs {msg ctx params storage operation : Type}
+Definition printCameLIGODefs {msg ctx params storage operation error : Type}
            (Σ : Ast.Env.global_env)
            (TT_defs : list (kername *  String.string))
            (TT_ctors : env String.string)
@@ -227,8 +228,8 @@ Definition printCameLIGODefs {msg ctx params storage operation : Type}
            (build_call_ctx : String.string)
            (init : kername)
            (receive : kername)
-           (m : CameLIGOMod msg ctx params storage operation)
-  : String.string + String.string :=
+           (m : CameLIGOMod msg ctx params storage operation error)
+           : String.string + String.string :=
   let init_prelude := m.(lmd_init_prelude) in
   let entry_point := m.(lmd_entry_point) in
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
@@ -287,10 +288,10 @@ Open Scope bs_scope.
 Definition WITH_UNIVERSES := false.
 
 Definition quote_and_preprocess {Base : ChainBase}
-           {msg ctx params storage operation : Type}
+           {msg ctx params storage operation error : Type}
            (inline : list kername)
-           (m : CameLIGOMod msg ctx params storage operation)
-  : TemplateMonad (Ast.Env.global_env * kername * kername) :=
+           (m : CameLIGOMod msg ctx params storage operation error)
+           : TemplateMonad (Ast.Env.global_env * kername * kername) :=
    (* we compute with projections before quoting to avoid unnecessary dependencies to be quoted *)
    init <- tmEval cbn m.(lmd_init);;
    receive <-tmEval cbn m.(lmd_receive);;
@@ -318,13 +319,13 @@ Definition quote_and_preprocess {Base : ChainBase}
     The definition consist of a call to erasure and pretty-printing for further
     evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
     which is much faster than running the computations inside [TemplateMonad]. *)
-Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
+Definition CameLIGO_prepare_extraction {msg ctx params storage operation error : Type}
            (inline : list kername)
            (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (extra_ignore : list kername)
            (build_call_ctx : String.string)
-           (m : CameLIGOMod msg ctx params storage operation) :=
+           (m : CameLIGOMod msg ctx params storage operation error) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let TT :=
@@ -337,13 +338,14 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation : Type}
 
 (** Bundles together quoting, inlining, erasure and pretty-printing.
     Convenient to use, but might be slow, becase performance of [tmEval lazy] is not great. *)
-Definition CameLIGO_extract {msg ctx params storage operation : Type}
+Definition CameLIGO_extract {msg ctx params storage operation error : Type}
            (inline : list kername)
            (TT_defs : list (kername *  String.string))
            (TT_ctors : env String.string)
            (extra_ignore : list kername)
            (build_call_ctx : String.string)
-           (m : CameLIGOMod msg ctx params storage operation) : TemplateMonad String.string:=
+           (m : CameLIGOMod msg ctx params storage operation error)
+           : TemplateMonad String.string :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let TT :=

@@ -1018,8 +1018,8 @@ Section PPLigo.
        "" ;
        "let main (p, st : " ++ parameter_name ++ " option * " ++ storage_name ++ ") : return = " ;
        "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
-       "      Some v -> (v.0, v.1)" ;
-       "    | None -> (failwith (""Contract returned None"") : return))" $>.
+       "      Ok v -> (v.0, v.1)" ;
+       "    | Err e -> (failwith e : return))" $>.
 
   Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
   let st := print_type_name state_nm in
