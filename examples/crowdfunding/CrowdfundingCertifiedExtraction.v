@@ -6,6 +6,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
+From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
@@ -62,24 +63,31 @@ Definition TT_rename :=
 
 Definition printWrapperAndMain :=
   "let wrapper (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with
-| Some v -> v| None -> failwith ()" ++ Common.nl ++ Common.nl++
+| Ok v -> v| Err e -> failwith e" ++ Common.nl ++ Common.nl++
 "let%entry main (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
 
 
 Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
 Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
 Definition crowdfunding_init (ctx : SimpleCallCtx)
-           (setup : (time_coq × Z × address_coq)) : option storage :=
-  if ctx.2.2.1 =? 0 then Some (setup, (Maps.mnil, false)) else None.
+                             (setup : (time_coq × Z × address_coq))
+                             : ConCert.Execution.ResultMonad.result storage unit :=
+  if ctx.2.2.1 =? 0
+  then ConCert.Execution.ResultMonad.Ok (setup, (Maps.mnil, false))
+  else ConCert.Execution.ResultMonad.Err tt.
   (* (unfolded Init.init) setup ctx. *)
 
 Definition crowdfunding_receive
            (params : params)
-           (st : storage) : option (list SimpleActionBody_coq × storage) :=
-  receive params.2 st params.1.
+           (st : storage)
+           : ConCert.Execution.ResultMonad.result (list SimpleActionBody_coq × storage) unit :=
+  match receive params.2 st params.1 with
+  | Some v => ConCert.Execution.ResultMonad.Ok v
+  | None => ConCert.Execution.ResultMonad.Err tt
+  end.
 
 Definition CROWDFUNDING_MODULE :
-  LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq :=
+  LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq unit :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_crowdfunding" ;
 

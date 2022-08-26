@@ -13,6 +13,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 
 Import MCMonadNotation.
 
@@ -26,17 +27,21 @@ Module Crowdfunding.
   Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
 
   Definition crowdfunding_init (ctx : ContractCallContext)
-              (setup : (time_coq × Z × address_coq)) : option storage :=
-      if ctx.(ctx_amount) =? 0 then Some (setup, (Maps.mnil, false)) else None.
+                               (setup : (time_coq × Z × address_coq))
+                               : result storage unit :=
+      if ctx.(ctx_amount) =? 0 then Ok (setup, (Maps.mnil, false)) else Err tt.
 
-  Definition init (setup : (time_coq × Z × address_coq)) : option storage :=
-    Some (setup, (Maps.mnil, false)).
+  Definition init (setup : (time_coq × Z × address_coq))
+                  : result storage unit :=
+    Ok (setup, (Maps.mnil, false)).
 
   Lemma crowdfunding_init_eq_init ctx setup :
     ctx.(ctx_amount) =? 0 -> (* no money should be sent on deployment *)
     crowdfunding_init ctx setup = init setup.
   Proof.
-    intros Hamount. unfold crowdfunding_init. now rewrite Hamount.
+    intros Hamount.
+    unfold crowdfunding_init.
+    now rewrite Hamount.
   Qed.
 
   Open Scope Z.
@@ -55,21 +60,23 @@ Module Crowdfunding.
             (c : Chain)
             (ctx : ContractCallContext)
             (params : msg_coq)
-            (st : storage) : option (list SimpleActionBody_coq × storage) :=
-    receive params st
+            (st : storage)
+            : result (list SimpleActionBody_coq × storage) unit :=
+    let res :=receive params st
             (Time_coq c.(current_slot),
              (to_simple_ctx_addr ctx.(ctx_from),
              (ctx.(ctx_amount),
-             ctx.(ctx_contract_balance)))).
+             ctx.(ctx_contract_balance)))) in
+      result_of_option res tt.
 
   Definition crowdfunding_receive (c : Chain) (ctx : ContractCallContext) st msg :=
     match msg with
     | Some msg => crowdfunding_receive_inner c ctx msg st
-    | None => None
+    | None => Err tt
     end.
 
   Definition CF_MODULE :
-    CameLIGOMod _ _ _ storage SimpleActionBody_coq :=
+    CameLIGOMod _ _ _ storage SimpleActionBody_coq unit :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_crowdfunding" ;
 
