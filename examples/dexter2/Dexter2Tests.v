@@ -138,17 +138,19 @@ Module TN := TestNotations NotationInfo. Import TN.
     Therefore we test in both execution orders that there will never be
     callbacks with someone elses balance / incorrect balance.
 *)
-Definition msg_is_balance_of_callback (cstate : Dexter2CPMM.State) (msg : Dexter2CPMM.Msg) : bool :=
+Definition msg_is_balance_of_callback (cstate : Dexter2CPMM.State)
+                                      (msg : Dexter2CPMM.Msg)
+                                      : bool :=
   match msg with
   | FA2Token.receive_balance_of_param _ => true
   | _ => false
   end.
 
 Definition callback_safe (env : Environment)
-                                 (cctx : ContractCallContext)
-                                 (old_state : Dexter2CPMM.State)
-                                 (msg : Dexter2CPMM.Msg)
-                                 (result_opt : option (Dexter2CPMM.State * list ActionBody)) :=
+                         (cctx : ContractCallContext)
+                         (old_state : Dexter2CPMM.State)
+                         (msg : Dexter2CPMM.Msg)
+                         (result_opt : option (Dexter2CPMM.State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), FA2Token.receive_balance_of_param responses) =>
     let length_correct := length responses =? 1 in
@@ -186,7 +188,9 @@ QuickChick ({{msg_is_balance_of_callback}} cpmm_contract_base_addr {{callback_sa
     while token reserve is syncing.
     Again we test for both execution models.
 *)
-Definition is_syncing (state : Dexter2CPMM.State) (msg : Dexter2CPMM.Msg) : bool :=
+Definition is_syncing (state : Dexter2CPMM.State)
+                      (msg : Dexter2CPMM.Msg)
+                      : bool :=
   state.(selfIsUpdatingTokenPool).
 
 Definition only_callbacks (env : Environment)

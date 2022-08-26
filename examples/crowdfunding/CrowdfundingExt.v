@@ -43,34 +43,34 @@ Module CrowdfundingContract.
   Module Validate.
     Import Notations.
 
-     Definition maybe_bind_unit_syn :=
+    Definition maybe_bind_unit_syn :=
      [| \"o" : Maybe Unit => \"b" : Maybe Result =>
         case "o" : Maybe Unit return Maybe Result of
         | Just "_" -> "b"
         | Nothing -> $Nothing$Maybe [:  Result ]  |].
 
-   MetaCoq Unquote Definition maybe_bind_unit :=
-     (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
+    MetaCoq Unquote Definition maybe_bind_unit :=
+      (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
 
-   Notation "a >> b" :=
-     [| {eConst (to_string_name <% maybe_bind_unit %>)} {a} {b}|]
-       (in custom expr at level 0,
-           a custom expr,
-           b custom expr).
+    Notation "a >> b" :=
+      [| {eConst (to_string_name <% maybe_bind_unit %>)} {a} {b}|]
+        (in custom expr at level 0,
+            a custom expr,
+            b custom expr).
 
-   (** We check if the amount is zero and then let this check pass, otherwise return Nothing, meaning failure *)
-   Definition validate_syn :=
-     [| \tx_amount : money =>
-        if 0z == tx_amount then $Just$Maybe [: Unit] star
-        else $Nothing$Maybe [: Unit] : Maybe Unit |].
+    (** We check if the amount is zero and then let this check pass, otherwise return Nothing, meaning failure *)
+    Definition validate_syn :=
+      [| \tx_amount : money =>
+          if 0z == tx_amount then $Just$Maybe [: Unit] star
+          else $Nothing$Maybe [: Unit] : Maybe Unit |].
 
-   MetaCoq Unquote Definition validate :=
-     (expr_to_tc Σ' (indexify nil validate_syn)).
+    MetaCoq Unquote Definition validate :=
+      (expr_to_tc Σ' (indexify nil validate_syn)).
 
 
-   Notation "'VALIDATE' amt" := [| {eConst (to_string_name <% validate %>)} {amt} |] (in custom expr at level 0).
+    Notation "'VALIDATE' amt" := [| {eConst (to_string_name <% validate %>)} {amt} |] (in custom expr at level 0).
 
-   End Validate.
+  End Validate.
 
   (** ** AST of the [init] function *)
   Module Init.
@@ -85,7 +85,7 @@ Module CrowdfundingContract.
              (mkFullState setup (mkState MNil False))
           else $Nothing$Maybe [: {full_state_ty}] : Maybe  {full_state_ty})|].
 
-    Compute ((expr_to_tc Σ' (indexify nil crowdfunding_init))).
+    (* Compute ((expr_to_tc Σ' (indexify nil crowdfunding_init))). *)
     MetaCoq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
@@ -100,114 +100,113 @@ Module CrowdfundingContract.
       rewrite Z.eqb_eq in *. lia.
     Qed.
 
- End Init.
+  End Init.
 
- (** ** AST of the [receive] function *)
- Module Receive.
+  (** ** AST of the [receive] function *)
+  Module Receive.
 
-   Import CrowdfundingDataExt.Notations.
-   Import Validate.
+    Import CrowdfundingDataExt.Notations.
+    Import Validate.
 
+    (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 
-(** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
-
-  Definition actions_ty := [! List SimpleActionBody !].
-  Notation "'Transfer' a b" :=
-    [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
-      (in custom expr at level 0,
-          a custom expr at level 1,
-          b custom expr at level 1).
-
-
-   (** We specialise some polymorphic constructors to avoid writing types all the time *)
-   Notation "'#Just' a" := [| $Just$Maybe [: Result ] {a}|]
-                           (in custom expr at level 0,
-                               a custom expr at level 1).
-
-   Notation "'#Pair' a b" := [| Pair {actions_ty} {full_state_ty} {a} {b} |]
-                           (in custom expr at level 0,
-                               a custom expr at level 1,
-                               b custom expr at level 1).
-
-   Notation "'#Nothing'" := [| $Nothing$Maybe [: Result ] |]
-                              (in custom expr at level 0).
-
-   Notation "'#Nil'" := [| Nil SActionBody |]
-                          (in custom expr at level 0).
-
-   Notation "[ x ]" := [| Cons SActionBody {x} #Nil |]
-                        ( in custom expr at level 0,
-                          x custom expr at level 1).
-
-
-   Notation "'DONE'" := (eConst (to_string_name <% set_done %>))
-                          (in custom expr at level 0).
-   Notation "'UPDATE_CONTRIBS'" := (eConst (to_string_name <% update_contribs %>))
-                                     (in custom expr at level 0).
-
-   (** We make the remapping to the Liquidity primitives easier by using this abbreviation for the lookup, since in Liquidity the arguments are swapped *)
-  Definition lookup_map' k m := PreludeExt.Maps.lookup_map m k.
-  Notation "'findm' a b" :=  [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
+    Definition actions_ty := [! List SimpleActionBody !].
+    Notation "'Transfer' a b" :=
+      [| {eConstr SActionBody "Act_transfer"} {b} {a} |]
         (in custom expr at level 0,
             a custom expr at level 1,
             b custom expr at level 1).
 
-   Definition crowdfunding : expr :=
-     [|  \m : msg => \s : {full_state_ty}  => \ctx : CallCtx =>
-         let sender : address := sender_addr ctx in
-         let bal : money := acc_balance ctx in
-         let tx_amount : money := sent_amount ctx in
-         let now : time := current_time ctx in
-         let own : address := owner s in
-         let accs : Map := contribs s in
-         case m : msg return Maybe Result of
-            | GetFunds ->
-              if (own ==a sender) && (deadline s <t now) && (goal s <= bal) then
-                (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s)))
-             else #Nothing : Maybe Result
-            | Donate ->
-              if now <=t deadline s then
-                (case (findm sender accs) : Maybe money return Maybe Result of
-                  | Just v ->
-                    let newmap : Map := madd sender (v + tx_amount) accs in
-                    #Just (#Pair #Nil (UPDATE_CONTRIBS s newmap))
-                  | Nothing ->
-                    let newmap : Map := madd sender tx_amount accs in
-                    #Just (#Pair #Nil (UPDATE_CONTRIBS s newmap)))
+
+    (** We specialise some polymorphic constructors to avoid writing types all the time *)
+    Notation "'#Just' a" := [| $Just$Maybe [: Result ] {a}|]
+                            (in custom expr at level 0,
+                                a custom expr at level 1).
+
+    Notation "'#Pair' a b" := [| Pair {actions_ty} {full_state_ty} {a} {b} |]
+                            (in custom expr at level 0,
+                                a custom expr at level 1,
+                                b custom expr at level 1).
+
+    Notation "'#Nothing'" := [| $Nothing$Maybe [: Result ] |]
+                                (in custom expr at level 0).
+
+    Notation "'#Nil'" := [| Nil SActionBody |]
+                            (in custom expr at level 0).
+
+    Notation "[ x ]" := [| Cons SActionBody {x} #Nil |]
+                          ( in custom expr at level 0,
+                            x custom expr at level 1).
+
+
+    Notation "'DONE'" := (eConst (to_string_name <% set_done %>))
+                            (in custom expr at level 0).
+    Notation "'UPDATE_CONTRIBS'" := (eConst (to_string_name <% update_contribs %>))
+                                      (in custom expr at level 0).
+
+    (** We make the remapping to the Liquidity primitives easier by using this abbreviation for the lookup, since in Liquidity the arguments are swapped *)
+    Definition lookup_map' k m := PreludeExt.Maps.lookup_map m k.
+    Notation "'findm' a b" :=  [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
+          (in custom expr at level 0,
+              a custom expr at level 1,
+              b custom expr at level 1).
+
+    Definition crowdfunding : expr :=
+      [|  \m : msg => \s : {full_state_ty}  => \ctx : CallCtx =>
+          let sender : address := sender_addr ctx in
+          let bal : money := acc_balance ctx in
+          let tx_amount : money := sent_amount ctx in
+          let now : time := current_time ctx in
+          let own : address := owner s in
+          let accs : Map := contribs s in
+          case m : msg return Maybe Result of
+              | GetFunds ->
+                if (own ==a sender) && (deadline s <t now) && (goal s <= bal) then
+                  (VALIDATE tx_amount) >> (#Just (#Pair [Transfer bal sender] (DONE s)))
               else #Nothing : Maybe Result
-           | Claim ->
-             if (deadline s <t now) && (bal < goal s) && (~ done s) then
-             (case (findm sender accs) : Maybe money return Maybe Result of
-              | Just v -> let newmap : Map := madd sender 0z accs in
-                 (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap)))
-              | Nothing -> #Nothing)
-             else #Nothing : Maybe Result |].
+              | Donate ->
+                if now <=t deadline s then
+                  (case (findm sender accs) : Maybe money return Maybe Result of
+                    | Just v ->
+                      let newmap : Map := madd sender (v + tx_amount) accs in
+                      #Just (#Pair #Nil (UPDATE_CONTRIBS s newmap))
+                    | Nothing ->
+                      let newmap : Map := madd sender tx_amount accs in
+                      #Just (#Pair #Nil (UPDATE_CONTRIBS s newmap)))
+                else #Nothing : Maybe Result
+            | Claim ->
+              if (deadline s <t now) && (bal < goal s) && (~ done s) then
+              (case (findm sender accs) : Maybe money return Maybe Result of
+                | Just v -> let newmap : Map := madd sender 0z accs in
+                  (VALIDATE tx_amount) >> (#Just (#Pair [Transfer v sender] (UPDATE_CONTRIBS s newmap)))
+                | Nothing -> #Nothing)
+              else #Nothing : Maybe Result |].
 
-  MetaCoq Unquote Definition receive :=
-    (expr_to_tc Σ' (indexify nil crowdfunding)).
+    MetaCoq Unquote Definition receive :=
+      (expr_to_tc Σ' (indexify nil crowdfunding)).
 
-  (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
-  Lemma receive_validated  message state
-        (call_ctx :  SimpleCallCtx) :
-    (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_coq ->
-    receive message state call_ctx = None.
-  Proof.
-    intros Hneq Hmsg.
-    destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
-    cbn in *.
-    destruct message;tryfalse.
-    + simpl. destruct ?;auto.
-      unfold maybe_bind_unit. destruct ?;auto.
-      simpl in *. unfold validate in *.
-      destruct ?;tryfalse.
-      rewrite Z.eqb_eq in *. lia.
-    + simpl. destruct ?;auto.
-      destruct ?;auto.
-      unfold maybe_bind_unit. destruct ?;auto.
-      simpl in *. unfold validate in *.
-      destruct ?;tryfalse.
-      rewrite Z.eqb_eq in *. lia.
-  Qed.
+    (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
+    Lemma receive_validated  message state
+          (call_ctx :  SimpleCallCtx) :
+      (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_coq ->
+      receive message state call_ctx = None.
+    Proof.
+      intros Hneq Hmsg.
+      destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
+      cbn in *.
+      destruct message;tryfalse.
+      + simpl. destruct ?;auto.
+        unfold maybe_bind_unit. destruct ?;auto.
+        simpl in *. unfold validate in *.
+        destruct ?;tryfalse.
+        rewrite Z.eqb_eq in *. lia.
+      + simpl. destruct ?;auto.
+        destruct ?;auto.
+        unfold maybe_bind_unit. destruct ?;auto.
+        simpl in *. unfold validate in *.
+        destruct ?;tryfalse.
+        rewrite Z.eqb_eq in *. lia.
+    Qed.
 
   End Receive.
 End CrowdfundingContract.
@@ -232,7 +231,7 @@ Definition CFModule : LiquidityModule :=
        [simpleCallCtx] |}.
 
 (** A translation table for types *)
-Definition TTty  :=
+Definition TTty :=
   [(to_string_name <% address_coq %>, "address");
    (to_string_name <% PreludeExt.Maps.addr_map_coq %>, "(address,tez) map");
    (to_string_name <% time_coq %>, "timestamp");
@@ -241,7 +240,7 @@ Definition TTty  :=
    (to_string_name <% AcornBlockchain.SimpleActionBody_coq %>, "operation")].
 
 (** A translation table for primitive binary operations *)
-Definition TT  :=
+Definition TT :=
   [(to_string_name <% Z.add %>, "addTez");
   (to_string_name <% Z.eqb %>, "eqTez");
   (to_string_name <% Z.leb %>, "lebTez");
@@ -250,4 +249,4 @@ Definition TT  :=
   (to_string_name <% Maps.add_map %>, "Map.add") ;
   (to_string_name <% CrowdfundingContract.Receive.lookup_map' %>, "Map.find")].
 
-Compute liquidifyModule TT TTty CFModule.
+(* Compute liquidifyModule TT TTty CFModule. *)

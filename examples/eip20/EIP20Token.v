@@ -69,17 +69,24 @@ Section EIP20Token.
   Definition error {T : Type} : result T Error :=
     Err default_error.
 
-(** * Contract functions *)
+  (** * Contract functions *)
   (** ** init *)
   (** Initialize contract storage *)
   Definition init (chain : Chain)
-       (ctx : ContractCallContext)
-       (setup : Setup) : result State Error :=
+                  (ctx : ContractCallContext)
+                  (setup : Setup)
+                  : result State Error :=
     Ok {| total_supply := setup.(init_amount);
-            balances := AddressMap.add setup.(owner) setup.(init_amount) AddressMap.empty;
-            allowances := AddressMap.empty |}.
+            balances := AddressMap.add setup.(owner)
+                                       setup.(init_amount)
+                                       AddressMap.empty;
+            allowances := AddressMap.empty
+      |}.
 
-  Definition increment_balance (m : AddressMap.AddrMap TokenValue) (addr : Address) (inc : TokenValue) : AddressMap.AddrMap TokenValue :=
+  Definition increment_balance (m : AddressMap.AddrMap TokenValue)
+                               (addr : Address)
+                               (inc : TokenValue)
+                               : AddressMap.AddrMap TokenValue :=
     match AddressMap.find addr m with
     | Some old => AddressMap.add addr (old + inc) m
     | None => AddressMap.add addr inc m
@@ -88,9 +95,10 @@ Section EIP20Token.
   (** ** transfer *)
   (** Transfers [amount] tokens, if [from] has enough tokens to transfer *)
   Definition try_transfer (from : Address)
-       (to : Address)
-       (amount : TokenValue)
-       (state : State) : result State Error :=
+                          (to : Address)
+                          (amount : TokenValue)
+                          (state : State)
+                          : result State Error :=
     let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
     if from_balance <? amount
     then error
@@ -102,10 +110,11 @@ Section EIP20Token.
   (** The delegate tries to transfer [amount] tokens from [from] to [to].
       Succeeds if [from] has indeed allowed the delegate to spend at least [amount] tokens on its behalf. *)
   Definition try_transfer_from (delegate : Address)
-       (from : Address)
-       (to : Address)
-       (amount : TokenValue)
-       (state : State) : result State Error :=
+                               (from : Address)
+                               (to : Address)
+                               (amount : TokenValue)
+                               (state : State)
+                               : result State Error :=
   do from_allowances_map <- result_of_option (AddressMap.find from state.(allowances)) default_error ;
   do delegate_allowance <- result_of_option (AddressMap.find delegate from_allowances_map) default_error ;
   let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
@@ -119,36 +128,41 @@ Section EIP20Token.
   (** ** approve *)
   (** The caller approves the delegate to transfer up to [amount] tokens on behalf of the caller *)
   Definition try_approve (caller : Address)
-       (delegate : Address)
-       (amount : TokenValue)
-       (state : State) : result State Error :=
+                         (delegate : Address)
+                         (amount : TokenValue)
+                         (state : State)
+                         : result State Error :=
     match AddressMap.find caller state.(allowances) with
     | Some caller_allowances =>
-      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances) |>)
+      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances)|>)
     | None =>
-      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty) |>)
+      Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount AddressMap.empty)|>)
     end.
 
   (** ** receive *)
   (** Contract entrypoint function *)
   Open Scope Z_scope.
   Definition receive (chain : Chain)
-       (ctx : ContractCallContext)
-       (state : State)
-       (maybe_msg : option Msg)
-    : result (State * list ActionBody) Error :=
+                     (ctx : ContractCallContext)
+                     (state : State)
+                     (maybe_msg : option Msg)
+                     : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
     let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (** Only allow calls with no money attached *)
     if ctx.(ctx_amount) >? 0
     then error
-    else match maybe_msg with
-   | Some (transfer to amount) => without_actions (try_transfer sender to amount state)
-   | Some (transfer_from from to amount) => without_actions (try_transfer_from sender from to amount state)
-   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-   (** transfer actions to this contract are not allowed *)
-   | None => error
-   end.
+    else
+      match maybe_msg with
+      | Some (transfer to amount) =>
+          without_actions (try_transfer sender to amount state)
+      | Some (transfer_from from to amount) =>
+          without_actions (try_transfer_from sender from to amount state)
+      | Some (approve delegate amount) =>
+          without_actions (try_approve sender delegate amount state)
+      (** transfer actions to this contract are not allowed *)
+      | None => error
+      end.
   Close Scope Z_scope.
 
   Definition contract : Contract Setup Msg State Error :=

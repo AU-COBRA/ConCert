@@ -124,7 +124,7 @@ Time MetaCoq Run
       tmDefinition (String.of_string CROWDFUNDING_MODULE.(lmd_module_name)) t
      ).
 
-Print liquidity_crowdfunding.
+(* Print liquidity_crowdfunding. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "../extraction/tests/extracted-code/liquidity-extract/CrowdfundingCertifiedExtraction.liq" Compute liquidity_crowdfunding.

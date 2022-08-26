@@ -32,21 +32,22 @@ Instance showSetup : Show Setup :=
 
 (* Ugly fuel hack :/ *)
 Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
-  let show_acts actions := match fuel with
+  let show_acts actions :=
+    match fuel with
     | 0 => String.concat "; " (map (fun _ => "Msg{...}") actions)
     | S fuel => String.concat "; " (map (string_of_ca (string_of_Msg fuel)) actions)
     end in
   match m with
-    | transfer_ownership addr => "transfer_ownership " ++ show addr
-    | change_rules rules => "change_rules " ++ show rules
-    | add_member addr => "add_member " ++ show addr
-    | remove_member addr => "remove_member " ++ show addr
-    | create_proposal actions => "create_proposal " ++ show_acts actions
-    | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
-    | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
-    | retract_vote proposalId => "retract_vote " ++ show proposalId
-    | finish_proposal proposalId => "finish_proposal " ++ show proposalId
-    | finish_proposal_remove proposalId => "finish_proposal " ++ show proposalId
+  | transfer_ownership addr => "transfer_ownership " ++ show addr
+  | change_rules rules => "change_rules " ++ show rules
+  | add_member addr => "add_member " ++ show addr
+  | remove_member addr => "remove_member " ++ show addr
+  | create_proposal actions => "create_proposal " ++ show_acts actions
+  | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
+  | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
+  | retract_vote proposalId => "retract_vote " ++ show proposalId
+  | finish_proposal proposalId => "finish_proposal " ++ show proposalId
+  | finish_proposal_remove proposalId => "finish_proposal " ++ show proposalId
   end.
 
 Instance showMsg : Show Msg :=
@@ -54,7 +55,8 @@ Instance showMsg : Show Msg :=
   show := string_of_Msg 20
 |}.
 
-(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+(* TODO: fix printing for msg of type SerializedValue such that
+   it works whenever it is serialized from type Msg *)
 Instance showCongressBuggyAction : Show CongressAction :=
 {|
   show := string_of_ca (string_of_Msg 20)

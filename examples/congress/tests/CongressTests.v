@@ -1,3 +1,4 @@
+From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
@@ -33,17 +34,17 @@ Definition congress_1 : Address :=
   | _ => person_1
   end.
 Definition congress_ifc : ContractInterface Congress.Msg :=
-match get_contract_interface chain4 congress_1 Congress.Msg with
-| Some x => x
-(* Using unpack_option here is extremely slow *)
-| None =>
-  @build_contract_interface
-    _ _
-    creator
-    (fun a m => deploy_congress)
-end.
+  match get_contract_interface chain4 congress_1 Congress.Msg with
+  | Some x => x
+  (* Using unpack_option here is extremely slow *)
+  | None =>
+    @build_contract_interface
+      _ _
+      creator
+      (fun a m => deploy_congress)
+  end.
 
-  (* person_1 adds person_1 and person_2 as members of congress *)
+(* person_1 adds person_1 and person_2 as members of congress *)
 Definition add_person p :=
   congress_ifc.(send) 0 (Some (add_member p)).
 Definition chain5 : ChainBuilder :=
@@ -69,6 +70,9 @@ Definition nr_cacts (msg : option Congress.Msg) :=
   | _ => 0
   end.
 
+Definition num_cacts_in_state state :=
+  sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
+
 (* This property states that the number of actions to be performed by the congress never increases
    more than the actions that are added in proposals, ie. actions can't appear out of nowhere. *)
 (* If we replace '<=' with '<' QC finds a counterexample - a proposal can contain an empty list of actions, so they are equal before/after add_proposal *)
@@ -77,10 +81,10 @@ Definition receive_state_well_behaved state msg new_state (resp_acts : list Acti
   num_cacts_in_state state + nr_cacts msg.
 
 Instance receive_state_well_behaved_dec_ {state : Congress.State}
-                                        {msg : option Congress.Msg}
-                                        {new_state : Congress.State}
-                                        {resp_acts : list ActionBody}
-                                        : Dec (receive_state_well_behaved state msg new_state resp_acts).
+                                         {msg : option Congress.Msg}
+                                         {new_state : Congress.State}
+                                         {resp_acts : list ActionBody}
+                                         : Dec (receive_state_well_behaved state msg new_state resp_acts).
 Proof.
   intros;
   unfold receive_state_well_behaved;
@@ -150,14 +154,15 @@ Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
 (* This assumes that in a previous block, there was an active proposal *)
 Definition congress_finished_a_vote (cs : ChainState) :=
   let acts := cs.(chain_state_queue) in
-  let act_is_finish_vote (act : Action) := match act.(act_body) with
-                                           | act_call _ _ msg =>
-                                             match deserialize Congress.Msg _ msg with
-                                             | Some (Congress.finish_proposal _) => true
-                                             | _ => false
-                                             end
-                                           | _ => false
-                                           end in
+  let act_is_finish_vote (act : Action) :=
+    match act.(act_body) with
+    | act_call _ _ msg =>
+      match deserialize Congress.Msg _ msg with
+      | Some (Congress.finish_proposal _) => true
+      | _ => false
+      end
+    | _ => false
+    end in
     existsb act_is_finish_vote acts.
 
 (* QuickChick (chain5 ~~> congress_finished_a_vote). *)

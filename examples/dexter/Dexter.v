@@ -50,17 +50,17 @@ Section Dexter.
 
   Section Serialization.
 
-  Global Instance exchange_paramserializable : Serializable exchange_param :=
-    Derive Serializable exchange_param_rect <build_exchange_param>.
+    Global Instance exchange_paramserializable : Serializable exchange_param :=
+      Derive Serializable exchange_param_rect <build_exchange_param>.
 
-  Global Instance DexterMsg_serializable : Serializable Msg :=
-    Derive Serializable Msg_rect <tokens_to_asset, add_to_tokens_reserve>.
+    Global Instance DexterMsg_serializable : Serializable Msg :=
+      Derive Serializable Msg_rect <tokens_to_asset, add_to_tokens_reserve>.
 
-  Global Instance setup_serializable : Serializable Setup :=
-    Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup :=
+      Derive Serializable Setup_rect <build_setup>.
 
-  Global Instance state_serializable : Serializable State :=
-    Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State :=
+      Derive Serializable State_rect <build_state>.
 
   End Serialization.
 

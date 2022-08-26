@@ -23,39 +23,40 @@ Definition exchange_caddr : Address := addr_of_Z 129.
 Definition exploit_caddr : Address := addr_of_Z 130.
 
 Section ExplotContract.
-Definition ExploitContractMsg := fa2_token_sender.
-Definition ExploitContractState := nat.
-Definition ExplotContractSetup := unit.
-Definition ExplotContractError := unit.
-Definition exploit_init
-            (chain : Chain)
-            (ctx : ContractCallContext)
-            (setup : ExplotContractSetup)
-            : result ExploitContractState ExplotContractError :=
-  Ok 1.
-Definition exploit_receive
-            (chain : Chain)
-            (ctx : ContractCallContext)
-            (state : ExploitContractState)
-            (maybe_msg : option ExploitContractMsg)
-            : result (ExploitContractState * list ActionBody) ExplotContractError :=
-  match maybe_msg with
-  | Some (tokens_sent param) =>
-    if 5 <? state (* Repeat reentrancy up to five times *)
-    then Ok (state, [])
-    else
-      let token_exchange_msg := other_msg (tokens_to_asset {|
-        exchange_owner := person_1;
-        ExchangeBuggy.exchange_token_id := exchange_token_id;
-        tokens_sold := 200%N;
-        callback_addr := ctx.(ctx_contract_address);
-      |}) in
-      Ok (state + 1, [act_call exchange_caddr 0 (serialize token_exchange_msg)])
-  | _ => Ok (state, [])
-  end.
+  Definition ExploitContractMsg := fa2_token_sender.
+  Definition ExploitContractState := nat.
+  Definition ExplotContractSetup := unit.
+  Definition ExplotContractError := unit.
+  Definition exploit_init
+              (chain : Chain)
+              (ctx : ContractCallContext)
+              (setup : ExplotContractSetup)
+              : result ExploitContractState ExplotContractError :=
+    Ok 1.
 
-Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState ExplotContractError :=
-  build_contract exploit_init exploit_receive.
+  Definition exploit_receive
+              (chain : Chain)
+              (ctx : ContractCallContext)
+              (state : ExploitContractState)
+              (maybe_msg : option ExploitContractMsg)
+              : result (ExploitContractState * list ActionBody) ExplotContractError :=
+    match maybe_msg with
+    | Some (tokens_sent param) =>
+      if 5 <? state (* Repeat reentrancy up to five times *)
+      then Ok (state, [])
+      else
+        let token_exchange_msg := other_msg (tokens_to_asset {|
+          exchange_owner := person_1;
+          ExchangeBuggy.exchange_token_id := exchange_token_id;
+          tokens_sold := 200%N;
+          callback_addr := ctx.(ctx_contract_address);
+        |}) in
+        Ok (state + 1, [act_call exchange_caddr 0 (serialize token_exchange_msg)])
+    | _ => Ok (state, [])
+    end.
+
+  Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState ExplotContractError :=
+    build_contract exploit_init exploit_receive.
 
 End ExplotContract.
 

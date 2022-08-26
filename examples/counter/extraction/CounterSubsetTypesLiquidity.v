@@ -5,8 +5,6 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require CameLIGOExtract.
-From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Extraction Require Import Common.
@@ -153,90 +151,7 @@ Section LiquidityExtractionSetup.
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
-  (* Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterSubsetTypes.liq" *)
-  MetaCoq Run (tmMsg (String.of_string liquidity_counter)).
+  Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterSubsetTypes.liq"
+    MetaCoq Run (tmMsg (String.of_string liquidity_counter)).
 
 End LiquidityExtractionSetup.
-
-Module CameLIGOExtractionSetup.
-
-  Import CameLIGOPretty CameLIGOExtract.
-
-  (** Exposing a printing configuration for CameLIGO *)
-  Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
-
-
-  Definition init (setup : Z) : result storage Error :=
-    Ok setup.
-
-  (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-  Definition TT_remap_ligo : list (kername * string) :=
-    [
-      remap <%% address %%> "address"
-    ; remap <%% Z.add %%> "addInt"
-    ; remap <%% Z.sub %%> "subInt"
-    ; remap <%% Z.leb %%> "leInt"
-    ; remap <%% Z.ltb %%> "ltInt"
-    ; remap <%% Z %%> "int"
-    ; remap <%% Transaction %%> "operation list"
-    ].
-
-  (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename_ligo : list (string * string) :=
-    [ ("true", "true")
-    ; ("false", "false")
-    ; ("Some", "Some")
-    ; ("None", "None")
-    ].
-
-  Definition counter_wrapper (c : Chain)
-                             (ctx : ContractCallContext)
-                             (s : storage)
-                             (m : option msg) :=
-    let c_ := c in
-    let ctx_ := ctx in
-    match m with
-    | Some m => counter m s
-    | None => Err default_error
-    end.
-
-
-  Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody Error :=
-    {| (* a name for the definition with the extracted code *)
-      lmd_module_name := "cameligo_counter" ;
-
-      (* definitions of operations on pairs and ints *)
-      lmd_prelude := CameLIGOPrelude;
-      (* initial storage *)
-      lmd_init := init ;
-
-      (* no extra operations in [init] are required *)
-      lmd_init_prelude := "" ;
-
-      (* the main functionality *)
-      lmd_receive := counter_wrapper ;
-
-      lmd_receive_prelude := "";
-      (* code for the entry point *)
-      lmd_entry_point := print_default_entry_point
-                           <%% storage %%>
-                           <%% counter_wrapper %%>
-                           <%% msg %%> |}.
-
-  (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
-      that removes application of boxes to constants and constructors. *)
-
-  Definition to_inline_ligo := [<%% bool_rect %%>; <%% bool_rec %%>; <%% @proj1_sig %%>].
-
-  Time MetaCoq Run
-  (CameLIGO_prepare_extraction to_inline_ligo TT_remap_ligo TT_rename_ligo [] "cctx_instance" COUNTER_MODULE_LIGO).
-
-  Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
-
-  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
-
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
-  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
-
-End CameLIGOExtractionSetup.

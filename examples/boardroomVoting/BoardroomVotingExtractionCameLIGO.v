@@ -163,15 +163,13 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) 
   |}.
 
 Definition inline_boardroom_params : list kername :=
-  [
-      <%% Params.H %%>
+  [  <%% Params.H %%>
     ; <%% Params.generator %%>
   ].
 
 
 Definition inline_contract_monad_projection : list kername :=
-  [
-      <%% @ContractMonads.chain_height %%>
+  [  <%% @ContractMonads.chain_height %%>
     ; <%% @ContractMonads.current_slot %%>
     ; <%% @ContractMonads.finalized_height %%>
     ; <%% @ContractMonads.caller_addr %%>
@@ -290,6 +288,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @List.length %%> "List.length"
   ; remap <%% @List.app %%> "List.fold_left (fun (acc, e : (int list) * int) -> e :: acc)" (* small hack since ligo doesn't have append on lists *)
   ].
+
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
 Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")

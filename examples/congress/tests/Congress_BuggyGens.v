@@ -53,21 +53,26 @@ Definition gCongressMember_without_caller (state : Congress_Buggy.State)
   | m::ms => liftM Some (elems_ m members_without_caller)
   end.
 
-Fixpoint try_newCongressMember_fix (members : list Address) nr_attempts curr_nr : option Address  :=
+Fixpoint try_newCongressMember_fix (members : list Address)
+                                   nr_attempts curr_nr
+                                   : option Address  :=
   let fix aux nr_attempts curr_nr :=
   match nr_attempts with
   | 0 => None
-  | S n' => match @BoundedN.of_nat AddrSize curr_nr with
-            | Some addr_attempt => if List.existsb (address_eqb addr_attempt) members
-                                   then aux n' (S curr_nr)
-                                   else Some addr_attempt
-            | None => None
-            end
+  | S n' =>
+      match @BoundedN.of_nat AddrSize curr_nr with
+      | Some addr_attempt =>
+          if List.existsb (address_eqb addr_attempt) members
+          then aux n' (S curr_nr)
+          else Some addr_attempt
+      | None => None
+      end
   end in aux nr_attempts curr_nr.
 
 Definition try_newCongressMember (state : Congress_Buggy.State)
                                  (congress_addr : Address)
-                                 (nr_attempts : nat) : option Address :=
+                                 (nr_attempts : nat)
+                                 : option Address :=
   let members := (map fst o FMap.elements) (members state) in
   try_newCongressMember_fix members nr_attempts 0.
 
@@ -75,7 +80,8 @@ Definition bindCallerIsOwnerOpt {A : Type}
                                 (state : Congress_Buggy.State)
                                 (calling_addr : Address)
                                 (contract_addr : Address)
-                                (g : GOpt A) : GOpt A :=
+                                (g : GOpt A)
+                                : GOpt A :=
   if address_eqb calling_addr contract_addr
   then g
   else if address_eqb state.(owner) calling_addr
@@ -83,7 +89,8 @@ Definition bindCallerIsOwnerOpt {A : Type}
        else returnGen None.
 
 Definition try_gNewOwner state calling_addr contract_addr : GOpt Address :=
-  bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
+  bindCallerIsOwnerOpt state calling_addr contract_addr
+    (gCongressMember_without_caller state calling_addr contract_addr).
 
 Fixpoint validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
   match (Bool.bool_dec (address_is_contract a) true ) with
@@ -113,17 +120,19 @@ Definition finishable_proposals (state : Congress_Buggy.State)
   then pids_map_filtered
   else FMap.empty.
 
-Definition lc_contract_members_and_proposals_new_voters (state : Congress_Buggy.State) : (FMap Address (list ProposalId)) :=
+Definition lc_contract_members_and_proposals_new_voters (state : Congress_Buggy.State)
+                                                        : (FMap Address (list ProposalId)) :=
     let candidate_members := (map fst o FMap.elements) (members state) in
     let proposals_pairs := FMap.elements (proposals state) in
     if (0 <? length candidate_members) && (0 <? length proposals_pairs)
     then
       let voters_to_proposals : FMap Address (list ProposalId) :=
         List.fold_left (fun acc m =>
-        let unvoted_proposals : list (ProposalId * Proposal) := List.filter (fun p => match FMap.find m (votes (snd p)) with
-                                                  | Some _ => false
-                                                  | None => true
-                                                  end) proposals_pairs in
+        let unvoted_proposals : list (ProposalId * Proposal) :=
+          List.filter (fun p => match FMap.find m (votes (snd p)) with
+                                | Some _ => false
+                                | None => true
+                                end) proposals_pairs in
         match List.map fst unvoted_proposals with
         | [] => acc
         | _ as ps => FMap.add m ps acc
@@ -135,7 +144,8 @@ Definition lc_contract_members_and_proposals_new_voters (state : Congress_Buggy.
 Definition lc_contract_members_and_proposals_with_votes (state : Congress_Buggy.State)
                                                         : FMap Address (list ProposalId) :=
     let members : list Address := (map fst o FMap.elements) (members state) in
-    let proposals_map : FMap nat Proposal := filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
+    let proposals_map : FMap nat Proposal :=
+      filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
     if (0 <? length members) && (0 =? (FMap.size proposals_map))
     then (
       let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
@@ -143,7 +153,10 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress_Buggy.
     )
     else FMap.empty.
 
-Fixpoint GCongressAction (env : Environment) (fuel : nat) (caddr : Address) : GOpt Action :=
+Fixpoint GCongressAction (env : Environment)
+                         (fuel : nat)
+                         (caddr : Address)
+                         : GOpt Action :=
   let call contract_addr caller_addr caller_addr_is_user msg :=
     amount <- match env.(env_account_balances) caller_addr with
               | 0%Z => returnGenSome 0%Z

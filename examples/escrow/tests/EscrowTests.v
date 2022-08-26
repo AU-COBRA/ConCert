@@ -9,6 +9,7 @@ From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
+From ConCert.Examples.Escrow Require Import EscrowCorrect.
 From ConCert.Examples.Escrow Require Import EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
 From Coq Require Import ZArith.
@@ -61,11 +62,12 @@ Section TestProperties.
     decidable proposition (by coercing it to a bool) *)
   Local Open Scope Z_scope.
   Definition escrow_correct_Prop {from to}
-                              (caddr : Address)
-                              (cstate : Escrow.State)
-                              (trace : ChainTrace from to)
-                              (depinfo : DeploymentInfo Setup)
-                              (inc_calls : list (ContractCallInfo Msg)) : Prop :=
+                                 (caddr : Address)
+                                 (cstate : Escrow.State)
+                                 (trace : ChainTrace from to)
+                                 (depinfo : DeploymentInfo Setup)
+                                 (inc_calls : list (ContractCallInfo Msg))
+                                 : Prop :=
     let item_worth := deployment_amount depinfo / 2 in
     let seller := deployment_from depinfo in
     let buyer := setup_buyer (deployment_setup depinfo) in
@@ -80,11 +82,12 @@ Section TestProperties.
 
   (* bool version of escrow_correct_Prop *)
   Definition escrow_correct_bool {from to}
-                              (caddr : Address)
-                              (cstate : Escrow.State)
-                              (trace : ChainTrace from to)
-                              (depinfo : DeploymentInfo Setup)
-                              (inc_calls : list (ContractCallInfo Msg)) :=
+                                 (caddr : Address)
+                                 (cstate : Escrow.State)
+                                 (trace : ChainTrace from to)
+                                 (depinfo : DeploymentInfo Setup)
+                                 (inc_calls : list (ContractCallInfo Msg))
+                                 : bool :=
     let item_worth := deployment_amount depinfo / 2 in
     let seller := deployment_from depinfo in
     let buyer := setup_buyer (deployment_setup depinfo) in

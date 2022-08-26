@@ -22,44 +22,44 @@ Import ListNotations.
 
 
 Section CongressBuggy.
-Context {BaseTypes : ChainBase}.
+  Context {BaseTypes : ChainBase}.
 
-Local Open Scope Z.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
+  Local Open Scope Z.
+  Set Primitive Projections.
+  Set Nonrecursive Elimination Schemes.
 
-Definition ProposalId := nat.
+  Definition ProposalId := nat.
 
-Inductive CongressAction :=
+  Inductive CongressAction :=
   | cact_transfer (to : Address) (amount : Amount)
   | cact_call (to : Address) (amount : Amount) (msg : SerializedValue).
 
-Record Proposal :=
-  build_proposal {
-    actions : list CongressAction;
-    votes : FMap Address Z;
-    vote_result : Z;
-    proposed_in : nat;
-  }.
+  Record Proposal :=
+    build_proposal {
+      actions : list CongressAction;
+      votes : FMap Address Z;
+      vote_result : Z;
+      proposed_in : nat;
+    }.
 
-MetaCoq Run (make_setters Proposal).
+  MetaCoq Run (make_setters Proposal).
 
-Record Rules :=
-  build_rules {
-    min_vote_count_permille : Z;
-    margin_needed_permille : Z;
-    debating_period_in_blocks : nat;
-  }.
+  Record Rules :=
+    build_rules {
+      min_vote_count_permille : Z;
+      margin_needed_permille : Z;
+      debating_period_in_blocks : nat;
+    }.
 
-Record Setup :=
-  build_setup {
-    setup_rules : Rules;
-  }.
+  Record Setup :=
+    build_setup {
+      setup_rules : Rules;
+    }.
 
-Definition Error : Type := nat.
-Definition default_error : Error := 0%nat.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
-Inductive Msg :=
+  Inductive Msg :=
   | transfer_ownership : Address -> Msg
   | change_rules : Rules -> Msg
   | add_member : Address -> Msg
@@ -71,202 +71,200 @@ Inductive Msg :=
   | finish_proposal : ProposalId -> Msg
   | finish_proposal_remove : ProposalId -> Msg.
 
-Record State :=
-  build_state {
-    owner : Address;
-    state_rules : Rules;
-    proposals : FMap nat Proposal;
-    next_proposal_id : ProposalId;
-    members : FMap Address unit;
-  }.
+  Record State :=
+    build_state {
+      owner : Address;
+      state_rules : Rules;
+      proposals : FMap nat Proposal;
+      next_proposal_id : ProposalId;
+      members : FMap Address unit;
+    }.
 
-MetaCoq Run (make_setters State).
+  (* begin hide *)
+  MetaCoq Run (make_setters State).
+  (* end hide *)
 
-Section Serialization.
+  Section Serialization.
 
-Global Instance rules_serializable : Serializable Rules :=
-  Derive Serializable Rules_rect <build_rules>.
+    Global Instance rules_serializable : Serializable Rules :=
+      Derive Serializable Rules_rect <build_rules>.
 
-Global Instance setup_serializable : Serializable Setup :=
-  Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup :=
+      Derive Serializable Setup_rect <build_setup>.
 
-Global Instance congress_action_serializable : Serializable CongressAction :=
-  Derive Serializable CongressAction_rect <cact_transfer, cact_call>.
+    Global Instance congress_action_serializable : Serializable CongressAction :=
+      Derive Serializable CongressAction_rect <cact_transfer, cact_call>.
 
-Global Instance proposal_serializable : Serializable Proposal :=
-  Derive Serializable Proposal_rect <build_proposal>.
+    Global Instance proposal_serializable : Serializable Proposal :=
+      Derive Serializable Proposal_rect <build_proposal>.
 
-Global Instance msg_serializable : Serializable Msg :=
-  Derive Serializable Msg_rect <transfer_ownership, change_rules, add_member, remove_member,
-                                create_proposal, vote_for_proposal, vote_against_proposal,
-                                retract_vote, finish_proposal, finish_proposal_remove>.
+    Global Instance msg_serializable : Serializable Msg :=
+      Derive Serializable Msg_rect <transfer_ownership, change_rules, add_member, remove_member,
+                                    create_proposal, vote_for_proposal, vote_against_proposal,
+                                    retract_vote, finish_proposal, finish_proposal_remove>.
 
-Global Instance state_serializable : Serializable State :=
-  Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State :=
+      Derive Serializable State_rect <build_state>.
 
-End Serialization.
+  End Serialization.
 
-Definition validate_rules (rules : Rules) : bool :=
+  Definition validate_rules (rules : Rules) : bool :=
     (rules.(min_vote_count_permille) >=? 0)
-        && (rules.(min_vote_count_permille) <=? 1000)
-        && (rules.(margin_needed_permille) >=? 0)
-        && (rules.(margin_needed_permille) <=? 1000)
-        && (0 <=? rules.(debating_period_in_blocks))%nat.
+    && (rules.(min_vote_count_permille) <=? 1000)
+    && (rules.(margin_needed_permille) >=? 0)
+    && (rules.(margin_needed_permille) <=? 1000)
+    && (0 <=? rules.(debating_period_in_blocks))%nat.
 
-Definition init (chain : Chain)
-                (ctx : ContractCallContext)
-                (setup : Setup)
-                : result State Error :=
-  if validate_rules setup.(setup_rules) then
-    Ok {|
-      owner := ctx.(ctx_from);
-      state_rules := setup.(setup_rules);
-      proposals := FMap.empty;
-      next_proposal_id := 1%nat;
-      members := FMap.empty
-    |}
-  else
-    Err default_error.
-
-Definition add_proposal (actions : list CongressAction)
-                        (chain : Chain)
-                        (state : State)
-                        : State :=
-  let id := state.(next_proposal_id) in
-  let slot_num := chain.(current_slot) in
-  let proposal := {| actions := actions;
-                     votes := FMap.empty;
-                     vote_result := 0;
-                     proposed_in := slot_num |} in
-  state<|proposals ::= FMap.add id proposal|>
-       <|next_proposal_id ::= S|>.
-
-Definition vote_on_proposal
-           (voter : Address)
-           (pid : ProposalId)
-           (vote : Z)
-           (state : State)
-           : result State Error :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
-  let old_vote := match FMap.find voter proposal.(votes) with
-                 | Some old => old
-                 | None => 0
-                 end in
-  let new_votes := FMap.add voter vote proposal.(votes) in
-  let new_vote_result := proposal.(vote_result) - old_vote + vote in
-  let new_proposal :=
-      proposal<|votes := new_votes|>
-              <|vote_result := new_vote_result|> in
-  Ok (state<|proposals ::= FMap.add pid new_proposal|>).
-
-Definition do_retract_vote
-           (voter : Address)
-           (pid : ProposalId)
-           (state : State)
-           : result State Error :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
-  do old_vote <- result_of_option (FMap.find voter proposal.(votes)) default_error;
-  let new_votes := FMap.remove voter proposal.(votes) in
-  let new_vote_result := proposal.(vote_result) - old_vote in
-  let new_proposal :=
-      proposal<|votes := new_votes|>
-              <|vote_result := new_vote_result|> in
-  Ok (state<|proposals ::= FMap.add pid new_proposal|>).
-
-Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
-  match act with
-  | cact_transfer to amt => act_transfer to amt
-  | cact_call to amt msg => act_call to amt msg
-  end.
-
-Definition proposal_passed (proposal : Proposal)
-                           (state : State)
-                           : bool :=
-  let rules := state.(state_rules) in
-  let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
-  let total_members := Z.of_nat (FMap.size state.(members)) in
-  let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
-  let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
-  let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
-  let enough_voters := vote_count_permille >=? rules.(min_vote_count_permille) in
-  let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
-  enough_voters && enough_ayes.
-
-Definition do_finish_proposal
-           (ctx : ContractCallContext)
-           (pid : ProposalId)
-           (state : State)
-           (chain : Chain)
-           : result (State * list ActionBody) Error :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
-  let rules := state.(state_rules) in
-  let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
-  let cur_slot := chain.(current_slot) in
-  if (cur_slot <? debate_end)%nat then
-    Err default_error
-  else
-    let response_acts :=
-        if proposal_passed proposal state
-        then proposal.(actions)
-        else [] in
-    let response_chain_acts := map congress_action_to_chain_action response_acts in
-    let self_call_msg := serialize (finish_proposal_remove pid) in
-    let self_call := act_call (ctx_contract_address ctx) 0 self_call_msg in
-      Ok (state, response_chain_acts ++ [self_call]).
-
-Definition receive
-           (chain : Chain)
-           (ctx : ContractCallContext)
-           (state : State)
-           (maybe_msg : option Msg)
-           : result (State * list ActionBody) Error :=
-  let sender := ctx.(ctx_from) in
-  let is_from_owner := (sender =? state.(owner))%address in
-  let is_from_member := FMap.mem sender state.(members) in
-  let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
-  match maybe_msg, is_from_owner, is_from_member with
-  | Some (transfer_ownership new_owner), true, _ =>
-    Ok (state<|owner := new_owner|>, [])
-
-  | Some (change_rules new_rules), true, _ =>
-    if validate_rules new_rules then
-      Ok (state<|state_rules := new_rules|>, [])
+  Definition init (chain : Chain)
+                  (ctx : ContractCallContext)
+                  (setup : Setup)
+                  : result State Error :=
+    if validate_rules setup.(setup_rules) then
+      Ok {|
+        owner := ctx.(ctx_from);
+        state_rules := setup.(setup_rules);
+        proposals := FMap.empty;
+        next_proposal_id := 1%nat;
+        members := FMap.empty
+      |}
     else
+      Err default_error.
+
+  Definition add_proposal (actions : list CongressAction)
+                          (chain : Chain)
+                          (state : State)
+                          : State :=
+    let id := state.(next_proposal_id) in
+    let slot_num := chain.(current_slot) in
+    let proposal := {| actions := actions;
+                      votes := FMap.empty;
+                      vote_result := 0;
+                      proposed_in := slot_num |} in
+    state<|proposals ::= FMap.add id proposal|>
+        <|next_proposal_id ::= S|>.
+
+  Definition vote_on_proposal (voter : Address)
+                              (pid : ProposalId)
+                              (vote : Z)
+                              (state : State)
+                              : result State Error :=
+    do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
+    let old_vote := match FMap.find voter proposal.(votes) with
+                  | Some old => old
+                  | None => 0
+                  end in
+    let new_votes := FMap.add voter vote proposal.(votes) in
+    let new_vote_result := proposal.(vote_result) - old_vote + vote in
+    let new_proposal :=
+        proposal<|votes := new_votes|>
+                <|vote_result := new_vote_result|> in
+    Ok (state<|proposals ::= FMap.add pid new_proposal|>).
+
+  Definition do_retract_vote (voter : Address)
+                             (pid : ProposalId)
+                             (state : State)
+                             : result State Error :=
+    do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
+    do old_vote <- result_of_option (FMap.find voter proposal.(votes)) default_error;
+    let new_votes := FMap.remove voter proposal.(votes) in
+    let new_vote_result := proposal.(vote_result) - old_vote in
+    let new_proposal :=
+        proposal<|votes := new_votes|>
+                <|vote_result := new_vote_result|> in
+    Ok (state<|proposals ::= FMap.add pid new_proposal|>).
+
+  Definition congress_action_to_chain_action (act : CongressAction) : ActionBody :=
+    match act with
+    | cact_transfer to amt => act_transfer to amt
+    | cact_call to amt msg => act_call to amt msg
+    end.
+
+  Definition proposal_passed (proposal : Proposal)
+                             (state : State)
+                             : bool :=
+    let rules := state.(state_rules) in
+    let total_votes_for_proposal := Z.of_nat (FMap.size proposal.(votes)) in
+    let total_members := Z.of_nat (FMap.size state.(members)) in
+    let aye_votes := (proposal.(vote_result) + total_votes_for_proposal) / 2 in
+    let vote_count_permille := total_votes_for_proposal * 1000 / total_members in
+    let aye_permille := aye_votes * 1000 / total_votes_for_proposal in
+    let enough_voters := vote_count_permille >=? rules.(min_vote_count_permille) in
+    let enough_ayes := aye_permille >=? rules.(margin_needed_permille) in
+    enough_voters && enough_ayes.
+
+  Definition do_finish_proposal (ctx : ContractCallContext)
+                                (pid : ProposalId)
+                                (state : State)
+                                (chain : Chain)
+                                : result (State * list ActionBody) Error :=
+    do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
+    let rules := state.(state_rules) in
+    let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
+    let cur_slot := chain.(current_slot) in
+    if (cur_slot <? debate_end)%nat then
       Err default_error
-
-  | Some (add_member new_member), true, _ =>
-    Ok (state<|members ::= FMap.add new_member tt|>, [])
-
-  | Some (remove_member old_member), true, _ =>
-    Ok (state<|members ::= FMap.remove old_member|>, [])
-
-  | Some (create_proposal actions), _, true =>
-    Ok (add_proposal actions chain state, [])
-
-  | Some (vote_for_proposal pid), _, true =>
-    without_actions (vote_on_proposal sender pid 1 state)
-
-  | Some (vote_against_proposal pid), _, true =>
-    without_actions (vote_on_proposal sender pid (-1) state)
-
-  | Some (retract_vote pid), _, true =>
-    without_actions (do_retract_vote sender pid state)
-
-  | Some (finish_proposal pid), _, _ =>
-    do_finish_proposal ctx pid state chain
-
-  | Some (finish_proposal_remove pid), _, _ =>
-    if (sender =? ctx_contract_address ctx)%address then
-      Ok (state<|proposals ::= FMap.remove pid|>, [])
     else
-      Err default_error
+      let response_acts :=
+          if proposal_passed proposal state
+          then proposal.(actions)
+          else [] in
+      let response_chain_acts := map congress_action_to_chain_action response_acts in
+      let self_call_msg := serialize (finish_proposal_remove pid) in
+      let self_call := act_call (ctx_contract_address ctx) 0 self_call_msg in
+        Ok (state, response_chain_acts ++ [self_call]).
 
-  | _, _, _ =>
+  Definition receive (chain : Chain)
+                     (ctx : ContractCallContext)
+                     (state : State)
+                     (maybe_msg : option Msg)
+                     : result (State * list ActionBody) Error :=
+    let sender := ctx.(ctx_from) in
+    let is_from_owner := (sender =? state.(owner))%address in
+    let is_from_member := FMap.mem sender state.(members) in
+    let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
+    match maybe_msg, is_from_owner, is_from_member with
+    | Some (transfer_ownership new_owner), true, _ =>
+      Ok (state<|owner := new_owner|>, [])
+
+    | Some (change_rules new_rules), true, _ =>
+      if validate_rules new_rules then
+        Ok (state<|state_rules := new_rules|>, [])
+      else
         Err default_error
-  end.
 
-Definition contract : Contract Setup Msg State Error :=
-  build_contract init receive.
+    | Some (add_member new_member), true, _ =>
+      Ok (state<|members ::= FMap.add new_member tt|>, [])
+
+    | Some (remove_member old_member), true, _ =>
+      Ok (state<|members ::= FMap.remove old_member|>, [])
+
+    | Some (create_proposal actions), _, true =>
+      Ok (add_proposal actions chain state, [])
+
+    | Some (vote_for_proposal pid), _, true =>
+      without_actions (vote_on_proposal sender pid 1 state)
+
+    | Some (vote_against_proposal pid), _, true =>
+      without_actions (vote_on_proposal sender pid (-1) state)
+
+    | Some (retract_vote pid), _, true =>
+      without_actions (do_retract_vote sender pid state)
+
+    | Some (finish_proposal pid), _, _ =>
+      do_finish_proposal ctx pid state chain
+
+    | Some (finish_proposal_remove pid), _, _ =>
+      if (sender =? ctx_contract_address ctx)%address then
+        Ok (state<|proposals ::= FMap.remove pid|>, [])
+      else
+        Err default_error
+
+    | _, _, _ =>
+          Err default_error
+    end.
+
+  Definition contract : Contract Setup Msg State Error :=
+    build_contract init receive.
 
 End CongressBuggy.
 (* We will show that this contract is buggy and does not satisfy the
@@ -276,32 +274,32 @@ End CongressBuggy.
    exploitation. *)
 
 Section ExploitContract.
-Context {Base : ChainBase}.
+  Context {Base : ChainBase}.
 
-Definition ExploitSetup := unit.
-Definition ExploitState := nat. (* how many times have we called ourselves *)
-Definition ExploitMsg := unit.
-Definition ExploitError := nat.
-Definition exploit_init (chain : Chain)
-                        (ctx : ContractCallContext)
-                        (setup : ExploitSetup)
-                        : result ExploitState ExploitError :=
-  Ok 0.
+  Definition ExploitSetup := unit.
+  Definition ExploitState := nat. (* how many times have we called ourselves *)
+  Definition ExploitMsg := unit.
+  Definition ExploitError := nat.
+  Definition exploit_init (chain : Chain)
+                          (ctx : ContractCallContext)
+                          (setup : ExploitSetup)
+                          : result ExploitState ExploitError :=
+    Ok 0.
 
-Definition exploit_receive
-            (chain : Chain)
-            (ctx : ContractCallContext)
-            (state : ExploitState)
-            (msg : option ExploitMsg)
-            : result (ExploitState * list ActionBody) ExploitError :=
-  if 25 <? state then
-    Ok (state, [])
-  else
-    let again := finish_proposal 1 in
-    Ok (S state, [act_call (ctx_from ctx) 0 (serialize again)]).
+  Definition exploit_receive
+              (chain : Chain)
+              (ctx : ContractCallContext)
+              (state : ExploitState)
+              (msg : option ExploitMsg)
+              : result (ExploitState * list ActionBody) ExploitError :=
+    if 25 <? state then
+      Ok (state, [])
+    else
+      let again := finish_proposal 1 in
+      Ok (S state, [act_call (ctx_from ctx) 0 (serialize again)]).
 
-Definition exploit_contract : Contract ExploitSetup ExploitMsg ExploitState ExploitError :=
-  build_contract exploit_init exploit_receive.
+  Definition exploit_contract : Contract ExploitSetup ExploitMsg ExploitState ExploitError :=
+    build_contract exploit_init exploit_receive.
 
 End ExploitContract.
 

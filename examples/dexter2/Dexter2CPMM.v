@@ -27,113 +27,113 @@ From Coq Require Import List. Import ListNotations.
 
 (** * Contract types *)
 Section DexterTypes.
-Context {BaseTypes : ChainBase}.
-Set Primitive Projections.
-Set Nonrecursive Elimination Schemes.
-Open Scope N_scope.
+  Context {BaseTypes : ChainBase}.
+  Set Primitive Projections.
+  Set Nonrecursive Elimination Schemes.
+  Open Scope N_scope.
 
-(** ** Type synonyms *)
+  (** ** Type synonyms *)
 
-Definition update_token_pool_internal_ := list FA2LegacyInterface.balance_of_response.
-Definition token_id := FA2LegacyInterface.token_id.
-Definition token_contract_transfer := FA2LegacyInterface.transfer.
-Definition balance_of := FA2LegacyInterface.balance_of_response.
-Definition mintOrBurn := Dexter2FA12.mintOrBurn_param.
-Definition baker_address := option Address.
+  Definition update_token_pool_internal_ := list FA2LegacyInterface.balance_of_response.
+  Definition token_id := FA2LegacyInterface.token_id.
+  Definition token_contract_transfer := FA2LegacyInterface.transfer.
+  Definition balance_of := FA2LegacyInterface.balance_of_response.
+  Definition mintOrBurn := Dexter2FA12.mintOrBurn_param.
+  Definition baker_address := option Address.
 
-(** ** Entrypoint types *)
+  (** ** Entrypoint types *)
 
-Record add_liquidity_param :=
-  build_add_liquidity_param {
-    owner : Address;
-    minLqtMinted : N;
-    maxTokensDeposited : N;
-    add_deadline : nat
-}.
-
-Record remove_liquidity_param :=
-  build_remove_liquidity_param {
-    liquidity_to : Address;
-    lqtBurned : N;
-    minXtzWithdrawn : N;
-    minTokensWithdrawn : N;
-    remove_deadline : nat
-}.
-
-Record xtz_to_token_param :=
-  build_xtz_to_token_param {
-    tokens_to : Address;
-    minTokensBought : N;
-    xtt_deadline : nat
-}.
-
-Record token_to_xtz_param :=
-  build_token_to_xtz_param {
-    xtz_to : Address;
-    tokensSold : N;
-    minXtzBought : N;
-    ttx_deadline : nat
-}.
-
-Record token_to_token_param :=
-  build_token_to_token_param {
-    outputDexterContract : Address;
-    to_ : Address;
-    minTokensBought_ : N;
-    tokensSold_ : N;
-    ttt_deadline : nat
-}.
-
-Record set_baker_param :=
-  build_set_baker_param {
-    baker : baker_address;
-    freezeBaker_ : bool
-}.
-
-Inductive DexterMsg :=
-| AddLiquidity : add_liquidity_param -> DexterMsg
-| RemoveLiquidity : remove_liquidity_param -> DexterMsg
-| XtzToToken : xtz_to_token_param -> DexterMsg
-| TokenToXtz : token_to_xtz_param -> DexterMsg
-| SetBaker : set_baker_param -> DexterMsg
-| SetManager : Address -> DexterMsg
-| SetLqtAddress : Address -> DexterMsg
-| UpdateTokenPool : DexterMsg
-| TokenToToken : token_to_token_param -> DexterMsg.
-
-Definition Msg := @FA2Token.FA2ReceiverMsg _ DexterMsg.
-
-
-(** ** Storage types *)
-
-Record State :=
-  build_state {
-    tokenPool : N;
-    xtzPool : N;
-    lqtTotal : N;
-    selfIsUpdatingTokenPool : bool;
-    freezeBaker : bool;
-    manager : Address;
-    tokenAddress : Address;
-    tokenId : token_id;
-    lqtAddress : Address
+  Record add_liquidity_param :=
+    build_add_liquidity_param {
+      owner : Address;
+      minLqtMinted : N;
+      maxTokensDeposited : N;
+      add_deadline : nat
   }.
 
-Record Setup :=
-  build_setup {
-    lqtTotal_ : N;
-    manager_ : Address;
-    tokenAddress_ : Address;
-    tokenId_ : token_id
+  Record remove_liquidity_param :=
+    build_remove_liquidity_param {
+      liquidity_to : Address;
+      lqtBurned : N;
+      minXtzWithdrawn : N;
+      minTokensWithdrawn : N;
+      remove_deadline : nat
   }.
 
-Definition Error : Type := nat.
-Definition default_error : Error := 0%nat.
+  Record xtz_to_token_param :=
+    build_xtz_to_token_param {
+      tokens_to : Address;
+      minTokensBought : N;
+      xtt_deadline : nat
+  }.
 
-(* begin hide *)
-MetaCoq Run (make_setters State).
-MetaCoq Run (make_setters Setup).
-(* end hide *)
+  Record token_to_xtz_param :=
+    build_token_to_xtz_param {
+      xtz_to : Address;
+      tokensSold : N;
+      minXtzBought : N;
+      ttx_deadline : nat
+  }.
+
+  Record token_to_token_param :=
+    build_token_to_token_param {
+      outputDexterContract : Address;
+      to_ : Address;
+      minTokensBought_ : N;
+      tokensSold_ : N;
+      ttt_deadline : nat
+  }.
+
+  Record set_baker_param :=
+    build_set_baker_param {
+      baker : baker_address;
+      freezeBaker_ : bool
+  }.
+
+  Inductive DexterMsg :=
+  | AddLiquidity : add_liquidity_param -> DexterMsg
+  | RemoveLiquidity : remove_liquidity_param -> DexterMsg
+  | XtzToToken : xtz_to_token_param -> DexterMsg
+  | TokenToXtz : token_to_xtz_param -> DexterMsg
+  | SetBaker : set_baker_param -> DexterMsg
+  | SetManager : Address -> DexterMsg
+  | SetLqtAddress : Address -> DexterMsg
+  | UpdateTokenPool : DexterMsg
+  | TokenToToken : token_to_token_param -> DexterMsg.
+
+  Definition Msg := @FA2Token.FA2ReceiverMsg _ DexterMsg.
+
+
+  (** ** Storage types *)
+
+  Record State :=
+    build_state {
+      tokenPool : N;
+      xtzPool : N;
+      lqtTotal : N;
+      selfIsUpdatingTokenPool : bool;
+      freezeBaker : bool;
+      manager : Address;
+      tokenAddress : Address;
+      tokenId : token_id;
+      lqtAddress : Address
+    }.
+
+  Record Setup :=
+    build_setup {
+      lqtTotal_ : N;
+      manager_ : Address;
+      tokenAddress_ : Address;
+      tokenId_ : token_id
+    }.
+
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
+
+  (* begin hide *)
+  MetaCoq Run (make_setters State).
+  MetaCoq Run (make_setters Setup).
+  (* end hide *)
 
 End DexterTypes.
 
@@ -201,10 +201,10 @@ End NullAddress.
 
 (** * Contract functions *)
 Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
-
   Import SI.
   Export NAddr.
 
+  (* begin hide *)
   Existing Instance add_liquidity_param_serializable.
   Existing Instance remove_liquidity_param_serializable.
   Existing Instance xtz_to_token_param_serializable.
@@ -218,6 +218,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
   Existing Instance state_serializable.
   Existing Instance FA2Token_Msg_serializable.
   Existing Instance BaseTypes.
+  (* end hide *)
 
   Section DexterDefs.
     Open Scope N_scope.
@@ -491,10 +492,10 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
     (** ** Receive *)
     Definition receive_cpmm (chain : Chain)
-                      (ctx : ContractCallContext)
-                      (state : State)
-                      (maybe_msg : option Msg)
-                      : Result :=
+                            (ctx : ContractCallContext)
+                            (state : State)
+                            (maybe_msg : option Msg)
+                            : Result :=
       match maybe_msg with
       | Some (FA2Token.other_msg (AddLiquidity param)) =>
           add_liquidity chain ctx state param
@@ -545,57 +546,57 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 End Dexter2.
 
 Module DSInstances <: Dexter2Serializable.
-    (* Serialisation instances (omitted).
+  (* Serialisation instances (omitted).
 
-       NOTE: we use [<:] to make the definitions transparent, so the
-       implementation details can be revealed, if needed *)
-    (* begin hide *)
-    Global Instance add_liquidity_param_serializable `{ChainBase} : Serializable add_liquidity_param :=
-      Derive Serializable add_liquidity_param_rect <build_add_liquidity_param>.
+      NOTE: we use [<:] to make the definitions transparent, so the
+      implementation details can be revealed, if needed *)
+  (* begin hide *)
+  Global Instance add_liquidity_param_serializable `{ChainBase} : Serializable add_liquidity_param :=
+    Derive Serializable add_liquidity_param_rect <build_add_liquidity_param>.
 
-    Global Instance remove_liquidity_param_serializable `{ChainBase} : Serializable remove_liquidity_param :=
-      Derive Serializable remove_liquidity_param_rect <build_remove_liquidity_param>.
+  Global Instance remove_liquidity_param_serializable `{ChainBase} : Serializable remove_liquidity_param :=
+    Derive Serializable remove_liquidity_param_rect <build_remove_liquidity_param>.
 
-    Global Instance xtz_to_token_param_serializable `{ChainBase} : Serializable xtz_to_token_param :=
-      Derive Serializable xtz_to_token_param_rect <build_xtz_to_token_param>.
+  Global Instance xtz_to_token_param_serializable `{ChainBase} : Serializable xtz_to_token_param :=
+    Derive Serializable xtz_to_token_param_rect <build_xtz_to_token_param>.
 
-    Global Instance token_to_xtz_param_serializable `{ChainBase} : Serializable token_to_xtz_param :=
-      Derive Serializable token_to_xtz_param_rect <build_token_to_xtz_param>.
+  Global Instance token_to_xtz_param_serializable `{ChainBase} : Serializable token_to_xtz_param :=
+    Derive Serializable token_to_xtz_param_rect <build_token_to_xtz_param>.
 
-    Global Instance set_baker_param_serializable `{ChainBase} : Serializable set_baker_param :=
-      Derive Serializable set_baker_param_rect <build_set_baker_param>.
+  Global Instance set_baker_param_serializable `{ChainBase} : Serializable set_baker_param :=
+    Derive Serializable set_baker_param_rect <build_set_baker_param>.
 
-    Global Instance token_to_token_param_serializable `{ChainBase} : Serializable token_to_token_param :=
-      Derive Serializable token_to_token_param_rect <build_token_to_token_param>.
+  Global Instance token_to_token_param_serializable `{ChainBase} : Serializable token_to_token_param :=
+    Derive Serializable token_to_token_param_rect <build_token_to_token_param>.
 
-    Global Instance DexterMsg_serializable `{ChainBase} : Serializable DexterMsg :=
-        Derive Serializable DexterMsg_rect <AddLiquidity,
-                                            RemoveLiquidity,
-                                            XtzToToken,
-                                            TokenToXtz,
-                                            SetBaker,
-                                            SetManager,
-                                            SetLqtAddress,
-                                            UpdateTokenPool,
-                                            TokenToToken>.
+  Global Instance DexterMsg_serializable `{ChainBase} : Serializable DexterMsg :=
+      Derive Serializable DexterMsg_rect <AddLiquidity,
+                                          RemoveLiquidity,
+                                          XtzToToken,
+                                          TokenToXtz,
+                                          SetBaker,
+                                          SetManager,
+                                          SetLqtAddress,
+                                          UpdateTokenPool,
+                                          TokenToToken>.
 
-    Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg :=
-      D2LqtSInstances.msg_serializable.
+  Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg :=
+    D2LqtSInstances.msg_serializable.
 
-    Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+  Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
+    Derive Serializable Setup_rect <build_setup>.
 
-    Global Instance ClientMsg_serializable `{ChainBase} : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg) :=
-       @FA2Token.FA2ReceiverMsg_serializable _ _ _.
+  Global Instance ClientMsg_serializable `{ChainBase} : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg) :=
+      @FA2Token.FA2ReceiverMsg_serializable _ _ _.
 
-    Global Instance state_serializable `{ChainBase} : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+  Global Instance state_serializable `{ChainBase} : Serializable State :=
+    Derive Serializable State_rect <build_state>.
 
-    Global Instance FA2Token_Msg_serializable `{ChainBase} : Serializable FA2Token.Msg :=
-      FA2Token.msg_serializable.
+  Global Instance FA2Token_Msg_serializable `{ChainBase} : Serializable FA2Token.Msg :=
+    FA2Token.msg_serializable.
 
-End DSInstances.
   (* end hide *)
+End DSInstances.
 
 Module NullAddressAxiom <: NullAddress.
   Section NAddr.

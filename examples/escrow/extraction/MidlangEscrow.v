@@ -137,5 +137,5 @@ Definition result :=
   | Ok l => monad_map tmMsg (map String.of_string (midlang_prelude ++ l))
   | Err err => tmFail (String.of_string err)
   end.
-MetaCoq Run result.
+
 Redirect "../extraction/tests/extracted-code/midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.

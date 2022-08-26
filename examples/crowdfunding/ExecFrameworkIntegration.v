@@ -6,6 +6,7 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingCorrect.
 
 From Coq Require Import String.
 From Coq Require Import Basics.
@@ -87,7 +88,7 @@ Section Wrappers.
     : Chain -> ContractCallContext -> Setup -> result State_coq unit
     := init_wrapper Init.init.
 
-    Definition receive_wrapper
+  Definition receive_wrapper
              (f : SimpleChain_coq ->
                   SimpleContractCallContext_coq ->
                    Msg_coq -> State_coq -> option (State_coq * list SimpleActionBody_coq)) :

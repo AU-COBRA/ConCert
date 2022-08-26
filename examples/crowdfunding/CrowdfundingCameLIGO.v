@@ -106,7 +106,8 @@ Module Crowdfunding.
       "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ nl
        ++ CameLIGOPretty.printMain "crowdfunding_receive"
                                     "msg_coq"
-                                    "storage" |}.
+                                    "storage"
+    |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -145,8 +146,6 @@ Section CrowdfundingExtraction.
        (CameLIGO_prepare_extraction [] TT_remap_crowdfunding (TT_rename ++ TT_rename_ctors_default) [] "cctx_instance" CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
-
-  MetaCoq Run (tmMsg (String.of_string cameLIGO_crowdfunding)).
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"

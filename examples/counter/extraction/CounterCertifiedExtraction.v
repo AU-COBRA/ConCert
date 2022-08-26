@@ -82,7 +82,8 @@ Module Counter.
 
      (* code for the entry point *)
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
-                       ++ printMain |}.
+                       ++ printMain
+  |}.
 
 
 
@@ -177,7 +178,7 @@ Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t).
 
-Print liquidity_counter.
+(* Print liquidity_counter. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterCertifiedExtraction.liq" Compute liquidity_counter.

@@ -42,7 +42,7 @@ Section WccdToken.
       wccd_td_to       : Address }.
 
   Inductive OpUpdateKind :=
-    opAdd
+  | opAdd
   | opDelete.
 
   Inductive Msg :=
@@ -56,8 +56,8 @@ Section WccdToken.
 
   (** The state tracked for each address.*)
   Record AddressState := {
-        wccd_balance:   TokenAmount;
-        wccd_operators: list Address
+      wccd_balance:   TokenAmount;
+      wccd_operators: list Address
     }.
 
   (* begin hide *)

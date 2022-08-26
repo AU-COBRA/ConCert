@@ -94,8 +94,8 @@ Section iTokenBuggy.
                 <|balances ::= new_balances|>).
 
 
-(* The delegate tries to transfer <amount> tokens from <from> to <to>.
-   Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
+  (* The delegate tries to transfer <amount> tokens from <from> to <to>.
+     Succeeds if <from> has indeed allowed the delegate to spend at least <amount> tokens on its behalf. *)
   Local Open Scope bool_scope.
   Definition try_transfer_from_buggy (delegate : Address)
                                      (from : Address)
@@ -112,9 +112,9 @@ Section iTokenBuggy.
     then Err default_error
     else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
         let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-        (* Bug here! new balance of 'to' is calculated from to_balance. The commented line below is the correct implementation. *)
+        (* Bug here! new balance of 'to' is calculated from to_balance.
+           The commented line below is the correct implementation. *)
         let new_balances := FMap.add to (to_balance + amount) new_balances in
-        (* let new_balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + amount)) to new_balances in *)
         Ok (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
 
   (* The caller approves the delegate to transfer up to <amount> tokens on behalf of the caller *)
@@ -142,11 +142,15 @@ Section iTokenBuggy.
     if ctx.(ctx_amount) >? 0
     then Err default_error
     else match maybe_msg with
-    | Some (transfer_from from to amount) => without_actions (try_transfer_from_buggy sender from to amount state)
-    | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-    | Some (mint amount) => without_actions (try_mint sender amount state)
-    | Some (burn amount) => without_actions (try_burn sender amount state)
-   (* transfer actions to this contract are not allowed *)
+    | Some (transfer_from from to amount) =>
+        without_actions (try_transfer_from_buggy sender from to amount state)
+    | Some (approve delegate amount) =>
+        without_actions (try_approve sender delegate amount state)
+    | Some (mint amount) =>
+        without_actions (try_mint sender amount state)
+    | Some (burn amount) =>
+        without_actions (try_burn sender amount state)
+    (* transfer actions to this contract are not allowed *)
     | None => Err default_error
    end.
   Close Scope Z_scope.

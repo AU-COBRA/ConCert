@@ -154,13 +154,6 @@ Instance showowner_transfer_policy : Show owner_transfer_policy :=
             end
 |}.
 
-(* Instance showFA2Interfacecustom_permission_policy : Show FA2LegacyInterface.custom_permission_policy :=
-{|
-  show t := "custom_permission_policy{"
-            ++ "custom_policy_config_api: " ++ show t.(custom_policy_config_api)
-            ++ "}"
-|}. *)
-
 Instance showFA2Interfacepermissions_descriptor : Show FA2LegacyInterface.permissions_descriptor :=
 {|
   show t := "permissions_descriptor{"
