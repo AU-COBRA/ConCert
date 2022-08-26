@@ -164,7 +164,7 @@ Module Dexter2LqtExtraction.
       there is no concept of initialisation function. However, it's common
       to provide a function that computes a valid initial storage that can
       be used for deployment. *)
-  Definition init (setup : Setup) : result State unit :=
+  Definition init (setup : Setup) : result State Error :=
     Ok {|
         tokens := ContractCommon.AddressMap.add setup.(lqt_provider) setup.(initial_pool) ContractCommon.AddressMap.empty;
         allowances := empty_allowance;
@@ -182,7 +182,7 @@ Module Dexter2LqtExtraction.
        (ctx : ContractCallContext)
        (state : State)
        (maybe_msg : option Dexter2FA12.Msg)
-    : result (list ActionBody * State) unit :=
+    : result (list ActionBody * State) Error :=
     match DEX2LQTExtract.receive_lqt chain ctx state maybe_msg with
     | Ok x => Ok (x.2, x.1)
     | Err e => Err e
@@ -191,7 +191,7 @@ Module Dexter2LqtExtraction.
   Definition TT_remap_all :=
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_Lqt)%list.
 
-  Definition LIGO_DEXTER2LQT_MODULE : CameLIGOMod Msg ContractCallContext Setup State ActionBody unit :=
+  Definition LIGO_DEXTER2LQT_MODULE : CameLIGOMod Msg ContractCallContext Setup State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "cameLIGO_dexter2lqt" ;
 
@@ -281,7 +281,7 @@ Section D2E.
     (TT_remap_arith ++ TT_remap_dexter2 ++ TT_Dexter2_CPMM)%list.
 
   (** We redefine [init] for the same reasons as for the liquidity token *)
-  Definition init (setup : Setup) : result State unit :=
+  Definition init (setup : Setup) : result State Error :=
     Ok {|
         tokenPool := 0;
         xtzPool := 0;
@@ -305,13 +305,13 @@ Section D2E.
                       (ctx : ContractCallContext)
                       (state : State)
                       (maybe_msg : option Dexter2CPMM.Msg)
-                      : result (list ActionBody * State) unit :=
+                      : result (list ActionBody * State) Error :=
     match DEX2Extract.receive_cpmm chain ctx state maybe_msg with
     | Ok x => Ok (x.2, x.1)
     | Err e => Err e
     end.
 
-  Definition LIGO_DEXTER2_MODULE : CameLIGOMod Msg ContractCallContext Setup State ActionBody unit :=
+  Definition LIGO_DEXTER2_MODULE : CameLIGOMod Msg ContractCallContext Setup State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "cameLIGO_dexter2" ;
 

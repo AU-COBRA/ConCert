@@ -91,7 +91,7 @@ Section LocalBlockchain.
                 (state : SerializedValue)
                 (lc : LocalChain) : LocalChain :=
       lc<|lc_contract_state ::= FMap.add addr state|>.
-    
+
     Definition weak_error_to_error_init
                 (r : result SerializedValue SerializedValue)
                 : result SerializedValue ActionEvaluationError :=

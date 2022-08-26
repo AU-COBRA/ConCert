@@ -52,7 +52,7 @@ Record VoterInfo :=
     voter_index : nat;
     vote_hash : positive;
     public_vote : A;
-}.
+  }.
 
 Record State :=
   build_state {
@@ -62,6 +62,9 @@ Record State :=
     setup : Setup;
     tally : option nat;
   }.
+
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
 
 (* w, a1, b1, a2, b2, d1, d2 *)
 Definition VoteProof := (Z * A * A * A * A * Z * Z * Z * Z)%type.
@@ -158,19 +161,19 @@ Definition make_vote_msg (pks : list A) (my_index : nat) (sk : Z) (sv : bool) (w
   submit_vote (compute_public_vote rk sk sv)
               (secret_vote_proof sk rk sv my_index w r d).
 
-Definition assert_true_init (check : bool) : ContractIniter Setup unit unit :=
-  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
-Definition assert_true (check : bool) : ContractReceiver State Msg unit unit :=
-  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
-Definition assert_false (check : bool) : ContractReceiver State Msg unit unit :=
-  @lift _ (fun T => result T unit) _ _ (if check then Err tt else Ok tt).
-Definition assert_some {A : Type} (check : option A) : ContractReceiver State Msg unit unit :=
-  @lift _ (fun T => result T unit) _ _ (if check then Ok tt else Err tt).
-Definition assert_none {A : Type} (check : option A) : ContractReceiver State Msg unit unit :=
-  @lift _ (fun T => result T unit) _ _ (if check then Err tt else Ok tt).
+Definition assert_true_init (check : bool) : ContractIniter Setup Error unit :=
+  @lift _ (fun T => result T Error) _ _ (if check then Ok tt else Err default_error).
+Definition assert_true (check : bool) : ContractReceiver State Msg Error unit :=
+  @lift _ (fun T => result T Error) _ _ (if check then Ok tt else Err default_error).
+Definition assert_false (check : bool) : ContractReceiver State Msg Error unit :=
+  @lift _ (fun T => result T Error) _ _ (if check then Err default_error else Ok tt).
+Definition assert_some {A : Type} (check : option A) : ContractReceiver State Msg Error unit :=
+  @lift _ (fun T => result T Error) _ _ (if check then Ok tt else Err default_error).
+Definition assert_none {A : Type} (check : option A) : ContractReceiver State Msg Error unit :=
+  @lift _ (fun T => result T Error) _ _ (if check then Err default_error else Ok tt).
 
 (* A necessary aliasing to make extraction work *)
-Definition ContractIniterSetupState := ContractIniter Setup unit State.
+Definition ContractIniterSetupState := ContractIniter Setup Error State.
 
 Definition init : ContractIniterSetupState :=
   do owner <- lift caller_addr;
@@ -184,7 +187,7 @@ Definition init : ContractIniterSetupState :=
        setup := setup;
        tally := None; |}.
 
-Definition ContractReceiverStateMsgState := ContractReceiver State Msg unit State.
+Definition ContractReceiverStateMsgState := ContractReceiver State Msg Error State.
 
 Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsgState :=
   do assert_false (finish_registration_by (setup state) <? cur_slot)%nat;
@@ -203,25 +206,25 @@ Definition handle_signup pk prf state caller cur_slot : ContractReceiverStateMsg
   accept_call new_state.
 
 Definition handle_commit_to_vote hash state caller cur_slot : ContractReceiverStateMsgState :=
-  do commit_by <- lift (result_of_option (finish_commit_by (setup state)) tt);
+  do commit_by <- lift (result_of_option (finish_commit_by (setup state)) default_error);
   do assert_false (commit_by <? cur_slot)%nat;
-  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) tt);
+  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) default_error);
   let inf := inf<|vote_hash := hash|> in
   accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
 
 Definition handle_submit_vote v proof state caller cur_slot : ContractReceiverStateMsgState :=
   do assert_false (finish_vote_by (setup state) <? cur_slot)%nat;
-  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) tt);
-  do @lift _ (fun T => result T unit) _ _ (if finish_commit_by (setup state) then
-             if (H [encodeA v] =? vote_hash inf)%positive then Ok tt else Err tt
+  do inf <- lift (result_of_option (AddressMap.find caller (registered_voters state)) default_error);
+  do @lift _ (fun T => result T Error) _ _ (if finish_commit_by (setup state) then
+             if (H [encodeA v] =? vote_hash inf)%positive then Ok tt else Err default_error
            else
              Ok tt);
-  do @lift _ (fun T => result T unit) _ _ (if verify_secret_vote_proof
+  do @lift _ (fun T => result T Error) _ _ (if verify_secret_vote_proof
                 (nth (voter_index inf) (public_keys state) 0)
                 (reconstructed_key (public_keys state) (voter_index inf))
                 v
                 (voter_index inf)
-                proof then Ok tt else Err tt);
+                proof then Ok tt else Err default_error);
   let inf := inf<|public_vote := v|> in
   accept_call (state<|registered_voters ::= AddressMap.add caller inf|>).
 
@@ -233,14 +236,14 @@ Definition handle_tally_votes state cur_slot : ContractReceiverStateMsgState :=
                 (fun vi => if elmeqb (public_vote vi) zero then true else false)
                 voters);
   let votes := map public_vote voters in
-  do res <- lift (result_of_option (bruteforce_tally votes) tt);
+  do res <- @lift _ (fun T => result T Error) _ _ (result_of_option (bruteforce_tally votes) default_error);
   accept_call (state<|tally := Some res|>).
 
 Definition receive : ContractReceiverStateMsgState :=
   do state <- my_state;
   do caller <- lift caller_addr;
   do cur_slot <- lift current_slot;
-  do msg <- call_msg tt;
+  do msg <- call_msg default_error;
   match msg with
   | signup pk prf => handle_signup pk prf state caller cur_slot
   | commit_to_vote hash => handle_commit_to_vote hash state caller cur_slot
@@ -248,7 +251,7 @@ Definition receive : ContractReceiverStateMsgState :=
   | tally_votes => handle_tally_votes state cur_slot
   end.
 
-Definition boardroom_voting : Contract Setup Msg State unit :=
+Definition boardroom_voting : Contract Setup Msg State Error :=
   build_contract init receive.
 
 Section Theories.

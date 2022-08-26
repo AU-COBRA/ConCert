@@ -31,10 +31,12 @@ Module Counter.
 
   Definition operation := ActionBody.
   Definition storage := Z × address.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)
-                  : result storage unit :=
+                  : result storage Error :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Ok setup.
 
@@ -50,19 +52,19 @@ Module Counter.
 
   Definition counter (msg : msg)
                      (st : storage)
-                     : result (list operation * storage) unit :=
+                     : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
         Ok ([],inc_balance st i)
-      else Err tt
+      else Err default_error
     | Dec i =>
       if (0 <=? i) then
         Ok ([],dec_balance st i)
-      else Err tt
+      else Err default_error
     end.
 
-  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
+  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
@@ -88,17 +90,17 @@ Module Counter.
   Definition counter_init (ch : Chain) (ctx : ContractCallContext) :=
     init_wrapper init ch ctx.
 
-  Definition counter_receive (chain : Chain) 
+  Definition counter_receive (chain : Chain)
                              (ctx : ContractCallContext)
                              (st : storage)
                              (msg : option msg)
-                             : result (storage * list ActionBody) unit :=
+                             : result (storage * list ActionBody) Error :=
     match msg with
     | Some m => match counter m st with
               | Ok res => Ok (res.2,res.1)
               | Err e => Err e
               end
-    | None => Err tt
+    | None => Err default_error
     end.
 
   (** Deriving the [Serializable] instances for the state and for the messages *)

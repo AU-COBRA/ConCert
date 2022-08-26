@@ -12,7 +12,7 @@ From ConCert.Execution Require Import ContractCommon.
 From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
 
-Definition non_zero_amount (amt : Z) : bool:= (0 <? amt)%Z.
+Definition non_zero_amount (amt : Z) : bool := (0 <? amt)%Z.
 
 (** * Contract types *)
 
@@ -30,32 +30,32 @@ Definition callback_addr (c : callback) : Address := c.(return_addr).
 Coercion callback_addr : callback >-> Address.
 
 Record transfer_param :=
-  build_transfer_param{
+  build_transfer_param {
     from : Address;
     to : Address;
     value : N
 }.
 
 Record approve_param :=
-  build_approve_param{
+  build_approve_param {
     spender : Address;
     value_ : N
 }.
 
 Record getAllowance_param :=
-  build_getAllowance_param{
+  build_getAllowance_param {
     request : (Address * Address);
     allowance_callback : callback
 }.
 
 Record getBalance_param :=
-  build_getBalance_param{
+  build_getBalance_param {
     owner_ : Address;
     balance_callback : callback
 }.
 
 Record getTotalSupply_param :=
-  build_getTotalSupply_param{
+  build_getTotalSupply_param {
     request_ : unit;
     supply_callback : callback
 }.
@@ -72,6 +72,9 @@ Record Setup :=
     lqt_provider : Address;
     initial_pool : N
 }.
+
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
 
 (* Any contract that wants to receive callback messages from the FA1.2 liquidity contract
    should have this type as its Msg type. The contract may have other endpoints,
@@ -209,7 +212,7 @@ Definition empty_allowance : FMap (Address * Address) N := FMap.empty.
 Definition try_transfer (sender : Address)
                         (param : transfer_param)
                         (state : State)
-                        : result State unit :=
+                        : result State Error :=
   let allowances_ := state.(allowances) in
   let tokens_ := state.(tokens) in
   do allowances_ <- (* Update allowances *)
@@ -218,12 +221,12 @@ Definition try_transfer (sender : Address)
     else
       let allowance_key := (param.(from), sender) in
       let authorized_value := with_default 0 (find_allowance allowance_key allowances_) in
-        do _ <- throwIf (authorized_value <? param.(value)) tt; (* NotEnoughAllowance *)
+        do _ <- throwIf (authorized_value <? param.(value)) default_error; (* NotEnoughAllowance *)
         Ok (update_allowance allowance_key (maybe (authorized_value - param.(value))) allowances_)
     ) ;
   do tokens_ <- (* Update from balance *)
     (let from_balance := with_default 0 (AddressMap.find param.(from) tokens_) in
-      do _ <- throwIf (from_balance <? param.(value)) tt; (* NotEnoughBalance *)
+      do _ <- throwIf (from_balance <? param.(value)) default_error; (* NotEnoughBalance *)
       Ok (AddressMap.update param.(from) (maybe (from_balance - param.(value))) tokens_)
     ) ;
   let tokens_ :=
@@ -237,11 +240,11 @@ Definition try_transfer (sender : Address)
 Definition try_approve (sender : Address)
                        (param : approve_param)
                        (state : State)
-                       : result State unit :=
+                       : result State Error :=
   let allowances_ := state.(allowances) in
   let allowance_key := (sender, param.(spender)) in
   let previous_value := with_default 0 (find_allowance allowance_key allowances_) in
-  do _ <- throwIf (andb (0 <? previous_value) (0 <? param.(value_))) tt; (* UnsafeAllowanceChange *)
+  do _ <- throwIf (andb (0 <? previous_value) (0 <? param.(value_))) default_error; (* UnsafeAllowanceChange *)
   let allowances_ := update_allowance allowance_key (maybe param.(value_)) allowances_ in
     Ok (state<|allowances := allowances_|>).
 
@@ -286,8 +289,8 @@ Definition try_get_total_supply (sender : Address)
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup)
-                : result State unit :=
-  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* DontSendTez *)
+                : result State Error :=
+  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* DontSendTez *)
   Ok {|
     tokens := AddressMap.add setup.(lqt_provider) setup.(initial_pool) AddressMap.empty;
     allowances := empty_allowance;
@@ -301,22 +304,22 @@ Definition receive (chain : Chain)
                    (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : result (State * list ActionBody) unit :=
+                   : result (State * list ActionBody) Error :=
   let sender := ctx.(ctx_from) in
   let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
   let without_statechange acts := Ok (state, acts) in
-  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* DontSendTez *)
+  do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* DontSendTez *)
   match maybe_msg with
   | Some (transfer param) => without_actions (try_transfer sender param state)
   | Some (approve param) => without_actions (try_approve sender param state)
   | Some (getAllowance param) => without_statechange (try_get_allowance sender param state)
   | Some (getBalance param) => without_statechange (try_get_balance sender param state)
   | Some (getTotalSupply param) => without_statechange (try_get_total_supply sender param state)
-  | None => Err tt (* Transfer actions to this contract are not allowed *)
+  | None => Err default_error (* Transfer actions to this contract are not allowed *)
   end.
 Close Scope Z_scope.
 
-Definition contract : Contract Setup Msg State unit :=
+Definition contract : Contract Setup Msg State Error :=
   build_contract init receive.
 
   End FA12Defs.

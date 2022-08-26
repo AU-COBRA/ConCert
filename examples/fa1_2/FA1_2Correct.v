@@ -52,7 +52,7 @@ Qed.
 
 Lemma contract_not_payable' : forall prev_state chain ctx msg,
   (0 < (ctx_amount ctx))%Z ->
-    receive chain ctx prev_state msg = Err tt.
+    receive chain ctx prev_state msg = Err default_error.
 Proof.
   intros * ctx_amount_positive.
   unfold receive,throwIf;cbn.
@@ -80,7 +80,7 @@ Ltac destruct_message :=
 (** ** Default entrypoint correct *)
 (* Default entrypoint should never succeed *)
 Lemma default_entrypoint_none : forall prev_state chain ctx,
-  receive chain ctx prev_state None = Err tt.
+  receive chain ctx prev_state None = Err default_error.
 Proof.
   intros *.
   contract_simpl.

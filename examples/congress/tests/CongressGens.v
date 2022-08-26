@@ -112,12 +112,12 @@ Definition bindCallerIsOwnerOpt {A : Type}
        then g
        else returnGen None.
 
-Definition try_gNewOwner state calling_addr contract_addr : GOpt Address:=
+Definition try_gNewOwner state calling_addr contract_addr : GOpt Address :=
   bindCallerIsOwnerOpt state calling_addr contract_addr (gCongressMember_without_caller state calling_addr contract_addr).
 Definition vote_proposal (caddr : Address)
                          (members_and_proposals : FMap Address (list ProposalId))
                          (call : Address -> Address -> Msg -> GOpt Action)
-                         (vote : ProposalId -> Msg):=
+                         (vote : ProposalId -> Msg) :=
   '(member, pids) <- sampleFMapOpt members_and_proposals ;;
   pid <- elems_opt pids ;;
   call caddr member (vote pid).

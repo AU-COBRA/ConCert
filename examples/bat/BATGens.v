@@ -212,7 +212,7 @@ Definition gBATActionInvalid (env : Environment) : GOpt Action :=
    Has a 7% chance to attempt to generate an invalid contract call
     More specifically it has:
     - 0.5% chance of generating a valid call and then replacing the amount of money sent with that call.
-      For BAT contract this is likely to result in an invalid call as most contract calls on BAToken are 
+      For BAT contract this is likely to result in an invalid call as most contract calls on BAToken are
       not allowed to include money in them.
     - 6.5% chance of using the invalid action generator. This generator is likely to generate an invalid call
       since it treats the contract as a black box and thus does not check any of the expected requirements for

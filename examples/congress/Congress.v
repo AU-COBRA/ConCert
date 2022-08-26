@@ -55,6 +55,10 @@ Record Setup :=
     setup_rules : Rules;
   }.
 
+
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
+
 Inductive Msg :=
   | transfer_ownership : Address -> Msg
   | change_rules : Rules -> Msg
@@ -111,7 +115,7 @@ Definition validate_rules (rules : Rules) : bool :=
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup)
-                : result State unit :=
+                : result State Error :=
   if validate_rules setup.(setup_rules) then
     Ok {|
       owner := ctx.(ctx_from);
@@ -121,7 +125,7 @@ Definition init (chain : Chain)
       members := FMap.empty
     |}
   else
-    Err tt.
+    Err default_error.
 
 Definition add_proposal (actions : list CongressAction)
                         (chain : Chain)
@@ -140,8 +144,8 @@ Definition vote_on_proposal (voter : Address)
                             (pid : ProposalId)
                             (vote : Z)
                             (state : State)
-                            : result State unit :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
+                            : result State Error :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
   let old_vote := match FMap.find voter proposal.(votes) with
                  | Some old => old
                  | None => 0
@@ -156,9 +160,9 @@ Definition vote_on_proposal (voter : Address)
 Definition do_retract_vote (voter : Address)
                            (pid : ProposalId)
                            (state : State)
-                           : result State unit :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
-  do old_vote <- result_of_option (FMap.find voter proposal.(votes)) tt;
+                           : result State Error :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
+  do old_vote <- result_of_option (FMap.find voter proposal.(votes)) default_error;
   let new_votes := FMap.remove voter proposal.(votes) in
   let new_vote_result := proposal.(vote_result) - old_vote in
   let new_proposal :=
@@ -188,13 +192,13 @@ Definition proposal_passed (proposal : Proposal)
 Definition do_finish_proposal (pid : ProposalId)
                               (state : State)
                               (chain : Chain)
-                              : result (State * list ActionBody) unit :=
-  do proposal <- result_of_option (FMap.find pid state.(proposals)) tt;
+                              : result (State * list ActionBody) Error :=
+  do proposal <- result_of_option (FMap.find pid state.(proposals)) default_error;
   let rules := state.(state_rules) in
   let debate_end := (proposal.(proposed_in) + rules.(debating_period_in_blocks))%nat in
   let cur_slot := chain.(current_slot) in
   if (cur_slot <? debate_end)%nat then
-    Err tt
+    Err default_error
   else
     let response_acts :=
         if proposal_passed proposal state
@@ -209,7 +213,7 @@ Definition receive
            (ctx : ContractCallContext)
            (state : State)
            (maybe_msg : option Msg)
-           : result (State * list ActionBody) unit :=
+           : result (State * list ActionBody) Error :=
   let sender := ctx.(ctx_from) in
   let is_from_owner := (sender =? state.(owner))%address in
   let is_from_member := FMap.mem sender state.(members) in
@@ -222,7 +226,7 @@ Definition receive
     if validate_rules new_rules then
       Ok (state<|state_rules := new_rules|>, [])
     else
-      Err tt
+      Err default_error
 
   | Some (add_member new_member), true, _ =>
     Ok (state<|members ::= FMap.add new_member tt|>, [])
@@ -249,10 +253,10 @@ Definition receive
   | None, _, _ => Ok (state, [])
 
   | _, _, _ =>
-        Err tt
+        Err default_error
   end.
 
-Definition contract : Contract Setup Msg State unit :=
+Definition contract : Contract Setup Msg State Error :=
   build_contract init receive.
 
 Section Theories.

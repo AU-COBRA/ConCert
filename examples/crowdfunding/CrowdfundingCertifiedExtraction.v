@@ -71,23 +71,23 @@ Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool
 Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
 Definition crowdfunding_init (ctx : SimpleCallCtx)
                              (setup : (time_coq × Z × address_coq))
-                             : ConCert.Execution.ResultMonad.result storage unit :=
+                             : ConCert.Execution.ResultMonad.result storage nat :=
   if ctx.2.2.1 =? 0
   then ConCert.Execution.ResultMonad.Ok (setup, (Maps.mnil, false))
-  else ConCert.Execution.ResultMonad.Err tt.
+  else ConCert.Execution.ResultMonad.Err 0%nat.
   (* (unfolded Init.init) setup ctx. *)
 
 Definition crowdfunding_receive
            (params : params)
            (st : storage)
-           : ConCert.Execution.ResultMonad.result (list SimpleActionBody_coq × storage) unit :=
+           : ConCert.Execution.ResultMonad.result (list SimpleActionBody_coq × storage) nat :=
   match receive params.2 st params.1 with
   | Some v => ConCert.Execution.ResultMonad.Ok v
-  | None => ConCert.Execution.ResultMonad.Err tt
+  | None => ConCert.Execution.ResultMonad.Err 0%nat
   end.
 
 Definition CROWDFUNDING_MODULE :
-  LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq unit :=
+  LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq nat :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_crowdfunding" ;
 

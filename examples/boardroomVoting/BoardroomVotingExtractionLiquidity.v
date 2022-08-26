@@ -47,7 +47,7 @@ Module Params <: BoardroomParams.
   Definition Base := Base.
   Definition prime := modulus.
   Definition generator := generator.
-End Params.  
+End Params.
 Module BV := BoardroomVoting Params. Import BV.
 
 (* Compute the signup messages that would be sent by each party.
@@ -83,68 +83,68 @@ Notation msg := (Chain × ContractCallContext × option BV.Msg).
 
 Definition receive_wrapper (msg : msg)
                            (st : BV.State)
-                           : result (list ActionBody * BV.State) unit := 
+                           : result (list ActionBody * BV.State) Error :=
   match (run_contract_receiver BV.receive) msg.1 msg.2.1 st msg.2.2 with
   | Ok (st, acts) => Ok (acts, st)
   | Err e => Err e
   end.
 
-Definition dummy_init : init_ctx -> BV.Setup -> result BV.State unit := fun _ _ => Err tt.
+Definition dummy_init : init_ctx -> BV.Setup -> result BV.State Error := fun _ _ => Err default_error.
 
-Definition dummy_receive : msg -> BV.State -> result (list ActionBody × BV.State) unit := 
-  fun m s  => 
+Definition dummy_receive : msg -> BV.State -> result (list ActionBody × BV.State) Error :=
+  fun m s  =>
     let x := handle_signup 0 (0, 0) s s.(owner) 0%nat  in
-    Err tt.
+    Err default_error.
 
 Definition storage_alias := "type storage = state".
 
-Definition bruteforce_tally_def := 
- "let bruteforce_tally_aux  = 
-  let rec bruteforce_tally_aux  (n, votes_product) = 
-    if elmeqb (pow_p generator (int n)) votes_product then 
-        Some (n) 
-    else if n = 0p then 
+Definition bruteforce_tally_def :=
+ "let bruteforce_tally_aux  =
+  let rec bruteforce_tally_aux  (n, votes_product) =
+    if elmeqb (pow_p generator (int n)) votes_product then
+        Some (n)
+    else if n = 0p then
       None
     else
       let n0 = n - 1p in
         (bruteforce_tally_aux (unsafe_int_to_nat n0, votes_product))
   in fun n votes_product -> bruteforce_tally_aux (n, votes_product)".
 
-Definition extra_ops := 
+Definition extra_ops :=
  "let unsafe_int_to_nat (n : int) =
     let n = match%nat n with
     | Plus n -> n
     | Minus _ -> failwith ""n shound not be negative"" in
     n
   let predN (n : nat) = unsafe_int_to_nat (n - 1p)
-  
-  let nth  = let rec nth  (n, l, default) = 
-  if n = 0p then (match l with 
+
+  let nth  = let rec nth  (n, l, default) =
+  if n = 0p then (match l with
   []  -> default
    | x :: l' -> x)
-  else let m = predN n in (match l with 
+  else let m = predN n in (match l with
   []  -> default
    | x :: t -> (nth (m, t, default)))
    in fun n l default -> nth (n, l, default)
-  
+
   let prod (l : int list) =
     List.fold (fun (a, b) -> mulInt a b) l 1
-  
+
   let firstn (n : nat) (l : 'a list) =
     let (_,r) = List.fold (fun (b,(n, a)) ->
         if n = 0p then (0p, a)
         else (predN n, b :: a)) l (n,[]) in
     List.rev r
-  
-  let skipn  = let rec skipn  (n, l) = 
+
+  let skipn  = let rec skipn  (n, l) =
   if n = 0p then l
-   else let n0 = predN n in (match l with 
+   else let n0 = predN n in (match l with
   []  -> []
    | a :: l0 -> (skipn (n0, l0)))
    in fun n l -> skipn (n, l)
 
-  let existsb (f : 'a -> bool) = let rec existsb  (l) = 
-  match l with 
+  let existsb (f : 'a -> bool) = let rec existsb  (l) =
+  match l with
   []  -> false
    | a :: l0 -> (if (f a) then true else (existsb (l0)))
    in fun l -> existsb (l)".
@@ -152,7 +152,7 @@ Definition extra_ops :=
 Definition hash_func_def := "let hash_func (l : ( (nat) list)) = addNat 1p (List.fold (fun (p,a) -> lxorNat p a) l 1p)".
 
 
-Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody unit :=
+Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
     lmd_module_name := "liquidity_boardroomvoting" ;
 
@@ -180,7 +180,7 @@ Definition inline_boardroom_params : list kername :=
   ].
 
 
-Definition inline_contract_monad_projection : list kername := 
+Definition inline_contract_monad_projection : list kername :=
   [
       <%% @ContractMonads.chain_height %%>
     ; <%% @ContractMonads.current_slot %%>
@@ -201,7 +201,7 @@ Definition inline_contract_monad_projection : list kername :=
   ].
 
 
-Definition to_inline : list kername := 
+Definition to_inline : list kername :=
      inline_contract_monad_projection
   ++ inline_boardroom_params
   ++ [
@@ -216,10 +216,10 @@ Definition to_inline : list kername :=
   ; <%% @result_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
   ; <%% @result_to_contract_receiver %%>
-  
+
   ; <%% @ContractReceiver %%>
   ; <%% @ContractIniter %%>
-  
+
   ; <%% @Monads.bind %%>
   ; <%% @Monads.ret %%>
   ; <%% @Monads.lift %%>
@@ -278,7 +278,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% N.succ_pos %%> "addNat 1p"
   ; remap <%% mod_pow %%> "mod_pow"
   ; remap <%% Egcd.egcd %%> "egcd"
-  ; remap <%% bruteforce_tally_aux %%> (bruteforce_tally_def ++ "in bruteforce_tally_aux") 
+  ; remap <%% bruteforce_tally_aux %%> (bruteforce_tally_def ++ "in bruteforce_tally_aux")
   ; remap <%% @List.existsb %%> "existsb"
   ; remap <%% @List.nth %%> "nth"
   ; remap <%% @List.firstn %%> "firstn"
@@ -317,7 +317,6 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% modulus %%> modulus_
   ; remap <%% BV.encodeA %%> "unsafe_int_to_nat"
   ; remap <%% BV.encodeNat %%> ""
-  
 
   ; remap <%% @List.fold_left %%> "List.fold"
   ; remap <%% @List.map %%> "List.map"
@@ -326,7 +325,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @List.app %%> "List.append"
   ].
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename : list (string * string):=
+Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
   ; ("Zpos" ,"int")

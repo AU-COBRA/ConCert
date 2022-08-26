@@ -44,7 +44,7 @@ Definition baker_address := option Address.
 (** ** Entrypoint types *)
 
 Record add_liquidity_param :=
-  build_add_liquidity_param{
+  build_add_liquidity_param {
     owner : Address;
     minLqtMinted : N;
     maxTokensDeposited : N;
@@ -52,7 +52,7 @@ Record add_liquidity_param :=
 }.
 
 Record remove_liquidity_param :=
-  build_remove_liquidity_param{
+  build_remove_liquidity_param {
     liquidity_to : Address;
     lqtBurned : N;
     minXtzWithdrawn : N;
@@ -61,14 +61,14 @@ Record remove_liquidity_param :=
 }.
 
 Record xtz_to_token_param :=
-  build_xtz_to_token_param{
+  build_xtz_to_token_param {
     tokens_to : Address;
     minTokensBought : N;
     xtt_deadline : nat
 }.
 
 Record token_to_xtz_param :=
-  build_token_to_xtz_param{
+  build_token_to_xtz_param {
     xtz_to : Address;
     tokensSold : N;
     minXtzBought : N;
@@ -76,7 +76,7 @@ Record token_to_xtz_param :=
 }.
 
 Record token_to_token_param :=
-  build_token_to_token_param{
+  build_token_to_token_param {
     outputDexterContract : Address;
     to_ : Address;
     minTokensBought_ : N;
@@ -85,7 +85,7 @@ Record token_to_token_param :=
 }.
 
 Record set_baker_param :=
-  build_set_baker_param{
+  build_set_baker_param {
     baker : baker_address;
     freezeBaker_ : bool
 }.
@@ -126,6 +126,9 @@ Record Setup :=
     tokenAddress_ : Address;
     tokenId_ : token_id
   }.
+
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
 
 (* begin hide *)
 MetaCoq Run (make_setters State).
@@ -226,12 +229,12 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
     Definition amount_to_N : Amount -> N := Z.to_N.
     Definition N_to_amount : N -> Amount := Z.of_N.
 
-    Definition Result : Type := result (State * list ActionBody) unit.
-    Definition sub (n m : N) : result N unit :=
-      do _ <- throwIf (n <? m) tt; Ok (n - m).
-    Definition div (n m : N) : result N unit :=
-      do _ <- throwIf (m =? 0) tt; Ok (n / m).
-    Definition ceildiv (n m : N) : result N unit :=
+    Definition Result : Type := result (State * list ActionBody) Error.
+    Definition sub (n m : N) : result N Error :=
+      do _ <- throwIf (n <? m) default_error; Ok (n - m).
+    Definition div (n m : N) : result N Error :=
+      do _ <- throwIf (m =? 0) default_error; Ok (n / m).
+    Definition ceildiv (n m : N) : result N Error :=
       if N.modulo n m =? 0
       then div n m
       else do res <- div n m ; Ok (res + 1).
@@ -258,8 +261,8 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
     Definition mint_or_burn (state : State)
                             (target : Address)
                             (quantitiy : Z)
-                            : result ActionBody unit :=
-        do _ <- throwIf (address_eqb state.(lqtAddress) null_address) tt; (* error lqtAddress not set *)
+                            : result ActionBody Error :=
+        do _ <- throwIf (address_eqb state.(lqtAddress) null_address) default_error; (* error lqtAddress not set *)
         Ok (call_liquidity_token state.(lqtAddress)
                       0
                       (Dexter2FA12.msg_mint_or_burn
@@ -267,7 +270,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
     Definition call_to_token (token_addr : Address)
                              (amt : N)
-                             (msg : FA2Token.Msg) 
+                             (msg : FA2Token.Msg)
                              : ActionBody :=
       act_call token_addr (N_to_amount amt) (serialize msg).
 
@@ -278,14 +281,14 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       call_to_token state.(tokenAddress)
                 0
                 (FA2Token.msg_transfer
-                  [FA2LegacyInterface.build_transfer from 
+                  [FA2LegacyInterface.build_transfer from
                   [FA2LegacyInterface.build_transfer_destination to state.(tokenId) amount] None]).
 
     Definition xtz_transfer (to : Address)
                             (amount : N)
-                            : result ActionBody unit :=
+                            : result ActionBody Error :=
       if address_is_contract to
-      then Err tt (* error_INVALID_TO_ADDRESS *)
+      then Err default_error (* error_INVALID_TO_ADDRESS *)
       else Ok (act_transfer to (N_to_amount amount)).
 
 
@@ -295,12 +298,12 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                              (state : State)
                              (param : add_liquidity_param)
                              : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat tt; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(add_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
       do lqt_minted <- div ((amount_to_N ctx.(ctx_amount)) * state.(lqtTotal)) state.(xtzPool) ; (* error_DIV_by_0 *)
       do tokens_deposited <- ceildiv ((amount_to_N ctx.(ctx_amount)) * state.(tokenPool)) state.(xtzPool) ; (* error_DIV_by_0 *)
-      do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) tt; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
-      do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) tt; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
+      do _ <- throwIf (param.(maxTokensDeposited) <? tokens_deposited) default_error; (* error_MAX_TOKENS_DEPOSITED_MUST_BE_GREATER_THAN_OR_EQUAL_TO_TOKENS_DEPOSITED *)
+      do _ <- throwIf (lqt_minted <? param.(minLqtMinted)) default_error; (* error_LQT_MINTED_MUST_BE_GREATER_THAN_MIN_LQT_MINTED *)
       let new_state := state<| lqtTotal := state.(lqtTotal) + lqt_minted |>
                             <| tokenPool := state.(tokenPool) + tokens_deposited |>
                             <| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount))|> in
@@ -314,13 +317,13 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                 (state : State)
                                 (param : remove_liquidity_param)
                                 : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat tt; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
       do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
-      do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn))tt ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
-      do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) tt; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
+      do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn))default_error ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
+      do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) default_error; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
       do new_lqtPool <- sub state.(lqtTotal) param.(lqtBurned) ; (* error_CANNOT_BURN_MORE_THAN_THE_TOTAL_AMOUNT_OF_LQT *)
       do new_tokenPool <- sub state.(tokenPool) tokens_withdrawn ; (* error_TOKEN_POOL_MINUS_TOKENS_WITHDRAWN_IS_NEGATIVE *)
       do new_xtzPool <- sub state.(xtzPool) xtz_withdrawn ; (* mutez subtraction run time error *)
@@ -345,12 +348,12 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                             (state : State)
                             (param : xtz_to_token_param)
                             : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat tt; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(xtt_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
       do tokens_bought <- div
         ((amount_to_N ctx.(ctx_amount)) * 997 * state.(tokenPool))
           (state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ; (* error_DIV_by_0 *)
-      do _ <- throwIf (tokens_bought <? param.(minTokensBought)) tt; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
+      do _ <- throwIf (tokens_bought <? param.(minTokensBought)) default_error; (* error_TOKENS_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_BOUGHT *)
       do new_tokenPool <- sub state.(tokenPool) tokens_bought ; (* error_TOKEN_POOL_MINUS_TOKENS_BOUGHT_IS_NEGATIVE *)
       let new_state := state<| xtzPool := state.(xtzPool) + (amount_to_N ctx.(ctx_amount)) |>
                             <| tokenPool := new_tokenPool |> in
@@ -363,13 +366,13 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                             (state : State)
                             (param : token_to_xtz_param)
                             : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (param.(ttx_deadline) <=? chain.(current_slot))%nat tt; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (param.(ttx_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do xtz_bought <- div
         (param.(tokensSold) * 997 * state.(xtzPool))
           (state.(tokenPool) * 1000 + (param.(tokensSold) * 997)) ; (* error_DIV_by_0 *)
-      do _ <- throwIf (xtz_bought <? param.(minXtzBought)) tt; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
+      do _ <- throwIf (xtz_bought <? param.(minXtzBought)) default_error; (* error_XTZ_BOUGHT_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_BOUGHT *)
       do new_xtzPool <- sub state.(xtzPool) xtz_bought ; (* mutez subtraction run time error *)
       let op_token := token_transfer state ctx.(ctx_from) ctx.(ctx_contract_address) param.(tokensSold) in
       do op_tez <- xtz_transfer param.(xtz_to) xtz_bought ;
@@ -382,7 +385,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                         (ctx : ContractCallContext)
                         (state : State)
                         : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       let new_state := state<| xtzPool := state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> in
         Ok (new_state, []).
 
@@ -392,10 +395,10 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                          (state : State)
                          (param : set_baker_param)
                          : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) tt; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
-      do _ <- throwIf (state.(freezeBaker)) tt; (* error_BAKER_PERMANENTLY_FROZEN *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
+      do _ <- throwIf (state.(freezeBaker)) default_error; (* error_BAKER_PERMANENTLY_FROZEN *)
         Ok (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
 
     (** ** Set manager *)
@@ -404,9 +407,9 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                            (state : State)
                            (new_manager : Address)
                            : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) tt; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
         Ok (state<| manager := new_manager |>, []).
 
     (** ** Set liquidity address *)
@@ -415,10 +418,10 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                (state : State)
                                (new_lqt_address : Address)
                                : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) tt; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-      do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) tt; (* error_LQT_ADDRESS_ALREADY_SET *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
+      do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) default_error; (* error_LQT_ADDRESS_ALREADY_SET *)
         Ok (state<| lqtAddress := new_lqt_address |>, []).
 
     (** ** Update token pool *)
@@ -426,9 +429,9 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                  (ctx : ContractCallContext)
                                  (state : State)
                                  : Result :=
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) tt; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
+      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) default_error; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
       let balance_of_request :=
         FA2LegacyInterface.Build_balance_of_request ctx.(ctx_contract_address) state.(tokenId) in
       let balance_of_param :=
@@ -443,11 +446,11 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                           (token_pool : update_token_pool_internal_)
                                           : Result :=
       do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
-                        (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) tt; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
+                        (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) default_error; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do token_pool <-
         match token_pool with
-        | [] => Err tt (* error_INVALID_FA2_BALANCE_RESPONSE *)
+        | [] => Err default_error (* error_INVALID_FA2_BALANCE_RESPONSE *)
         | x :: xs => Ok x.(balance)
         end ;
       let new_state := state<| tokenPool := token_pool |>
@@ -466,9 +469,9 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                               (state : State)
                               (param : token_to_token_param)
                               : Result :=
-      do _ <- throwIf state.(selfIsUpdatingTokenPool) tt; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
-      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) tt; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (param.(ttt_deadline) <=? chain.(current_slot))%nat tt; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
+      do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
+      do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
+      do _ <- throwIf (param.(ttt_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
       do xtz_bought <- div
         (param.(tokensSold_) * 997 * state.(xtzPool))
           (state.(tokenPool) * 1000 + (param.(tokensSold_) * 997)) ; (* error_DIV_by_0 *)
@@ -515,14 +518,14 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
           token_to_token chain ctx state param
       | Some (FA2Token.receive_balance_of_param responses) =>
           update_token_pool_internal chain ctx state responses
-      | _ => Err tt
+      | _ => Err default_error
       end.
 
     (** ** Init *)
     Definition init_cpmm (chain : Chain)
                          (ctx : ContractCallContext)
                          (setup : Setup)
-                         : result State unit :=
+                         : result State Error :=
       Ok {|
         tokenPool := 0;
         xtzPool := 0;
@@ -535,7 +538,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
         lqtAddress := null_address
       |}.
 
-    Definition contract : Contract Setup Msg State unit :=
+    Definition contract : Contract Setup Msg State Error :=
       build_contract init_cpmm receive_cpmm.
 
   End DexterDefs.

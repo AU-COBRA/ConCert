@@ -41,10 +41,13 @@ Section StackInterpreter.
 
   Definition storage := list value.
 
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
+
   Definition init (chain : Chain)
                   (ctx : ContractCallContext)
                   (setup : unit)
-                  : result storage unit :=
+                  : result storage Error :=
     Ok [].
 
   Definition msg := list instruction * ext_map.
@@ -62,7 +65,7 @@ Section StackInterpreter.
                   (insts : list instruction)
                   (s : storage)
                   (cond : Z)
-                  : result storage unit :=
+                  : result storage Error :=
     match insts with
     | [] => Ok s
     | hd :: inst0 =>
@@ -76,7 +79,7 @@ Section StackInterpreter.
       | IIf => if cond =? 0 then
                  match s with
                  | BVal b :: s0 => interp ext inst0 s0 (bool_to_cond b)
-                 | _ => Err tt
+                 | _ => Err default_error
                  end else interp ext inst0 s (1 + cond)%Z
       | IElse => interp ext inst0 s (flip cond)
       | IEndIf => interp ext inst0 s (reset_decrement cond)
@@ -84,7 +87,7 @@ Section StackInterpreter.
         if continue_ cond then
           match lookup p ext with
           | Some v => interp ext inst0 (v :: s) cond
-          | None => Err tt
+          | None => Err default_error
           end
         else interp ext inst0 s cond
       | IOp op =>
@@ -92,27 +95,27 @@ Section StackInterpreter.
           match op with
           | Add => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
-                   | _ => Err tt
+                   | _ => Err default_error
                    end
           | Sub => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i-j) :: s0)%Z cond
-                   | _ => Err tt
+                   | _ => Err default_error
                    end
           | Mult => match s with
                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i*j) :: s0)%Z cond
-                    | _ => Err tt
+                    | _ => Err default_error
                     end
           | Le => match s with
                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<=?j) :: s0)%Z cond
-                  | _ => Err tt
+                  | _ => Err default_error
                   end
           | Lt => match s with
                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<?j) :: s0)%Z cond
-                  | _ => Err tt
+                  | _ => Err default_error
                   end
           | Equal => match s with
                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i =? j) :: s0)%Z cond
-                     | _ => Err tt
+                     | _ => Err default_error
                      end
           end
         else interp ext inst0 s cond
@@ -123,9 +126,9 @@ Section StackInterpreter.
                      (ctx : ContractCallContext)
                      (s : storage)
                      (msg : option msg)
-                     : result (storage * list ActionBody) unit :=
+                     : result (storage * list ActionBody) Error :=
     match msg with
-    | None => Err tt
+    | None => Err default_error
     | Some (insts, ext) =>
       match interp ext insts [] 0 with
       | Ok v => Ok (v, [])
@@ -133,7 +136,7 @@ Section StackInterpreter.
       end
     end.
 
-  Definition contract : Contract unit msg storage unit :=
+  Definition contract : Contract unit msg storage Error :=
     build_contract init receive.
 
 End StackInterpreter.

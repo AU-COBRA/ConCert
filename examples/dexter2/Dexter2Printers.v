@@ -13,7 +13,7 @@ Module NullAddressLocalBlockcain <: NullAddress.
   Definition BaseTypes : ChainBase := LocalChainBase.
   Definition null_address := creator.
   Definition set_delegate_call := (fun _ : @baker_address BaseTypes => @nil (@ActionBody BaseTypes)).
-  Lemma delegate_call : forall addr, List.Forall (fun action => 
+  Lemma delegate_call : forall addr, List.Forall (fun action =>
       match action with
       | act_transfer _ _ => False
       | act_call _ _ _ => False
@@ -27,7 +27,7 @@ Module DEX2 := Dexter2 DSInstances NullAddressLocalBlockcain.
 
 Instance showAddLiqduidityParam : Show add_liquidity_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "owner: " ++ show p.(owner) ++ sep ++
     "min lqt minted: " ++ show p.(minLqtMinted) ++ sep ++
     "max tokens deposited: " ++ show p.(maxTokensDeposited) ++ sep ++
@@ -36,7 +36,7 @@ Instance showAddLiqduidityParam : Show add_liquidity_param :=
 
 Instance showRemoveLiqduidityParam : Show remove_liquidity_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "to: " ++ show p.(liquidity_to) ++ sep ++
     "lqt burned: " ++ show p.(lqtBurned) ++ sep ++
     "min xtz withdrawn: " ++ show p.(minXtzWithdrawn) ++ sep ++
@@ -46,7 +46,7 @@ Instance showRemoveLiqduidityParam : Show remove_liquidity_param :=
 
 Instance showXtzToTokenParam : Show xtz_to_token_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "to: " ++ show p.(tokens_to) ++ sep ++
     "min tokens bought: " ++ show p.(minTokensBought) ++ sep ++
     "deadline: " ++ show p.(xtt_deadline) ++ "}"
@@ -54,7 +54,7 @@ Instance showXtzToTokenParam : Show xtz_to_token_param :=
 
 Instance showTokenToXtzParam : Show token_to_xtz_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "to: " ++ show p.(xtz_to) ++ sep ++
     "tokens sold: " ++ show p.(tokensSold) ++ sep ++
     "min xtz bought: " ++ show p.(minXtzBought) ++ sep ++
@@ -63,14 +63,14 @@ Instance showTokenToXtzParam : Show token_to_xtz_param :=
 
 Instance showSetBakerParam : Show set_baker_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "baker: " ++ show p.(baker) ++ sep ++
     "freeze: " ++ show p.(freezeBaker_) ++ "}"
 |}.
 
 Instance showTokenToTokenParam : Show token_to_token_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "exchange address: " ++ show p.(outputDexterContract) ++ sep ++
     "to: " ++ show p.(to_) ++ sep ++
     "min tokens bought: " ++ show p.(minTokensBought_) ++ sep ++
@@ -101,7 +101,7 @@ Instance showCPMMMsg : Show Dexter2CPMM.Msg :=
 
 Instance showCPMMSetup : Show Dexter2CPMM.Setup :=
 {|
-  show p := "Setup{" ++ 
+  show p := "Setup{" ++
     "lqt total: " ++ show p.(lqtTotal_) ++ sep ++
     "manager: " ++ show p.(manager_) ++ sep ++
     "token address: " ++ show p.(tokenAddress_) ++ sep ++
@@ -110,7 +110,7 @@ Instance showCPMMSetup : Show Dexter2CPMM.Setup :=
 
 Instance showCPMMState : Show Dexter2CPMM.State :=
 {|
-  show p := "State{" ++ 
+  show p := "State{" ++
     "token pool: " ++ show p.(tokenPool) ++ sep ++
     "xtz pool: " ++ show p.(xtzPool) ++ sep ++
     "lqt pool: " ++ show p.(lqtTotal) ++ sep ++
@@ -125,7 +125,7 @@ Instance showCPMMState : Show Dexter2CPMM.State :=
 (** * Dexter2 Lqt Token printers *)
 Instance showLqtSetup : Show Dexter2FA12.Setup :=
 {|
-  show p := "Setup{" ++ 
+  show p := "Setup{" ++
     "admin: " ++ show p.(admin_) ++ sep ++
     "lqt provider: " ++ show p.(lqt_provider) ++ sep ++
     "initial pool: " ++ show p.(initial_pool) ++ "}"
@@ -133,7 +133,7 @@ Instance showLqtSetup : Show Dexter2FA12.Setup :=
 
 Instance showLqtState : Show Dexter2FA12.State :=
 {|
-  show p := "State{" ++ 
+  show p := "State{" ++
     "tokens: " ++ show p.(tokens) ++ sep ++
     "allowances: " ++ show p.(allowances) ++ sep ++
     "total supply: " ++ show p.(total_supply) ++ sep ++
@@ -142,7 +142,7 @@ Instance showLqtState : Show Dexter2FA12.State :=
 
 Instance showTransferParam : Show transfer_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "from: " ++ show p.(from) ++ sep ++
     "to: " ++ show p.(to) ++ sep ++
     "value: " ++ show p.(value) ++ "}"
@@ -150,35 +150,35 @@ Instance showTransferParam : Show transfer_param :=
 
 Instance showApproveParam : Show approve_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "spender: " ++ show p.(spender) ++ sep ++
     "value: " ++ show p.(value_) ++ "}"
 |}.
 
 Instance showMintOrBurnParam : Show mintOrBurn_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "quantity: " ++ show p.(quantity) ++ sep ++
     "target: " ++ show p.(target) ++ "}"
 |}.
 
 Instance showGetAllowanceParam : Show getAllowance_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "request: " ++ show p.(request) ++ sep ++
     "callback addr: " ++ show p.(allowance_callback).(return_addr) ++ "}"
 |}.
 
 Instance showGetBalanceParam : Show getBalance_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "owner: " ++ show p.(owner_) ++ sep ++
     "callback addr: " ++ show p.(balance_callback).(return_addr) ++ "}"
 |}.
 
 Instance showGetTotalSupplyParam : Show getTotalSupply_param :=
 {|
-  show p := "params{" ++ 
+  show p := "params{" ++
     "callback addr: " ++ show p.(supply_callback).(return_addr) ++ "}"
 |}.
 

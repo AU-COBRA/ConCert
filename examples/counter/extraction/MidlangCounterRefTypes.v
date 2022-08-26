@@ -140,7 +140,7 @@ Definition counter_extract :=
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 
-Definition counter_result:= Eval compute in
+Definition counter_result := Eval compute in
      (env <- counter_extract ;;
       '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
       ret lines).

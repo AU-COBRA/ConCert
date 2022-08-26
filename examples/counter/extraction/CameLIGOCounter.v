@@ -30,7 +30,10 @@ Module Counter.
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (setup : Z * address) : result storage unit :=
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
+
+  Definition init (setup : Z * address) : result storage Error :=
     Ok setup.
 
   Inductive msg :=
@@ -45,16 +48,16 @@ Module Counter.
 
   Definition counter_inner (msg : msg)
                            (st : storage)
-                           : result (list operation * storage) unit :=
+                           : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
         Ok ([],inc_balance st i)
-      else Err tt
+      else Err default_error
     | Dec i =>
       if (0 <=? i) then
         Ok ([],dec_balance st i)
-      else Err tt
+      else Err default_error
     end.
 
   Definition counter (c : Chain) (ctx : ContractCallContext) st msg :=
@@ -64,10 +67,10 @@ Module Counter.
     let ctx_ := ctx in
     match msg with
     | Some msg => counter_inner msg st
-    | None => Err tt
+    | None => Err default_error
     end.
 
-  Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation unit :=
+  Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation Error :=
     {| (* a name for the definition with the extracted code *)
         lmd_module_name := "cameLIGO_counter" ;
 

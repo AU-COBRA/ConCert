@@ -75,6 +75,9 @@ Record Setup :=
     _tokenCreationMin 	: N;
   }.
 
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
+
 (* begin hide *)
 MetaCoq Run (make_setters State).
 MetaCoq Run (make_setters Setup).
@@ -395,7 +398,7 @@ Local Close Scope Z_scope.
     Will keep generating action untill all accounts given have been emptied of balance
     or the token goal is hit. Also ensures that we do not hit the token creation cap
     by only creation just enough to go over the token goal. *)
-Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate:=
+Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate :=
   let create_tokens_act sender amount := build_act sender sender (act_call caddr amount create_tokens) in
     match accounts with
     | [] => []

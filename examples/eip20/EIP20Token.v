@@ -44,6 +44,9 @@ Section EIP20Token.
       owner : Address;
       init_amount : TokenValue;
     }.
+  
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
   (* begin hide *)
   MetaCoq Run (make_setters State).
@@ -63,15 +66,15 @@ Section EIP20Token.
   End Serialization.
   (* end hide *)
 
-  Definition error {T : Type} : result T unit :=
-    Err tt.
+  Definition error {T : Type} : result T Error :=
+    Err default_error.
 
 (** * Contract functions *)
   (** ** init *)
   (** Initialize contract storage *)
   Definition init (chain : Chain)
        (ctx : ContractCallContext)
-       (setup : Setup) : result State unit :=
+       (setup : Setup) : result State Error :=
     Ok {| total_supply := setup.(init_amount);
             balances := AddressMap.add setup.(owner) setup.(init_amount) AddressMap.empty;
             allowances := AddressMap.empty |}.
@@ -87,7 +90,7 @@ Section EIP20Token.
   Definition try_transfer (from : Address)
        (to : Address)
        (amount : TokenValue)
-       (state : State) : result State unit :=
+       (state : State) : result State Error :=
     let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
     if from_balance <? amount
     then error
@@ -102,9 +105,9 @@ Section EIP20Token.
        (from : Address)
        (to : Address)
        (amount : TokenValue)
-       (state : State) : result State unit :=
-  do from_allowances_map <- result_of_option (AddressMap.find from state.(allowances)) tt ;
-  do delegate_allowance <- result_of_option (AddressMap.find delegate from_allowances_map) tt ;
+       (state : State) : result State Error :=
+  do from_allowances_map <- result_of_option (AddressMap.find from state.(allowances)) default_error ;
+  do delegate_allowance <- result_of_option (AddressMap.find delegate from_allowances_map) default_error ;
   let from_balance := with_default 0 (AddressMap.find from state.(balances)) in
   if (delegate_allowance <? amount) || (from_balance <? amount)
   then error
@@ -118,7 +121,7 @@ Section EIP20Token.
   Definition try_approve (caller : Address)
        (delegate : Address)
        (amount : TokenValue)
-       (state : State) : result State unit :=
+       (state : State) : result State Error :=
     match AddressMap.find caller state.(allowances) with
     | Some caller_allowances =>
       Ok (state<|allowances ::= AddressMap.add caller (AddressMap.add delegate amount caller_allowances) |>)
@@ -133,7 +136,7 @@ Section EIP20Token.
        (ctx : ContractCallContext)
        (state : State)
        (maybe_msg : option Msg)
-    : result (State * list ActionBody) unit :=
+    : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
     let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
     (** Only allow calls with no money attached *)
@@ -148,7 +151,7 @@ Section EIP20Token.
    end.
   Close Scope Z_scope.
 
-  Definition contract : Contract Setup Msg State unit :=
+  Definition contract : Contract Setup Msg State Error :=
     build_contract init receive.
 
   (* sum of all balances in the token state *)

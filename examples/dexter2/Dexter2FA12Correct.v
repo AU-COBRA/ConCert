@@ -64,7 +64,7 @@ Qed.
 
 Lemma contract_not_payable' : forall prev_state chain ctx msg,
   (0 < (ctx_amount ctx))%Z ->
-    receive_lqt chain ctx prev_state msg = Err tt.
+    receive_lqt chain ctx prev_state msg = Err default_error.
 Proof.
   intros * ctx_amount_positive.
   unfold receive_lqt,throwIf;cbn.
@@ -104,7 +104,7 @@ Qed.
 (** ** Default entrypoint correct *)
 (* Default entrypoint should never succeed *)
 Lemma default_entrypoint_none : forall prev_state chain ctx,
-  receive_lqt chain ctx prev_state None = Err tt.
+  receive_lqt chain ctx prev_state None = Err default_error.
 Proof.
   intros *.
   contract_simpl.
@@ -964,7 +964,7 @@ Proof.
             | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
             | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((_, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
             | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
-            | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x:= (t, n)) (y := (_, m)) by lia
+            | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x := (t, n)) (y := (_, m)) by lia
             | |- context [ sumN _ ((_, 0) :: (?x, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n)) by auto
             | |- context [ sumN _ ((_, ?n) :: (?x, ?m - ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))
             | |- context [ sumN _ ((?x, ?m - ?n) :: (_, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))

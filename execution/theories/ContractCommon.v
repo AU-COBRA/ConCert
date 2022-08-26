@@ -118,7 +118,10 @@ Ltac contract_simpl_step receive init :=
   | p : (_ * list ActionBody) |- _ => destruct p
   | H : throwIf _ _ = @Err _ _ _ |- _ => destruct_throw_if H
   | H : throwIf _ _ = @Ok _ _ ?u |- _ => destruct_throw_if H
-  | H : ?f ?x = ?f ?y |- _ => try (injection H as H; subst)
+  | H : @Ok _ _ _ = @Ok _ _ _ |- _ =>
+      first [injection H as H; subst | injection H as <- | injection H as ->]
+  | H : @Some _ _ = @Some _ _ |- _ =>
+      first [injection H as H; subst | injection H as <- | injection H as ->]
 
   | H : _ match ?m with | @Ok _ _ _ => _ | @Err _ _ _ => @Err _ _ _ end = @Ok _ _ _ |- _ =>
       destruct_match_some m in H

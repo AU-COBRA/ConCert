@@ -33,6 +33,8 @@ Section Counter.
   | Inc (i : Z)
   | Dec (i : Z).
 
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
   (** Since a contract is essentially a state transition function, we isolate
       the functionality corresponding to each kind of message into step functions *)
@@ -48,14 +50,14 @@ Section Counter.
       Dispatches on a message, validates the input and calls the step functions *)
   Definition counter (st : State)
                      (msg : Msg)
-                     : result State unit :=
+                     : result State Error :=
     match msg with
     | Inc i => if (0 <? i)
                then Ok (increment i st)
-               else Err tt
+               else Err default_error
     | Dec i => if (0 <? i)
                then Ok (decrement i st)
-               else Err tt
+               else Err default_error
     end.
 
   (** The "entrypoint" of the contract. Dispatches on a message and calls [counter]. *)
@@ -63,20 +65,20 @@ Section Counter.
                              (ctx : ContractCallContext)
                              (state : State)
                              (msg : option Msg)
-                             : result (State * list ActionBody) unit
+                             : result (State * list ActionBody) Error
     := match msg with
        | Some m => match counter state m with
                    | Ok res => Ok (res, [])
                    | Err e => Err e
                   end
-       | None => Err tt
+       | None => Err default_error
        end.
 
   (** We initialize the contract state with [init_value] and set [owner] to the address from which the contract was deployed *)
   Definition counter_init (chain : Chain)
                           (ctx : ContractCallContext)
                           (init_value : Z)
-                          : result State unit :=
+                          : result State Error :=
     Ok {|
       count := init_value ;
       owner := ctx.(ctx_from)
@@ -90,7 +92,7 @@ Section Counter.
     Derive Serializable Msg_rect<Inc, Dec>.
 
   (** The counter contract *)
-  Definition counter_contract : Contract Z Msg State unit :=
+  Definition counter_contract : Contract Z Msg State Error :=
     build_contract counter_init counter_receive.
 
 End Counter.

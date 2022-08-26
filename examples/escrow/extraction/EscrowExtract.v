@@ -17,15 +17,15 @@ Local Open Scope string_scope.
 
 Definition escrow_init_wrapper (cctx : ContractCallContext)
                                (s : Setup * Chain)
-                               : result State unit :=
+                               : result State Error :=
   Escrow.init (snd s) cctx (fst s).
 
-Definition ligo_init (s : Address * Setup * nat) : result State unit :=
+Definition ligo_init (s : Address * Setup * nat) : result State Error :=
   let seller := s.1.1 in
   let setup := s.1.2 in
   let curr_slot := s.2 in
   let buyer := setup_buyer setup in
-  if (buyer =? seller)%address then Err tt
+  if (buyer =? seller)%address then Err default_error
   else Ok {| last_action := curr_slot;
                next_step := buyer_commit;
                seller := seller;
@@ -49,7 +49,7 @@ Definition escrow_receive (c : Chain)
                           (cctx : ContractCallContext)
                           (s : State)
                           (msg : option Msg)
-                          : result (list ActionBody * State) unit :=
+                          : result (list ActionBody * State) Error :=
     match Escrow.receive c cctx s msg with
     | Ok (s, acts) => Ok (acts, s)
     | Err e => Err e
@@ -70,8 +70,8 @@ Module EscrowCameLIGOExtraction.
 
   Definition TT_remap_ligo : list (kername * string) :=
     [ remap <%% subAmountOption %%> "subTez" ].
-  
-  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext _ State ActionBody unit :=
+
+  Definition ESCROW_MODULE_LIGO : CameLIGOMod Msg ContractCallContext _ State ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_escrow" ;
 
@@ -90,10 +90,10 @@ Module EscrowCameLIGOExtraction.
       lmd_receive_prelude := "";
       (* code for the entry point *)
       lmd_entry_point :=
-        printMain "escrow_receive" "msg" "state" 
+        printMain "escrow_receive" "msg" "state"
     |}.
 
-  Definition to_inline : list kername := 
+  Definition to_inline : list kername :=
     [ <%% Monads.Monad_option %%>
     ; <%% @Monads.bind %%>
     ; <%% @Monads.ret %%>
@@ -123,24 +123,24 @@ End EscrowCameLIGOExtraction.
 
 Module EscrowLiquidityExtraction.
   Definition PREFIX := "".
-  
+
   Import LPretty.
   Import LiquidityExtract.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 
-  
+
   Definition chainDef := "type chain = (nat * (nat * nat))".
   Definition storageDef := "type storage = state".
   Definition contractcallcontextDef := "type cctx = (timestamp * (address * (tez * tez)))".
   Notation "'msg'" := ((Msg * ContractCallContext) * Chain)%type.
 
-  Definition liquidity_escrow_receive (m : msg) (s : State) := 
+  Definition liquidity_escrow_receive (m : msg) (s : State) :=
     match receive m.2 m.1.2 s (Some m.1.1) with
     | Ok (s, acts) => Ok (acts, s)
     | Err e => Err e
     end.
-  
-  Definition ESCROW_MODULE_LIQUIDITY : LiquidityMod msg ContractCallContext (Setup * Chain) State ActionBody unit :=
+
+  Definition ESCROW_MODULE_LIQUIDITY : LiquidityMod msg ContractCallContext (Setup * Chain) State ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_escrow" ;
 
@@ -150,7 +150,7 @@ Module EscrowLiquidityExtraction.
       (* initial storage *)
       lmd_init := escrow_init_wrapper;
 
-      lmd_init_prelude := 
+      lmd_init_prelude :=
            nl ++ "let evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false in"
         ++ nl ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
         ++ nl ++ "let eq_addr (a1 : address) (a2 : address) = a1 = a2 in"
@@ -161,7 +161,7 @@ Module EscrowLiquidityExtraction.
       lmd_receive := liquidity_escrow_receive ;
 
       (* code for the entry point *)
-      lmd_entry_point :=   storageDef ++ nl 
+      lmd_entry_point :=   storageDef ++ nl
                         ++ printWrapper (PREFIX ++ "liquidity_escrow_receive") ++ nl
                         ++ printMain |}.
 
@@ -219,7 +219,7 @@ Module EscrowLiquidityExtraction.
     ; ("tt", "()")
     ].
 
-  Definition to_inline : list kername := 
+  Definition to_inline : list kername :=
     [
       <%% Monads.Monad_option %%>
     ; <%% @Monads.bind %%>

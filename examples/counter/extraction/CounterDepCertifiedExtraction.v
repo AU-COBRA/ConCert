@@ -31,10 +31,12 @@ Module Counter.
 
   Definition operation := unit.
   Definition storage := Z × address.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)
-                  : result storage unit :=
+                  : result storage Error :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Ok setup.
 
@@ -55,18 +57,18 @@ Module Counter.
 
   Definition counter (msg : msg)
                      (st : storage)
-                     : result (list operation * storage) unit :=
+                     : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
         Ok ([], inc_balance st i h)
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h => Ok ([], dec_balance st i h)
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     end.
 
@@ -74,19 +76,19 @@ Module Counter.
       Requires eta-expansion for deboxing, because the last argument is logial. *)
   Definition counter_partially_applied (msg : msg)
                                        (st : storage)
-                                       : result (list operation * storage) unit :=
+                                       : result (list operation * storage) Error :=
   match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
         let f := inc_balance st i in
         Ok ([], f h)
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h => Ok ([], dec_balance st i h)
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     end.
 
@@ -112,7 +114,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @snd %%> "snd" ].
 
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename : list (string * string):=
+Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
   ; ("Z0" ,"0")
@@ -120,7 +122,7 @@ Definition TT_rename : list (string * string):=
   ; ("true", "true")
   ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
+Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
@@ -155,7 +157,7 @@ Print liquidity_counter.
    There is a version of the counter above that it partially applied, and if we
    try to extract that extraction fails. *)
 
-Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
+Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied" ;
 
@@ -215,7 +217,7 @@ Check ConCert_Examples_Counter_extraction_CounterDepCertifiedExtraction_Counter_
 
 (* Now we can extract this one successfully. *)
 
-Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation unit :=
+Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied_expanded" ;
 

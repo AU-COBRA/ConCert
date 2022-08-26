@@ -73,6 +73,9 @@ Record Setup :=
     transfer_hook_addr_       : option Address;
   }.
 
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
+
 MetaCoq Run (make_setters TokenLedger).
 MetaCoq Run (make_setters State).
 MetaCoq Run (make_setters Setup).
@@ -132,10 +135,10 @@ Definition address_has_sufficient_asset_balance (token_id : token_id)
                                                 (owner : Address)
                                                 (transaction_amount : N)
                                                 (state : State)
-                                                : result unit unit :=
+                                                : result unit Error :=
   if transaction_amount <=? address_balance token_id owner state
   then Ok tt
-  else Err tt.
+  else Err default_error.
 
 Definition policy_disallows_operator_transfer (policy : permissions_descriptor) : bool :=
   match policy.(descr_operator) with
@@ -159,10 +162,10 @@ Definition get_owner_operator_tokens (owner operator : Address)
 Definition try_single_transfer (caller : Address)
                                (params : transfer)
                                (state : State)
-                               : result State unit :=
-  do _ <- throwIf (negb (1 =? N.of_nat (length params.(txs)))) tt;
-  do transfer_dst <- result_of_option (hd_error (params.(txs))) tt;
-  do ledger <- result_of_option (FMap.find transfer_dst.(dst_token_id) state.(assets)) tt;
+                               : result State Error :=
+  do _ <- throwIf (negb (1 =? N.of_nat (length params.(txs)))) default_error;
+  do transfer_dst <- result_of_option (hd_error (params.(txs))) default_error;
+  do ledger <- result_of_option (FMap.find transfer_dst.(dst_token_id) state.(assets)) default_error;
   let current_owner_balance := address_balance transfer_dst.(dst_token_id) params.(from_) state in
   let new_balances := FMap.add params.(from_) (current_owner_balance - transfer_dst.(amount)) ledger.(balances) in
   let new_balances := FMap.partial_alter (fun balance => Some ((with_default 0 balance) + transfer_dst.(amount))) transfer_dst.(to_) new_balances in
@@ -173,28 +176,28 @@ Definition transfer_check_permissions (caller : Address)
                                       (params : transfer)
                                       (policy : permissions_descriptor)
                                       (state : State)
-                                      : result unit unit :=
-  do _ <- throwIf (negb (1 =? N.of_nat (length params.(txs)))) tt;
-  do transfer_dst <- result_of_option (hd_error (params.(txs))) tt;
+                                      : result unit Error :=
+  do _ <- throwIf (negb (1 =? N.of_nat (length params.(txs)))) default_error;
+  do transfer_dst <- result_of_option (hd_error (params.(txs))) default_error;
   (* check for sufficient permissions *)
   do _ <- address_has_sufficient_asset_balance transfer_dst.(dst_token_id) params.(from_) transfer_dst.(amount) state ;
   (* only allow transfers of known token_ids *)
-  do _ <- result_of_option (FMap.find transfer_dst.(dst_token_id) state.(tokens)) tt;
+  do _ <- result_of_option (FMap.find transfer_dst.(dst_token_id) state.(tokens)) default_error;
   (* if caller is owner of transfer, then check policy if self_transfer is allowed *)
   if (address_eqb caller params.(from_))
   then
-    throwIf (policy_disallows_self_transfer policy) tt
+    throwIf (policy_disallows_self_transfer policy) default_error
   else
     (* check if policy allows operator transfer *)
-    do _ <- throwIf (policy_disallows_operator_transfer policy) tt;
-    do operators_map <- result_of_option (FMap.find params.(from_) state.(operators)) tt;
-    do op_tokens <- result_of_option (FMap.find caller operators_map) tt;
+    do _ <- throwIf (policy_disallows_operator_transfer policy) default_error;
+    do operators_map <- result_of_option (FMap.find params.(from_) state.(operators)) default_error;
+    do op_tokens <- result_of_option (FMap.find caller operators_map) default_error;
     (* check if operator has permission to transfer the given token_id type *)
     match op_tokens with
     | all_tokens => Ok tt
     | some_tokens token_ids => if (existsb (fun id => id =? transfer_dst.(dst_token_id)) token_ids)
                                then Ok tt
-                               else Err tt
+                               else Err default_error
     end.
 
 (* Executes all transfers in a batch operation and returns a new state if *all*
@@ -202,7 +205,7 @@ Definition transfer_check_permissions (caller : Address)
 Definition try_transfer (caller : Address)
                         (transfers : list transfer)
                         (state : State)
-                        : result State unit :=
+                        : result State Error :=
   let check_transfer_iterator state_opt params :=
     do state <- state_opt ;
     do _ <- transfer_check_permissions caller params state.(permission_policy) state;
@@ -250,7 +253,7 @@ Definition handle_transfer (caller : Address)
                            (caddr : Address)
                            (transfers : list transfer)
                            (state : State)
-                           : result (State * list ActionBody) unit :=
+                           : result (State * list ActionBody) Error :=
   match state.(transfer_hook_addr) with
   (* send call transfer hook (approved transfers will be received in the msg_receive_hook_transfer endpoint) *)
   | Some transfer_hook_addr =>
@@ -297,7 +300,7 @@ Definition handle_transfer (caller : Address)
     ) [] (map mk_sender_hook_act transfers) in
     (* If no sender callbacks need to be made, just perform transfers now *)
     if Nat.eqb (length sender_hook_acts) 0%nat then
-      (try_transfer caller transfers state) >>= (fun new_state => Ok (new_state, [])) 
+      (try_transfer caller transfers state) >>= (fun new_state => Ok (new_state, []))
     else
       (* Notice that sender hooks are invoked before the transfer *)
       Ok (state, sender_hook_acts ++ [self_transfer_act])
@@ -330,17 +333,17 @@ Definition handle_transfer_hook_receive (caller : Address)
                                         (param : transfer_descriptor_param)
                                         (self_addr : Address)
                                         (state : State)
-                                        : result State unit :=
+                                        : result State Error :=
   (* check if caller is current hook or self - only hook or self is allowed to call this endpoint *)
   do _ <- if (match state.(transfer_hook_addr) with
           | Some hook_addr => ((address_eqb caller hook_addr) || (address_eqb caller self_addr))
           | None => (address_eqb caller self_addr)
           end)
           then Ok tt
-          else Err tt;
+          else Err default_error;
   let iter := (fun descr acc_opt =>
     do acc <- acc_opt;
-    do trans <- result_of_option (mk_transfer_from_descr descr) tt;
+    do trans <- result_of_option (mk_transfer_from_descr descr) default_error;
     Ok (trans :: acc)) in
   do transfers <- fold_right iter (Ok []) param.(transfer_descr_batch) ;
   try_transfer param.(transfer_descr_operator) transfers state.
@@ -375,14 +378,14 @@ Definition get_total_supply_callback (param : total_supply_param)
 Definition update_operators (caller : Address)
                             (updates : list update_operator)
                             (state : State)
-                            : result State unit :=
+                            : result State Error :=
   (* If policy doesn't allow operator transfer, then this operation fails *)
-  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) tt;
-  let exec_add params (state_opt : result State unit) : result State unit :=
+  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) default_error;
+  let exec_add params (state_opt : result State Error) : result State Error :=
     do state_ <- state_opt ;
     (* only the owner of the token is allowed to update their operators *)
     if (negb (address_eqb caller params.(op_param_owner)))
-    then Err tt
+    then Err default_error
     else
       let operator_tokens : FMap Address operator_tokens := with_default FMap.empty (FMap.find caller state_.(operators)) in
       (* Add new operator *)
@@ -411,9 +414,9 @@ Definition operator_tokens_eqb (a b : operator_tokens) : bool :=
 
 Definition get_is_operator_response_callback (params : is_operator_param)
                                              (state : State)
-                                             : result (State * list ActionBody) unit :=
+                                             : result (State * list ActionBody) Error :=
   (* if policy doesn't allow operator transfers, then this operation will fail *)
-  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) tt;
+  do _ <- throwIf (policy_disallows_operator_transfer state.(permission_policy)) default_error;
   let operator_params := params.(is_operator_operator) in
   let operator_tokens_opt := get_owner_operator_tokens operator_params.(op_param_owner) operator_params.(op_param_operator) in
   let is_operator_result := match operator_tokens_opt state with
@@ -432,9 +435,9 @@ Definition get_permissions_descriptor_callback (caller : Address) (state : State
 Definition try_set_transfer_hook (caller : Address)
                                  (params : set_hook_param)
                                  (state : State)
-                                 : result State unit :=
+                                 : result State Error :=
   (* only owner can set transfer hook *)
-  do _ <- throwIf (negb (address_eqb caller state.(fa2_owner))) tt;
+  do _ <- throwIf (negb (address_eqb caller state.(fa2_owner))) default_error;
   Ok (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
              <| permission_policy  := params.(hook_permissions_descriptor) |>).
 
@@ -457,11 +460,11 @@ Definition try_create_tokens (caller : Address)
                              (amount : Amount)
                              (tokenid : token_id)
                              (state : State)
-                             : result State unit :=
+                             : result State Error :=
   let exchange_rate := 100%Z in
-  do ledger <- result_of_option (FMap.find tokenid state.(assets)) tt;
+  do ledger <- result_of_option (FMap.find tokenid state.(assets)) default_error;
   (* only allow amounts > 0 *)
-  do _ <- throwIf (Z.leb amount 0%Z) tt;
+  do _ <- throwIf (Z.leb amount 0%Z) default_error;
   let amount := Z.to_N (amount * exchange_rate) in
   let caller_bal := with_default 0 (FMap.find caller ledger.(balances)) in
   let new_balances := FMap.add caller (caller_bal + amount) ledger.(balances) in
@@ -474,7 +477,7 @@ Definition receive (chain : Chain)
                     (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : result (State * list ActionBody) unit :=
+                   : result (State * list ActionBody) Error :=
   let sender := ctx.(ctx_from) in
   let caddr := ctx.(ctx_contract_address) in
   let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
@@ -483,7 +486,7 @@ Definition receive (chain : Chain)
   if ctx.(ctx_amount) >? 0
   then match maybe_msg with
   | Some (msg_create_tokens tokenid) => without_actions (try_create_tokens sender ctx.(ctx_amount) tokenid state)
-  | _ => Err tt
+  | _ => Err default_error
   end
   else match maybe_msg with
   | Some (msg_transfer transfers) => handle_transfer sender caddr transfers state
@@ -495,7 +498,7 @@ Definition receive (chain : Chain)
   | Some (msg_token_metadata param) => without_statechange [get_token_metadata_callback param state]
   | Some (msg_update_operators updates) => without_actions (update_operators sender updates state)
   | Some (msg_set_transfer_hook params) => without_actions (try_set_transfer_hook sender params state)
-  | _ => Err tt
+  | _ => Err default_error
   end.
 
 Definition map_values_FMap {A B C: Type}
@@ -511,7 +514,7 @@ Definition map_values_FMap {A B C: Type}
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup)
-                : result State unit :=
+                : result State Error :=
   (* setup ledgers with empty balance for each initial token id *)
   let assets' := map_values_FMap (fun _ =>
     build_token_ledger false FMap.empty
@@ -523,7 +526,7 @@ Definition init (chain : Chain)
           operators := FMap.empty;
           tokens := setup.(setup_tokens) |}.
 
-Definition contract : Contract Setup Msg State unit :=
+Definition contract : Contract Setup Msg State Error :=
   build_contract init receive.
 
 End FA2Token.

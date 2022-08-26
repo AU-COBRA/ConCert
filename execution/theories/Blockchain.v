@@ -223,7 +223,7 @@ Global Arguments build_contract {_ _ _ _ _ _ _ _}.
 Definition deser_error := serialize "Deserialization failed"%string.
 Definition error_to_weak_error {T E : Type}
                               `{Serializable E}
-                               (r : result T E) 
+                               (r : result T E)
                                : result T SerializedValue :=
   bind_error (fun err => serialize err) r.
 

@@ -40,9 +40,12 @@ Module Interpreter.
 
   Definition storage := list value.
 
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
+
   Definition init (ctx : SimpleCallCtx)
                   (setup : unit)
-                  : result storage unit :=
+                  : result storage Error :=
     let ctx0 := ctx in
     let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
     Ok [].
@@ -63,7 +66,7 @@ Module Interpreter.
                   (insts : list instruction)
                   (s : storage)
                   (cond : Z)
-                  : result storage unit :=
+                  : result storage Error :=
     match insts with
     | [] => Ok s
     | hd :: inst0 =>
@@ -77,7 +80,7 @@ Module Interpreter.
         | IIf => if (cond =? 0) then
                   match s with
                   | BVal b :: s0 => interp ext inst0 s0 (bool_to_cond b)
-                  | _ => Err tt
+                  | _ => Err default_error
                   end else interp ext inst0 s (one + cond)%Z
         | IElse => interp ext inst0 s (flip cond)
         | IEndIf => interp ext inst0 s (reset_decrement cond)
@@ -85,7 +88,7 @@ Module Interpreter.
           if continue_ cond then
             match lookup p ext with
             | Some v => interp ext inst0 (v :: s) cond
-            | None => Err tt
+            | None => Err default_error
             end
           else interp ext inst0 s cond
         | IOp op =>
@@ -93,27 +96,27 @@ Module Interpreter.
             match op with
             | Add => match s with
                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
-                    | _ => Err tt
+                    | _ => Err default_error
                     end
             | Sub => match s with
                       | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i-j) :: s0)%Z cond
-                      | _ => Err tt
+                      | _ => Err default_error
                       end
             | Mult => match s with
                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i*j) :: s0)%Z cond
-                     | _ => Err tt
+                     | _ => Err default_error
                             end
             | Le => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<=?j) :: s0)%Z cond
-                   | _ => Err tt
+                   | _ => Err default_error
                    end
             | Lt => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<?j) :: s0)%Z cond
-                   | _ => Err tt
+                   | _ => Err default_error
                    end
             | Equal => match s with
                       | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i =? j) :: s0)%Z cond
-                      | _ => Err tt
+                      | _ => Err default_error
                      end
             end
           else interp ext inst0 s cond
@@ -122,7 +125,7 @@ Module Interpreter.
 
   Definition receive (p : params)
                      (s : storage)
-                     : result (list action * storage) unit :=
+                     : result (list action * storage) Error :=
     let s0 := s in (* prevents optimisations from removing unused [s]  *)
     match interp p.2 p.1 [] 0 with
     | Ok v => Ok ([],v)
@@ -329,7 +332,7 @@ Module LiquidityInterp.
 
   Import LiquidityExtract.
 
-  Definition INTERP_MODULE : LiquidityMod params _ _ storage action unit :=
+  Definition INTERP_MODULE : LiquidityMod params _ _ storage action Error :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "liquidity_interp" ;
 
@@ -372,7 +375,7 @@ Module CameLIGOInterp.
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   Definition init (setup : unit)
-                  : result storage unit :=
+                  : result storage Error :=
     (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
     let setup0 := setup in
     Ok [].
@@ -382,13 +385,13 @@ Module CameLIGOInterp.
                       (ctx : ContractCallContext)
                       (s : storage)
                       (msg : option params)
-                      : result (list action * storage) unit :=
+                      : result (list action * storage) Error :=
     (* prevent optimizations from deleting these arguments from receive_'s type signature *)
     let c_ := c in
     let ctx_ := ctx in
     match msg with
     | Some msg => receive msg s
-    | None => Err tt
+    | None => Err default_error
     end.
 
   Definition TT_remap_ligo : list (kername * string) :=
@@ -417,7 +420,7 @@ Module CameLIGOInterp.
        ; remap <%% andb %%> "andb"
        ; remap <%% one %%> "1"].
 
-  Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action unit :=
+  Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action Error :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "cameligo_interp" ;
 

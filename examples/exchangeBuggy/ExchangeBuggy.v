@@ -42,7 +42,6 @@ Global Instance ExchangeMsg_serializable : Serializable ExchangeMsg :=
 
 Definition Msg := @FA2ReceiverMsg BaseTypes ExchangeMsg.
 
-
 Record State :=
   build_state {
     fa2_caddr : Address;
@@ -54,6 +53,9 @@ Record Setup :=
   build_setup {
     fa2_caddr_ : Address;
   }.
+
+Definition Error : Type := nat.
+Definition default_error : Error := 0%nat.
 
 MetaCoq Run (make_setters State).
 MetaCoq Run (make_setters Setup).
@@ -76,7 +78,7 @@ Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                            (params : exchange_param)
                                            (exchange_caddr : Address)
                                            (state : State)
-                                           : result (State * (list ActionBody)) unit :=
+                                           : result (State * (list ActionBody)) Error :=
   (* Send out callbacks to check owner token balance, and exchange contract token balance
      to determine if:
      1. owner has sufficient tokens to exchange
@@ -114,14 +116,14 @@ Definition receive_balance_response (responses : list balance_of_response)
                                     (exchange_caddr : Address)
                                     (exchange_asset_reserve : Amount)
                                     (state : State)
-                                    : result (State * list ActionBody) unit :=
-  do _ <- throwIf (negb (length responses =? 2)) tt;
-  do trx_owner_balance_response <- result_of_option (nth_error responses 0) tt;
-  do exchange_balance_response <- result_of_option (nth_error responses 1) tt;
-  do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) tt;
-  do related_exchange <- result_of_option (last (map Some state.(ongoing_exchanges)) None) tt;
+                                    : result (State * list ActionBody) Error :=
+  do _ <- throwIf (negb (length responses =? 2)) default_error;
+  do trx_owner_balance_response <- result_of_option (nth_error responses 0) default_error;
+  do exchange_balance_response <- result_of_option (nth_error responses 1) default_error;
+  do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) default_error;
+  do related_exchange <- result_of_option (last (map Some state.(ongoing_exchanges)) None) default_error;
   (* Check if transfer owner has enough tokens to perform the exchange *)
-  do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) tt;
+  do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) default_error;
   let exchange_token_reserve := exchange_balance_response.(balance) in
   let tokens_to_sell := Z.of_N related_exchange.(tokens_sold) in
   let tokens_price := getInputPrice tokens_to_sell (Z.of_N exchange_token_reserve) exchange_asset_reserve in
@@ -145,7 +147,7 @@ Definition receive_balance_response (responses : list balance_of_response)
 Definition create_tokens (tokenid : token_id)
                          (nr_tokens : Z)
                          (state : State)
-                         : result (State * list ActionBody) unit :=
+                         : result (State * list ActionBody) Error :=
   let msg := @serialize _ _ (msg_create_tokens tokenid) in
   let create_tokens_act := act_call state.(fa2_caddr) nr_tokens msg in
     Ok (state, [create_tokens_act]).
@@ -155,7 +157,7 @@ Definition receive (chain : Chain)
                    (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : result (State * list ActionBody) unit :=
+                   : result (State * list ActionBody) Error :=
   let caddr := ctx.(ctx_contract_address) in
   let exchange_balance := ctx.(ctx_contract_balance) in
   let amount := ctx.(ctx_amount) in
@@ -166,20 +168,20 @@ Definition receive (chain : Chain)
     begin_exchange_tokens_to_assets ctx params caddr state
   | Some (other_msg (add_to_tokens_reserve tokenid)) =>
     create_tokens tokenid amount state
-  | _ => Err tt
+  | _ => Err default_error
   end.
 
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup)
-                : result State unit :=
+                : result State Error :=
   Ok {|
     fa2_caddr := setup.(fa2_caddr_);
     ongoing_exchanges := [];
     price_history := []
   |}.
 
-Definition contract : Contract Setup Msg State unit :=
+Definition contract : Contract Setup Msg State Error :=
   build_contract init receive.
 
 End ExchangeBuggyContract.

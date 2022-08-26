@@ -22,10 +22,9 @@ Local Existing Instance PrintConfShortNames.PrintWithShortNames.
 Section EIP20TokenExtraction.
 
   Import EIP20Token.
-
   Context `{ChainBase}.
 
-  Definition init (setup : EIP20Token.Setup) : result EIP20Token.State unit :=
+  Definition init (setup : EIP20Token.Setup) : result EIP20Token.State Error :=
     Ok {| total_supply := setup.(init_amount);
             balances := ContractCommon.AddressMap.add (EIP20Token.owner setup) (init_amount setup) ContractCommon.AddressMap.empty;
             allowances := ContractCommon.AddressMap.empty |}.
@@ -38,13 +37,13 @@ Section EIP20TokenExtraction.
        (ctx : ContractCallContext)
        (state : EIP20Token.State)
        (maybe_msg : option EIP20Token.Msg)
-    : result (list ActionBody * EIP20Token.State) unit :=
+    : result (list ActionBody * EIP20Token.State) Error :=
     match EIP20Token.receive chain ctx state maybe_msg with
     | Ok x => Ok (x.2, x.1)
     | Err e => Err e
     end.
 
-  Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody unit :=
+  Definition LIGO_EIP20Token_MODULE : CameLIGOMod EIP20Token.Msg ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_eip20token" ;
 

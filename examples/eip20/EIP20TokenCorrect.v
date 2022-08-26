@@ -83,7 +83,7 @@ Qed.
 
 (** Default entrypoint always fail *)
 Lemma default_none : forall prev_state chain ctx,
-  receive chain ctx prev_state None = Err tt.
+  receive chain ctx prev_state None = Err default_error.
 Proof.
   intros.
   unfold receive.

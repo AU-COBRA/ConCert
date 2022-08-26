@@ -34,10 +34,12 @@ Module CounterRefinementTypes.
   Definition Transaction_none : Transaction := [].
 
   Definition storage := Z.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
 
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z)
-                  : result storage unit :=
+                  : result storage Error :=
     let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
     Ok setup.
 
@@ -59,17 +61,17 @@ Module CounterRefinementTypes.
 
   Definition counter (msg : msg)
                      (st : storage)
-                     : result (Transaction * storage) unit :=
+                     : result (Transaction * storage) Error :=
     match msg with
     | Inc i =>
       match (bool_dec true (0 <? i)) with
       | left H => Ok (Transaction_none, proj1_sig (inc_counter st (exist i (eq_sym H))))
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     | Dec i =>
       match (bool_dec true (0 <? i)) with
       | left h => Ok (Transaction_none, proj1_sig (dec_counter st (exist i (eq_sym h))))
-      | right _ => Err tt
+      | right _ => Err default_error
       end
     end.
 
@@ -83,7 +85,7 @@ Section LiquidityExtractionSetup.
   Import LiquidityExtract.
 
   Definition PREFIX := "coq_".
-  
+
   (** [sig] and [exist] becomes just wrappers *)
   Definition sig_def := "type 'a sig_ = 'a".
   Definition exist_def := "let exist_ a = a".
@@ -110,7 +112,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% @snd %%> "snd" ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename : list (string * string):=
+  Definition TT_rename : list (string * string) :=
     [ ("Some", "Some")
     ; ("None", "None")
     ; ("Z0" ,"0")
@@ -119,7 +121,7 @@ Section LiquidityExtractionSetup.
     ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
     ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-  Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody unit :=
+  Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_counter" ;
 
@@ -164,7 +166,7 @@ Module CameLIGOExtractionSetup.
   Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
 
 
-  Definition init (setup : Z) : result storage unit :=
+  Definition init (setup : Z) : result storage Error :=
     Ok setup.
 
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
@@ -180,26 +182,26 @@ Module CameLIGOExtractionSetup.
     ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename_ligo : list (string * string):=
+  Definition TT_rename_ligo : list (string * string) :=
     [ ("true", "true")
     ; ("false", "false")
     ; ("Some", "Some")
     ; ("None", "None")
     ].
 
-  Definition counter_wrapper (c : Chain) 
+  Definition counter_wrapper (c : Chain)
                              (ctx : ContractCallContext)
                              (s : storage)
-                             (m : option msg) := 
+                             (m : option msg) :=
     let c_ := c in
     let ctx_ := ctx in
     match m with
     | Some m => counter m s
-    | None => Err tt
+    | None => Err default_error
     end.
 
- 
-  Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody unit :=
+
+  Definition COUNTER_MODULE_LIGO : CameLIGOMod msg _ Z storage ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameligo_counter" ;
 

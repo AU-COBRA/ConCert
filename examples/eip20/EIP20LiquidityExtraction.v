@@ -39,7 +39,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @Address %%> "address"
 
   (* operations *)
-  (* Note: N is mapped to Int instead of nat because Liquidity's minus operator on nats returns an int, 
+  (* Note: N is mapped to Int instead of nat because Liquidity's minus operator on nats returns an int,
      which is not compatible with N.sub since it returns an N *)
   ; remap <%% List.fold_left %%> "List.fold"
   ; remap <%% Pos.add %%> "addNat"
@@ -76,24 +76,24 @@ Section EIP20TokenExtraction.
       (ctx : ContractCallContext)
       (state : EIP20Token.State)
       (maybe_msg : option EIP20Token.Msg)
-    : result (list ActionBody * EIP20Token.State) unit :=
+    : result (list ActionBody * EIP20Token.State) Error :=
     let sender := ctx.(ctx_from) in
     let without_actions x := x >>= (fun new_state => Ok ([], new_state)) in
     match maybe_msg with
     | Some (transfer to_addr amountt) => without_actions (try_transfer sender to_addr amountt state)
     | Some (transfer_from from to_addr amountt) => without_actions (try_transfer_from sender from to_addr amountt state)
     | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-    | _ => Err tt
+    | _ => Err default_error
     end.
 
   Definition receive_wrapper
              (params : params)
-             (st : State) : result (list ActionBody × State) unit :=
+             (st : State) : result (list ActionBody × State) Error :=
     test_receive params.1 st params.2.
 
   (* The same as for [test_receive].
      TODO: remove, once the [LiquidityMod] is fixed. *)
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : result EIP20Token.State unit :=
+  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : result EIP20Token.State Error :=
     (* ensure extraction does not optimize unused ctx away
        NOTE: can be dealt with in a better way using the mask-override mechanism of dearging *)
     let ctx_ := ctx in
@@ -109,7 +109,7 @@ Section EIP20TokenExtraction.
         ++ "| Ok v -> v"
         ++ "| Err e -> failwith e".
 
-  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody unit :=
+  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_eip20token" ;
 
@@ -148,7 +148,7 @@ Section EIP20TokenExtraction.
     ; ("nil", "[]")
     ; ("tt", "()") ].
 
-  Definition TT_inlines_eip20token : list kername := 
+  Definition TT_inlines_eip20token : list kername :=
     [
       <%% Monads.Monad_option %%>
     ; <%% @Monads.bind %%>
@@ -171,7 +171,7 @@ Section EIP20TokenExtraction.
 
 
   Time Definition liquidity_eip20token := Eval vm_compute in liquidity_eip20token_prepared.
-  
+
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "../extraction/tests/extracted-code/liquidity-extract/liquidity_eip20token.liq"
   MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).

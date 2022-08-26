@@ -119,7 +119,7 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
 
 (* Check heigh chains produced by the chain generator
    We want the average chain height to be close to full length
-   since this is a sign that the generator does not generate 
+   since this is a sign that the generator does not generate
    invalid requests so often that it affects chain quality *)
 (* QuickChick (forAllChainBuilders (fun cb => collect (get_chain_height cb) true)). *)
 (*

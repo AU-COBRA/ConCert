@@ -42,6 +42,9 @@ Section Dexter.
       token_caddr : Address;
     }.
 
+  Definition Error : Type := nat.
+  Definition default_error : Error := 0%nat.
+
   MetaCoq Run (make_setters State).
   MetaCoq Run (make_setters Setup).
 
@@ -74,8 +77,8 @@ Section Dexter.
                                              (params : exchange_param)
                                              (dexter_caddr : Address)
                                              (state : State)
-                                             : result (State * (list ActionBody)) unit :=
-    do _ <- throwIf (negb (address_eqb caller params.(exchange_owner))) tt;
+                                             : result (State * (list ActionBody)) Error :=
+    do _ <- throwIf (negb (address_eqb caller params.(exchange_owner))) default_error;
     let tokens_to_sell := Z.of_N params.(tokens_sold) in
     let tokens_price := getInputPrice tokens_to_sell (Z.of_N state.(token_pool)) dexter_asset_reserve in
     (* send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)
@@ -92,7 +95,7 @@ Section Dexter.
                      (ctx : ContractCallContext)
                      (state : State)
                      (maybe_msg : option Msg)
-                     : result (State * list ActionBody) unit :=
+                     : result (State * list ActionBody) Error :=
     let sender := ctx.(ctx_from) in
     let caddr := ctx.(ctx_contract_address) in
     let dexter_balance := ctx.(ctx_contract_balance) in
@@ -106,14 +109,14 @@ Section Dexter.
   Definition init (chain : Chain)
                   (ctx : ContractCallContext)
                   (setup : Setup)
-                  : result State unit :=
+                  : result State Error :=
     Ok {|
       token_pool := setup.(token_pool_);
       token_caddr := setup.(token_caddr_);
       price_history := []
     |}.
 
-  Definition contract : Contract Setup Msg State unit :=
+  Definition contract : Contract Setup Msg State Error :=
     build_contract init receive.
 
 End Dexter.

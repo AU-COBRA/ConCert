@@ -36,7 +36,7 @@ Open Scope N_scope.
 Definition init (chain : Chain)
                 (ctx : ContractCallContext)
                 (setup : Setup)
-                : result State unit :=
+                : result State Error :=
   (** BAToken should not be deployable if one of the following conditions does not hold on [setup]
       - funding period is non empty
       - funding period does not start before the slot where the contract is deployed
@@ -55,7 +55,7 @@ Definition init (chain : Chain)
           || (setup.(_tokenExchangeRate) =? 0)
           || ((setup.(_tokenCreationCap) - setup.(_tokenCreationMin)) <? setup.(_tokenExchangeRate))
           || address_eqb setup.(_batFundDeposit) ctx.(ctx_contract_address)
-          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) tt;
+          || address_eqb setup.(_fundDeposit) ctx.(ctx_contract_address)) default_error;
   let token_state := {|
       EIP20Token.balances := FMap.add setup.(_batFundDeposit) setup.(_batFund) FMap.empty;
       EIP20Token.total_supply := setup.(_batFund);
@@ -82,19 +82,19 @@ Definition try_create_tokens (sender : Address)
                              (sender_payload : Amount)
                              (current_slot : nat)
                              (state : State)
-                             : result State unit :=
+                             : result State Error :=
  (** Early return if funding is finalized, funding period hasn't started yet, or funding period is over *)
   do _ <- throwIf (state.(isFinalized)
           || (Nat.ltb current_slot state.(fundingStart))
           || (Nat.ltb state.(fundingEnd) current_slot)
-          || (address_eqb sender state.(batFundDeposit))) tt;
+          || (address_eqb sender state.(batFundDeposit))) default_error;
   (** Here we deviate slightly from the reference implementation. They only check for = 0,
       but since ConCert's payloads may be negative numbers, we must extend this check to <= 0 *)
-  do _ <- throwIf (Z.leb sender_payload 0) tt;
+  do _ <- throwIf (Z.leb sender_payload 0) default_error;
   (** Note: this conversion from Z to N is safe because by assumption sender_payload > 0 *)
   let tokens := (Z.to_N sender_payload) * state.(tokenExchangeRate) in
   let checkedSupply := (total_supply state) + tokens in
-  do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) tt;
+  do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) default_error;
   let new_token_state : EIP20Token.State := {|
     EIP20Token.total_supply := checkedSupply;
     EIP20Token.balances := FMap.partial_alter (fun balance => Some (with_default 0 balance + tokens)) sender (balances state);
@@ -109,15 +109,15 @@ Definition try_create_tokens (sender : Address)
 Definition try_refund (sender : Address)
                       (current_slot : nat)
                       (state : State)
-                      : result (State * list ActionBody) unit :=
+                      : result (State * list ActionBody) Error :=
   (** Early return if funding is finalized, or funding period is NOT over, or if total supply exceeds or is equal to the minimum fund tokens. *)
   do _ <- throwIf (state.(isFinalized)
           || (Nat.leb current_slot state.(fundingEnd))
-          || (state.(tokenCreationMin) <=? (total_supply state))) tt;
+          || (state.(tokenCreationMin) <=? (total_supply state))) default_error;
   (** Don't allow the the batFundDeposit account to refund *)
-  do _ <- throwIf (address_eqb sender state.(batFundDeposit)) tt;
-  do sender_bats <- result_of_option (FMap.find sender (balances state)) tt ;
-  do _ <- throwIf (sender_bats =? 0) tt;
+  do _ <- throwIf (address_eqb sender state.(batFundDeposit)) default_error;
+  do sender_bats <- result_of_option (FMap.find sender (balances state)) default_error ;
+  do _ <- throwIf (sender_bats =? 0) default_error;
   let new_total_supply := (total_supply) state - sender_bats in
   (** Convert tokens back to the currency of the blockchain, to be sent back to the sender address *)
   let amount_to_send := Z.of_N (sender_bats / state.(tokenExchangeRate)) in
@@ -138,7 +138,7 @@ Definition try_finalize (sender : Address)
                         (current_slot : nat)
                         (contract_balance : Amount)
                         (state : State)
-                        : result (State * list ActionBody) unit :=
+                        : result (State * list ActionBody) Error :=
   (** Early return if funding is finalized, or if sender is NOT the fund deposit address,
       or if the total token supply is less than the minimum required amount,
       or if it is too early to end funding and the total token supply has not reached the cap.
@@ -146,8 +146,8 @@ Definition try_finalize (sender : Address)
   *)
   do _ <- throwIf (state.(isFinalized) ||
                    (negb (address_eqb sender state.(fundDeposit))) ||
-                   ((total_supply state) <? state.(tokenCreationMin))) tt;
-  do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) tt;
+                   ((total_supply state) <? state.(tokenCreationMin))) default_error;
+  do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) && negb ((total_supply state) =? state.(tokenCreationCap))) default_error;
   (** Send the currency of the contract back to the fund *)
   let send_act := act_transfer state.(fundDeposit) contract_balance in
   let new_state := state<|isFinalized := true|> in
@@ -162,18 +162,18 @@ Definition receive_bat (chain : Chain)
                        (ctx : ContractCallContext)
                        (state : State)
                        (maybe_msg : option Msg)
-                       : result (State * list ActionBody) unit :=
+                       : result (State * list ActionBody) Error :=
   let sender := ctx.(ctx_from) in
   let sender_payload := ctx.(ctx_amount) in
   let slot := chain.(current_slot) in
   let contract_balance := ctx.(ctx_contract_balance) in
   let without_actions x := x >>= (fun new_state => Ok (new_state, [])) in
-  let not_payable x := do _ <- throwIf (sender_payload >? 0) tt; x in
+  let not_payable x := do _ <- throwIf (sender_payload >? 0) default_error; x in
   match maybe_msg with
   | Some create_tokens => without_actions (try_create_tokens sender sender_payload slot state)
   | Some refund => not_payable (try_refund sender slot state)
   | Some finalize => not_payable (try_finalize sender slot contract_balance state)
-  | _ => Err tt
+  | _ => Err default_error
   end.
 Close Scope Z_scope.
 
@@ -183,17 +183,17 @@ Definition receive (chain : Chain)
                     (ctx : ContractCallContext)
                    (state : State)
                    (maybe_msg : option Msg)
-                   : result (State * list ActionBody) unit :=
+                   : result (State * list ActionBody) Error :=
   match maybe_msg with
   | Some (tokenMsg msg) =>
-                     do _ <- throwIf (negb (isFinalized state)) tt;
+                     do _ <- throwIf (negb (isFinalized state)) default_error;
                      do res <- EIP20Token.receive chain ctx state.(token_state) (Some msg) ;
                      let new_state := state<|token_state := fst res|> in
                          Ok (new_state, snd res)
   | _ => receive_bat chain ctx state maybe_msg
   end.
 
-Definition contract : Contract Setup Msg State unit :=
+Definition contract : Contract Setup Msg State Error :=
   build_contract init receive.
 
 End BATFixed.

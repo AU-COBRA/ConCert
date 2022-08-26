@@ -28,7 +28,7 @@ Module DexterGens (Info : DexterTestsInfo).
       amount <- choose (1%N, balance) ;;
       returnGenSome amount.
 
-  Definition gTokenExchange (state : EIP20Token.State) (caller : Address) : G (option Dexter.Msg):=
+  Definition gTokenExchange (state : EIP20Token.State) (caller : Address) : G (option Dexter.Msg) :=
     let caller_tokens : N := Extras.with_default 0%N (FMap.find caller state.(balances)) in
     tokens_to_exchange <- gTokensToExchange caller_tokens ;;
     let exchange_msg := {|

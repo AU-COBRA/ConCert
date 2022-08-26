@@ -28,11 +28,11 @@ Module Crowdfunding.
 
   Definition crowdfunding_init (ctx : ContractCallContext)
                                (setup : (time_coq × Z × address_coq))
-                               : result storage unit :=
-      if ctx.(ctx_amount) =? 0 then Ok (setup, (Maps.mnil, false)) else Err tt.
+                               : result storage nat :=
+      if ctx.(ctx_amount) =? 0 then Ok (setup, (Maps.mnil, false)) else Err 0%nat.
 
   Definition init (setup : (time_coq × Z × address_coq))
-                  : result storage unit :=
+                  : result storage nat :=
     Ok (setup, (Maps.mnil, false)).
 
   Lemma crowdfunding_init_eq_init ctx setup :
@@ -61,22 +61,22 @@ Module Crowdfunding.
             (ctx : ContractCallContext)
             (params : msg_coq)
             (st : storage)
-            : result (list SimpleActionBody_coq × storage) unit :=
+            : result (list SimpleActionBody_coq × storage) nat :=
     let res :=receive params st
             (Time_coq c.(current_slot),
              (to_simple_ctx_addr ctx.(ctx_from),
              (ctx.(ctx_amount),
              ctx.(ctx_contract_balance)))) in
-      result_of_option res tt.
+      result_of_option res 0%nat.
 
   Definition crowdfunding_receive (c : Chain) (ctx : ContractCallContext) st msg :=
     match msg with
     | Some msg => crowdfunding_receive_inner c ctx msg st
-    | None => Err tt
+    | None => Err 0%nat
     end.
 
   Definition CF_MODULE :
-    CameLIGOMod _ _ _ storage SimpleActionBody_coq unit :=
+    CameLIGOMod _ _ _ storage SimpleActionBody_coq nat :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_crowdfunding" ;
 

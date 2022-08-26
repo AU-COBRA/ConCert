@@ -599,7 +599,7 @@ Proof.
   destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add_existing; eauto.
-    erewrite sumN_split with (x := (ctx_from ctx, _)) (y:= (ctx_from ctx, _)) by eauto.
+    erewrite sumN_split with (x := (ctx_from ctx, _)) (y := (ctx_from ctx, _)) by eauto.
     now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
   - setoid_rewrite from_balance.
     setoid_rewrite FMap.elements_add; auto.
@@ -1071,7 +1071,7 @@ Proof.
               erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv).
               lia.
         }
-        
+
         (* Now we know that the action is valid we need to evaluate it *)
         evaluate_action BAT.contract; try easy;
           only 1-4: clear fund_deposit_not_contract accounts_not_contracts IHaccounts.

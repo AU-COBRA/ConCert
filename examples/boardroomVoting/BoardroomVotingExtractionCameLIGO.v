@@ -2,7 +2,6 @@
 
 (** We provide a configuration required for the contract extraction:
     additional remappings, definitions to inline, etc. *)
-    
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import CameLIGOPretty.
@@ -41,7 +40,7 @@ Module Params <: BoardroomParams.
   Definition H : list positive -> positive := hash_func.
   Definition prime := modulus.
   Definition generator := generator.
-End Params.  
+End Params.
 Module BV := BoardroomVoting Params. Import BV.
 
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
@@ -55,7 +54,7 @@ Definition init_wrapper (cctx : ContractCallContext) (s : setupWchain) := (run_c
 (** In the Tezos blockchain there is no concept of initialisation
     function. However, it's common to provide a function that computes
     a valid initial storage that can be used for deployment.*)
-Definition init (s : Address * Setup) : result State unit :=
+Definition init (s : Address * Setup) : result State Error :=
   if (finish_registration_by s.2 <? finish_vote_by s.2)%nat
       then
         Ok {| owner := s.1;
@@ -63,7 +62,7 @@ Definition init (s : Address * Setup) : result State unit :=
                 public_keys := [];
                 setup := s.2;
                tally := None; |}
-      else Err tt.
+      else Err default_error.
 
 Lemma init_eq_init_wrapper cctx s :
   init_wrapper cctx s = init (cctx.(ctx_from), s.1).
@@ -74,63 +73,63 @@ Qed.
 
 Definition receive_wrapper (c : Chain)
                            (ctx : ContractCallContext)
-                           (st : BV.State) 
+                           (st : BV.State)
                            (msg : option BV.Msg)
-                           : result (list ActionBody * BV.State) unit := 
+                           : result (list ActionBody * BV.State) Error :=
   match (run_contract_receiver BV.receive) c ctx st msg with
   | Ok (st, acts) => Ok (acts, st)
   | Err e => Err e
   end.
 
 Definition storage_alias := "type storage = state".
-Definition bruteforce_tally_def := 
- "(fun (votes :  (a) list) -> 
-  let rec bruteforce_tally_aux  (n, votes_product : nat * a) : nat option = 
-    if elmeqb (pow_p generator (int n)) votes_product then 
-        Some (n) 
-    else if n = 0n then 
+Definition bruteforce_tally_def :=
+ "(fun (votes :  (a) list) ->
+  let rec bruteforce_tally_aux  (n, votes_product : nat * a) : nat option =
+    if elmeqb (pow_p generator (int n)) votes_product then
+        Some (n)
+    else if n = 0n then
       None
     else
       let n0 = n - 1n in
         (bruteforce_tally_aux (unsafe_int_to_nat n0, votes_product))
   in bruteforce_tally_aux ((List.length votes), (prod votes)))".
 
-Definition extra_ops := 
+Definition extra_ops :=
  "let unsafe_int_to_nat (n : int) = abs(n)
   let predN (n : nat) = unsafe_int_to_nat (n - 1n)
   let mod_pow (a : int) (e : int) (p : int) : int = failwith (""unimplemented"")
   let egcd (a : int) (p : int) : int * int = failwith (""unimplemented"")
-  
-  let nth  = let rec nth  (n, l, default : nat * int list * int) : int = 
-  if n = 0n then (match l with 
+
+  let nth  = let rec nth  (n, l, default : nat * int list * int) : int =
+  if n = 0n then (match l with
   []  -> default
    | x :: r -> x)
-  else let m = predN n in (match l with 
+  else let m = predN n in (match l with
   []  -> default
    | x :: t -> (nth (m, t, default)))
    in fun (n:nat) (l:int list) (default:int) -> nth (n, l, default)
-   
-   
+
+
   let prod (l : int list) =
     List.fold (fun (a, b: int*int) -> multInt a b) l 1
-  
+
   let firstn (n : nat) (l : int list) : int list =
     let (_,r) = List.fold_left (fun ((n, a),b : (nat * int list) * int) ->
         if n = 0n then (0n, a)
         else (predN n, b :: a)) (n,([] : int list)) l in
    r
-  
-  let skipn  = let rec skipn  (n, l : nat * int list) : int list = 
+
+  let skipn  = let rec skipn  (n, l : nat * int list) : int list =
    if n = 0n then l
-    else let n0 = predN n in (match l with 
+    else let n0 = predN n in (match l with
     | []  -> ([]:int list)
     | a :: l0 -> (skipn (n0, l0 : nat * int list)))
     in fun (n : nat) (l : int list) -> skipn (n, l : nat * int list)".
 
 
-Definition existsb_def := 
-  "(let existsb (f : voterInfo -> bool) = let rec existsb  (l: voterInfo list) : bool = 
-  match l with 
+Definition existsb_def :=
+  "(let existsb (f : voterInfo -> bool) = let rec existsb  (l: voterInfo list) : bool =
+  match l with
   []  -> false
   | a :: l0 -> (if (f a) then true else (existsb (l0)))
   in fun (l: voterInfo list) -> existsb (l) in existsb)".
@@ -140,7 +139,7 @@ Definition hash_func_def := "let hash_func (l :  (nat) list) = addN 1n (List.fol
 Definition callctx := "(Tezos.sender,(Tezos.self_address,(Tezos.amount,Tezos.balance)))".
 
 
-Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) BV.State ActionBody unit :=
+Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) BV.State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
     lmd_module_name := "cameligo_boardroomvoting" ;
 
@@ -170,7 +169,7 @@ Definition inline_boardroom_params : list kername :=
   ].
 
 
-Definition inline_contract_monad_projection : list kername := 
+Definition inline_contract_monad_projection : list kername :=
   [
       <%% @ContractMonads.chain_height %%>
     ; <%% @ContractMonads.current_slot %%>
@@ -191,7 +190,7 @@ Definition inline_contract_monad_projection : list kername :=
   ].
 
 
-Definition to_inline : list kername := 
+Definition to_inline : list kername :=
      inline_contract_monad_projection
   ++ inline_boardroom_params
   ++ [
@@ -206,10 +205,10 @@ Definition to_inline : list kername :=
   ; <%% @result_to_contract_initer %%>
   ; <%% @contract_reader_to_receiver %%>
   ; <%% @result_to_contract_receiver %%>
-  
+
   ; <%% @ContractReceiver %%>
   ; <%% @ContractIniter %%>
-  
+
   ; <%% @Monads.bind %%>
   ; <%% @Monads.ret %%>
   ; <%% @Monads.lift %%>
@@ -292,7 +291,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @List.app %%> "List.fold_left (fun (acc, e : (int list) * int) -> e :: acc)" (* small hack since ligo doesn't have append on lists *)
   ].
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename : list (string * string):=
+Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
   ; ("Zpos" ,"int") (* [int] is an embedding of natutal numbers to integers in CameLIGO *)
