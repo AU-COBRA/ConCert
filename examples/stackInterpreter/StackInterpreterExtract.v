@@ -8,6 +8,7 @@ From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Utils Require Import Env.
 From Coq Require Import Notations.
 From Coq Require Import String.
@@ -39,10 +40,12 @@ Module Interpreter.
 
   Definition storage := list value.
 
-  Definition init (ctx : SimpleCallCtx) (setup : unit) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : unit)
+                  : result storage unit :=
     let ctx0 := ctx in
     let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
-    Some [].
+    Ok [].
 
   Definition params := list instruction * ext_map.
 
@@ -56,9 +59,13 @@ Module Interpreter.
   Definition reset_decrement (i : Z) : Z :=
     if (i <=? one) then 0 else i-one.
 
-  Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) (cond : Z) :=
+  Fixpoint interp (ext : ext_map)
+                  (insts : list instruction)
+                  (s : storage)
+                  (cond : Z)
+                  : result storage unit :=
     match insts with
-    | [] => Some s
+    | [] => Ok s
     | hd :: inst0 =>
         match hd with
         | IPushZ i => if continue_ cond then
@@ -70,7 +77,7 @@ Module Interpreter.
         | IIf => if (cond =? 0) then
                   match s with
                   | BVal b :: s0 => interp ext inst0 s0 (bool_to_cond b)
-                  | _ => None
+                  | _ => Err tt
                   end else interp ext inst0 s (one + cond)%Z
         | IElse => interp ext inst0 s (flip cond)
         | IEndIf => interp ext inst0 s (reset_decrement cond)
@@ -78,7 +85,7 @@ Module Interpreter.
           if continue_ cond then
             match lookup p ext with
             | Some v => interp ext inst0 (v :: s) cond
-            | None => None
+            | None => Err tt
             end
           else interp ext inst0 s cond
         | IOp op =>
@@ -86,39 +93,40 @@ Module Interpreter.
             match op with
             | Add => match s with
                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
-                    | _ => None
+                    | _ => Err tt
                     end
             | Sub => match s with
                       | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i-j) :: s0)%Z cond
-                      | _ => None
+                      | _ => Err tt
                       end
             | Mult => match s with
                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i*j) :: s0)%Z cond
-                     | _ => None
+                     | _ => Err tt
                             end
             | Le => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<=?j) :: s0)%Z cond
-                   | _ => None
+                   | _ => Err tt
                    end
             | Lt => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<?j) :: s0)%Z cond
-                   | _ => None
+                   | _ => Err tt
                    end
             | Equal => match s with
                       | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i =? j) :: s0)%Z cond
-                      | _ => None
+                      | _ => Err tt
                      end
             end
           else interp ext inst0 s cond
         end
         end.
 
-  Definition receive (p : params) (s : list value)
-    : option (list action * storage) :=
+  Definition receive (p : params)
+                     (s : storage)
+                     : result (list action * storage) unit :=
     let s0 := s in (* prevents optimisations from removing unused [s]  *)
     match interp p.2 p.1 [] 0 with
-    | Some v => Some ([],v)
-    | None => None
+    | Ok v => Ok ([],v)
+    | Err e => Err e
     end.
 
 End Interpreter.
@@ -130,19 +138,19 @@ Import Interpreter.
 Example test_interp :
   let env  := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
   interp env [IPushZ 0; IObs ("blah", 0); IOp Add; IPushZ 1; IOp Equal] [] 0 =
-  Some [BVal true].
+  Ok [BVal true].
 Proof. vm_compute. reflexivity. Qed.
 
 (** Input for the interpreter in Liquidity:
 ([IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf], (Map [])) *)
 Example test_interp_if_1 :
   interp FMap.empty [IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
-  = Some [ZVal 1].
+  = Ok [ZVal 1].
 Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_if_2 :
   interp FMap.empty [IPushZ 1; IPushZ 0; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
-  = Some [ZVal (-1)].
+  = Ok [ZVal (-1)].
 Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_nested_if_1 :
@@ -162,7 +170,7 @@ Example test_interp_nested_if_1 :
                     IPushZ 0;
                     IEndIf
                     ] [] 0
-  = Some [ZVal 2].
+  = Ok [ZVal 2].
 Proof. vm_compute. reflexivity. Qed.
 
 Example test_interp_nested_if_2 :
@@ -179,7 +187,7 @@ Example test_interp_nested_if_2 :
                     IPushZ 0;
                     IEndIf
                     ] [] 0
-  = Some [ZVal (-1)].
+  = Ok [ZVal (-1)].
 Proof. vm_compute. reflexivity. Qed.
 
 (*     let strike = 50.0
@@ -219,20 +227,64 @@ Definition call_option : list instruction :=
 Example run_call_option_in_the_money :
   let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 100));(("Maturity", 0%Z), (ZVal 90))] in
   interp env call_option [] 0
-  = Some [ZVal 50000].
+  = Ok [ZVal 50000].
 Proof. vm_compute. reflexivity. Qed.
 
 Example run_call_option_out_the_money :
     let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 30));(("Maturity", 0%Z), (ZVal 90))] in
   interp env call_option [] 0
-  = Some [ZVal 0].
+  = Ok [ZVal 0].
 Proof. vm_compute. reflexivity. Qed.
 
 (* A bigger test program for running in try-liquidity with arithmetic operations, lookups and some [Ifs] *)
 
-Definition blah := [IPushZ 100; IPushZ 200; IOp Add; IPushZ 200; IOp Add;IPushZ 100;IOp Add;IPushZ 100;IOp Add; IPushZ 200; IOp Add;IPushZ 100; IPushZ 200; IOp Add; IPushZ 200; IOp Add;IPushZ 100;IOp Add;IPushZ 100;IOp Add; IPushZ 200; IOp Add;IPushZ 100; IPushZ 200; IOp Add; IPushZ 200; IOp Add;IPushZ 100;IOp Add;IPushZ 100;IOp Add; IPushZ 200; IOp Add;IPushZ 100; IOp Add; IPushZ 200; IOp Add;IPushZ 100;IOp Add;IPushZ 100;IOp Add; IPushZ 200; IOp Add;IPushZ 100;IOp Mult; IPushZ 3000; IOp Sub; IPushZ 10; IOp Add; IPushZ 10; IOp Mult; IPushB true; IIf; IPushZ 10; IPushZ 10; IOp Equal; IIf; IPushZ 10; IPushZ 10; IOp Add; IPushZ 10; IOp Add;IElse; IPushB true; IEndIf;  IPushZ 10;IOp Add; IPushZ 10; IOp Add; IPushZ 10; IOp Add; IPushZ 10; IOp Mult; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IObs ("blah", 0); IOp Add; IElse; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IEndIf ].
+Definition blah :=
+  [IPushZ 100; IPushZ 200; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IPushZ 200; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IPushZ 200; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 100; IOp Add;
+  IPushZ 200; IOp Add;
+  IPushZ 100; IOp Mult;
+  IPushZ 3000; IOp Sub;
+  IPushZ 10; IOp Add;
+  IPushZ 10; IOp Mult;
+  IPushB true; IIf;
+  IPushZ 10; IPushZ 10; IOp Equal; IIf;
+  IPushZ 10; IPushZ 10; IOp Add;
+  IPushZ 10; IOp Add; IElse;
+  IPushB true; IEndIf;
+  IPushZ 10; IOp Add;
+  IPushZ 10; IOp Add;
+  IPushZ 10; IOp Add;
+  IPushZ 10; IOp Mult;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add;
+  IObs ("blah", 0); IOp Add; IElse;
+  IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0;
+  IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IEndIf ].
 (* Just add the global environment (Map [(("blah", 0), (ZVal 0))])) *)
-Compute List.length blah.
+(* Compute List.length blah. *)
 
 Definition print_finmap_type (ty_key ty_val : string) :=
   parens false (ty_key ++ "," ++ ty_val) ++ " map".
@@ -277,7 +329,7 @@ Module LiquidityInterp.
 
   Import LiquidityExtract.
 
-  Definition INTERP_MODULE : LiquidityMod params _ _ storage action :=
+  Definition INTERP_MODULE : LiquidityMod params _ _ storage action unit :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "liquidity_interp" ;
 
@@ -319,18 +371,24 @@ Module CameLIGOInterp.
   Import CameLIGOExtract CameLIGOPretty.
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
-  Definition init (setup : unit) : option storage :=
-    let setup0 := setup in (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
-    Some [].
+  Definition init (setup : unit)
+                  : result storage unit :=
+    (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
+    let setup0 := setup in
+    Ok [].
 
 
-  Definition receive_ (c : Chain) (ctx : ContractCallContext) (s : storage) (msg : option params):=
+  Definition receive_ (c : Chain)
+                      (ctx : ContractCallContext)
+                      (s : storage)
+                      (msg : option params)
+                      : result (list action * storage) unit :=
     (* prevent optimizations from deleting these arguments from receive_'s type signature *)
     let c_ := c in
     let ctx_ := ctx in
     match msg with
     | Some msg => receive msg s
-    | None => None
+    | None => Err tt
     end.
 
   Definition TT_remap_ligo : list (kername * string) :=
@@ -359,7 +417,7 @@ Module CameLIGOInterp.
        ; remap <%% andb %%> "andb"
        ; remap <%% one %%> "1"].
 
-  Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action :=
+  Definition LIGO_INTERP_MODULE : CameLIGOMod params ContractCallContext unit storage action unit :=
     {| (* a name for the definition with the extracted code *)
        lmd_module_name := "cameligo_interp" ;
 

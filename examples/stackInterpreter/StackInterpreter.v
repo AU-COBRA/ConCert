@@ -1,14 +1,13 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
-From Coq Require Import List.
+From ConCert.Execution Require Import ResultMonad.
+From Coq Require Import List. Import ListNotations.
 From Coq Require Import Notations.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
 Local Open Scope string_scope.
-
-Import ListNotations.
 
 Section StackInterpreter.
   Context {Base: ChainBase}.
@@ -42,11 +41,11 @@ Section StackInterpreter.
 
   Definition storage := list value.
 
-  Definition init
-             (chain : Chain)
-             (ctx : ContractCallContext)
-             (setup : unit) : option storage :=
-    Some [].
+  Definition init (chain : Chain)
+                  (ctx : ContractCallContext)
+                  (setup : unit)
+                  : result storage unit :=
+    Ok [].
 
   Definition msg := list instruction * ext_map.
 
@@ -59,10 +58,13 @@ Section StackInterpreter.
   Definition reset_decrement (i : Z) : Z :=
     if (i <=? 1) then 0 else i-1.
 
-  Fixpoint interp (ext : ext_map) (insts : list instruction) (s : list value) (cond : Z)
-    : option (list value) :=
+  Fixpoint interp (ext : ext_map)
+                  (insts : list instruction)
+                  (s : storage)
+                  (cond : Z)
+                  : result storage unit :=
     match insts with
-    | [] => Some s
+    | [] => Ok s
     | hd :: inst0 =>
     match hd with
       | IPushZ i => if continue_ cond then
@@ -74,7 +76,7 @@ Section StackInterpreter.
       | IIf => if cond =? 0 then
                  match s with
                  | BVal b :: s0 => interp ext inst0 s0 (bool_to_cond b)
-                 | _ => None
+                 | _ => Err tt
                  end else interp ext inst0 s (1 + cond)%Z
       | IElse => interp ext inst0 s (flip cond)
       | IEndIf => interp ext inst0 s (reset_decrement cond)
@@ -82,7 +84,7 @@ Section StackInterpreter.
         if continue_ cond then
           match lookup p ext with
           | Some v => interp ext inst0 (v :: s) cond
-          | None => None
+          | None => Err tt
           end
         else interp ext inst0 s cond
       | IOp op =>
@@ -90,47 +92,48 @@ Section StackInterpreter.
           match op with
           | Add => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i+j) :: s0)%Z cond
-                   | _ => None
+                   | _ => Err tt
                    end
           | Sub => match s with
                    | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i-j) :: s0)%Z cond
-                   | _ => None
+                   | _ => Err tt
                    end
           | Mult => match s with
                     | ZVal i :: ZVal j :: s0 => interp ext inst0 (ZVal (i*j) :: s0)%Z cond
-                    | _ => None
+                    | _ => Err tt
                     end
           | Le => match s with
                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<=?j) :: s0)%Z cond
-                  | _ => None
+                  | _ => Err tt
                   end
           | Lt => match s with
                   | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i<?j) :: s0)%Z cond
-                  | _ => None
+                  | _ => Err tt
                   end
           | Equal => match s with
                      | ZVal i :: ZVal j :: s0 => interp ext inst0 (BVal (i =? j) :: s0)%Z cond
-                     | _ => None
+                     | _ => Err tt
                      end
           end
         else interp ext inst0 s cond
       end
     end.
 
-  Definition receive
-             (chain : Chain)
-             (ctx : ContractCallContext)
-             (s : storage)
-             (msg : option msg) : option (storage * list ActionBody) :=
+  Definition receive (chain : Chain)
+                     (ctx : ContractCallContext)
+                     (s : storage)
+                     (msg : option msg)
+                     : result (storage * list ActionBody) unit :=
     match msg with
-    | None => None
+    | None => Err tt
     | Some (insts, ext) =>
       match interp ext insts [] 0 with
-      | Some v => Some (v, [])
-      | None => None
+      | Ok v => Ok (v, [])
+      | Err e => Err e
       end
     end.
 
-  Definition contract : Contract unit msg storage :=
+  Definition contract : Contract unit msg storage unit :=
     build_contract init receive.
+
 End StackInterpreter.
