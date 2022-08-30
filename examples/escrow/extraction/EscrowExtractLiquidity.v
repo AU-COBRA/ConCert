@@ -64,6 +64,7 @@ Module EscrowLiquidityExtraction.
         ++ nl ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
         ++ nl ++ "let eq_addr (a1 : address) (a2 : address) = a1 = a2 in"
         ++ nl ++ "let andb (a : bool ) (b : bool ) = a & b in"
+        ++ nl ++ "let default_error = 0 in"
         ++ nl;
 
       (* the main functionality *)
@@ -109,15 +110,20 @@ Module EscrowLiquidityExtraction.
     ; remap <%% @List.find %%> "List.find"
     ; remap <%% @List.length %%> "List.length"
     ; remap <%% @List.app %%> "List.append"
+
+    ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
     ].
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
   Definition TT_rename_liquidity : list (string * string) :=
     [ ("Some", "Some")
     ; ("None", "None")
+    ; ("Ok", "Ok")
+    ; ("Err", "Err")
     ; ("Zpos" ,"int")
     ; ("Npos" ,"(fun (n:nat) -> n)")
     ; ("Zneg" ,"-")
+    ; ("O", "0")
     ; ("Z0" ,"0tz")
     ; ("N0" ,"0")
     ; ("xH" ,"0")
