@@ -173,6 +173,12 @@ Definition remap_option : remapped_inductive :=
      re_ind_match := None
   |}.
 
+Definition remap_result : remapped_inductive :=
+  {| re_ind_name := "Result";
+     re_ind_ctors := ["Ok"; "Err"];
+     re_ind_match := None
+  |}.
+
 Definition remap_unit : remapped_inductive :=
   {| re_ind_name := "()";
      re_ind_ctors := ["()"];
@@ -193,6 +199,7 @@ Definition remap_std_types :=
   ; (<! bool !>, remap_bool)
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)
+  ; (<! ConCert.Execution.ResultMonad.result !>, remap_result)
   ; (<! unit !>, remap_unit)
   ; (<! String.string !>, remap_string) ].
 
@@ -468,13 +475,13 @@ Section ConcordiumPrinting.
      "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername init_name ++ "(&cchain, &cctx, params);";
      "    match res {";
-     "        Option::Some(init_state) => {";
+     "        Result::Ok(init_state) => {";
      "            match init_state.concert_serial(state) {";
      "                Ok(_) => Ok(()),";
      "                Err(_) => Err(InitError::SerialParams)";
      "            }";
      "        }";
-     "        Option::None => Err(InitError::Error)";
+     "        Result::Err(error) => Err(InitError::Error)";
      "    }";
 "}" $>.
 
@@ -548,14 +555,14 @@ Section ConcordiumPrinting.
      "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername receive_name ++ "(&cchain, &cctx, old_state, msg);";
      "    match res {";
-     "        Option::Some((new_state, acts)) => {";
+     "        Result::Ok((new_state, acts)) => {";
      "            state.truncate(0);";
      "            match new_state.concert_serial(state) {";
      "                Ok(_) => convert_actions(acts),";
      "                Err(_) => Err(ReceiveError::SerialNewState)";
      "            }";
      "        }";
-     "        Option::None => Err(ReceiveError::Error)";
+     "        Result::Err(error) => Err(ReceiveError::Error)";
      "    }";
 "}" $>.
 
