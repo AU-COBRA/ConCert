@@ -726,7 +726,7 @@ Definition print_init (prefix : string)
       map (fun '(x,ty) => parens false ((bs_to_s (BasicAst.string_of_name x)) ^ " : " ^ ty)) targs_inner in
   let decl_inner := "inner " ++ concat " " printed_targs_inner in
   let ctx := map (fun x => Build_context_decl x None) (rev args) in
-  let wrap t := "match " ++ t ++ " with Some v -> v | None -> failwith ()" in
+  let wrap t := "match " ++ t ++ " with Ok v -> v | Err e -> failwith e" in
   let let_inner :=
       "let " ++ decl_inner ++ " = "
              ++ LPretty.print_term Σ projs prefix [] TT ctx true false lam_body
@@ -899,17 +899,25 @@ Definition address_map :=
 Definition false_elim_decl :=
   "let false_elim (_ : unit) = failwith ()".
 
+Definition result_def :=
+  <$
+    "type ('t,'e) result ="
+  ; "  Ok of 't"
+  ; "| Err of 'e"
+  $>.
+
 Definition LiquidityPrelude :=
   print_list id (nl ++ nl)
              [prod_ops; int_ops; tez_ops; nat_ops;
-             bool_ops; time_ops; address_ops; address_map].
+             bool_ops; time_ops; address_ops;
+             address_map; result_def].
 
 Definition printWrapper (contract : string): string :=
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " param st" ++ " with"
-        ++ "| Some v -> v"
-        ++ "| None -> failwith ()".
+        ++ "| Ok v -> v"
+        ++ "| Err e -> failwith e".
 
 Definition printMain :=
   "let%entry main param st = wrapper param st".
