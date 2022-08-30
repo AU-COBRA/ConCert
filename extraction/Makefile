@@ -56,7 +56,7 @@ RUST_DIR=./tests/extracted-code/rust-extract
 ELM_DIR=./tests/extracted-code/elm-extract
 ELM_WEB_APP_DIR=./tests/extracted-code/elm-web-extract
 
-test-extraction: test-elm test-liquidity test-ligo test-concordium test-rust
+test-extraction: test-elm test-liquidity test-ligo test-rust test-concordium
 
 test-concordium: clean-compiled-concordium
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)

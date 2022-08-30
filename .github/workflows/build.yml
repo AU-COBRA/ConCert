@@ -72,7 +72,7 @@ jobs:
         echo "::endgroup::"
 
         echo "::group::Running tests"
-        make -j2 test-extraction
+        make test-extraction
         echo "::endgroup::"
 
         echo "::group::Cleaning up"
