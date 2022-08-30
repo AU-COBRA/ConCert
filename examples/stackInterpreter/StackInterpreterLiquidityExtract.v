@@ -27,6 +27,7 @@ Module LiquidityInterp.
       ; remap <%% bool %%> "bool"
       ; remap <%% unit %%> "unit"
       ; remap <%% option %%> "option"
+      ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
       ; remap <%% Amount %%> "tez"
       ; remap <%% address_coq %%> "address"
       ; remap <%% time_coq %%> "timestamp"
@@ -51,6 +52,9 @@ Module LiquidityInterp.
   Definition TT_rename : env string :=
     (* constructors *)
     [ ("Z0" ,"0")
+    ; ("O", "0")
+    ; ("Ok", "Ok")
+    ; ("Err", "Err")
     ; ("nil", "[]")].
 
   Definition INTERP_MODULE : LiquidityMod params _ _ storage action Error :=
@@ -58,7 +62,7 @@ Module LiquidityInterp.
        lmd_module_name := "liquidity_interp" ;
 
        (* definitions of operations on ints, bools, pairs, ect. *)
-       lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops;
+       lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ bool_ops ++ nl ++ result_def;
 
        lmd_init := init ;
 
