@@ -86,11 +86,11 @@ Definition receive_wrapper (c : Chain)
 Definition storage_alias := "type storage = state".
 Definition bruteforce_tally_def :=
  "(fun (votes :  (a) list) ->
-  let rec bruteforce_tally_aux  (n, votes_product : nat * a) : nat option =
+  let rec bruteforce_tally_aux  (n, votes_product : nat * a) : (nat, nat) result =
     if elmeqb (pow_p generator (int n)) votes_product then
-        Some (n)
+        Ok (n)
     else if n = 0n then
-      None
+      Err 0n
     else
       let n0 = n - 1n in
         (bruteforce_tally_aux (unsafe_int_to_nat n0, votes_product))
