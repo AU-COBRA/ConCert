@@ -18,6 +18,7 @@ From MetaCoq.Template Require Import MCPrelude.
 From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
+From ConCert.Execution Require ResultMonad.
 
 From Coq Require Import String.
 From Coq Require Import Nat.
@@ -568,6 +569,11 @@ Section PPTerm.
             (* is it a transfer *)
             else if (uncapitalize nm =? "act_transfer") then
               print_transfer apps
+            (* is it a Ok *)
+            else if ((nm =? "Ok") && (eq_kername mind <%% ConCert.Execution.ResultMonad.result %%>)) then
+              "(" ++ parens false (print_uncurried_app nm apps) ++ ":" ++ print_box_type ty_ctx TT bt ++ ")"
+            else if ((nm =? "Err") && (eq_kername mind <%% ConCert.Execution.ResultMonad.result %%>)) then
+              "(" ++ parens false (print_uncurried_app nm apps) ++ ":" ++ print_box_type ty_ctx TT bt ++ ")"
             else if (nm =? "_") then
               fresh_id_from ctx 10 "a"
             (* inductive constructors of 1 arg are treated as records *)

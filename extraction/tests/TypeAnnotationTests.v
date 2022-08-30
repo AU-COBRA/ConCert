@@ -72,6 +72,10 @@ Section printing.
       fun bt =>
         print_ind_ctor ind c ^ " : " ^ print_box_type bt
     | tConstruct ind c (_ :: _) => fun _ => "Error(constructors_as_blocks_not_supported)"
+    | tCase (mkInd mind i as ind, nparam) t brs =>
+    fun '(bt, (ta, trs)) =>
+    "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ MetaCoq.Erasure.EAstUtils.string_of_term t ++ ","
+                  ++ MCString.string_of_list (fun b => MetaCoq.Erasure.EAstUtils.string_of_term (snd b)) brs ++ ")"
     | _ => fun _ => "error: cannot print"
     end.
 
