@@ -34,6 +34,7 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
+  ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
@@ -158,6 +159,9 @@ Section EIP20TokenExtraction.
     [ ("Z0" ,"0tez")
     ; ("N0", "0")
     ; ("N1", "1")
+    ; ("O", "0")
+    ; ("Ok", "Ok")
+    ; ("Err", "Err")
     ; ("nil", "[]")
     ; ("tt", "()") ].
 
