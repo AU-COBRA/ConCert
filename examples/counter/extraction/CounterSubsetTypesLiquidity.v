@@ -96,6 +96,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
     ; remap <%% option %%> "option"
+    ; remap <%% result %%> "result"
     ; remap <%% Z.add %%> "addInt"
     ; remap <%% Z.sub %%> "subInt"
     ; remap <%% Z.leb %%> "leInt"
@@ -113,6 +114,9 @@ Section LiquidityExtractionSetup.
   Definition TT_rename : list (string * string) :=
     [ ("Some", "Some")
     ; ("None", "None")
+    ; ("Ok", "Ok")
+    ; ("Err", "Err")
+    ; ("O", "0")
     ; ("Z0" ,"0")
     ; ("nil", "[]")
     ; ("true", "true")
@@ -124,7 +128,7 @@ Section LiquidityExtractionSetup.
       lmd_module_name := "liquidity_counter" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [prod_ops;int_ops; sig_def; exist_def];
+      lmd_prelude := concat nl [prod_ops;int_ops; sig_def; exist_def; result_def];
 
       (* initial storage *)
       lmd_init := init ;

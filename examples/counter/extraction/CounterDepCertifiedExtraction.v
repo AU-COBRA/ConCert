@@ -44,13 +44,13 @@ Module Counter.
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st :  Z × nat) (new_balance : Z)
-               (p : (0 <=? new_balance) = true) :=
+  Definition inc_balance (st :  storage) (new_balance : Z)
+               (p : (0 <=? new_balance) = true) : storage :=
     (st.1 + new_balance, st.2).
 
 
   Definition dec_balance (st : storage) (new_balance : Z)
-             (p : (0 <=? new_balance) = true) :=
+             (p : (0 <=? new_balance) = true): storage :=
     (st.1 -  new_balance, st.2).
 
   Definition my_bool_dec := Eval compute in bool_dec.
@@ -104,6 +104,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
   ; remap <%% option %%> "option"
+  ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
   ; remap <%% Z.sub %%> "subInt"
   ; remap <%% Z.leb %%> "leInt"
@@ -117,6 +118,9 @@ Definition TT_remap : list (kername * string) :=
 Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
+  ; ("Ok", "Ok")
+  ; ("Err", "Err")
+  ; ("O", "0")
   ; ("Z0" ,"0")
   ; ("nil", "[]")
   ; ("true", "true")
@@ -127,7 +131,7 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
      lmd_module_name := "liquidity_counter" ;
 
      (* definitions of operations on pairs and ints *)
-     lmd_prelude := prod_ops ++ nl ++ int_ops;
+     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ result_def;
 
      (* initial storage *)
      lmd_init := init ;

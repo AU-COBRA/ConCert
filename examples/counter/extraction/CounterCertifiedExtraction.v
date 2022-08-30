@@ -44,10 +44,10 @@ Module Counter.
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st : storage) (new_balance : Z) :=
+  Definition inc_balance (st : storage) (new_balance : Z) : storage :=
     (st.1 + new_balance, st.2).
 
-  Definition dec_balance (st : storage) (new_balance : Z) :=
+  Definition dec_balance (st : storage) (new_balance : Z) : storage :=
     (st.1 - new_balance, st.2).
 
   Definition counter (msg : msg)
@@ -69,7 +69,7 @@ Module Counter.
      lmd_module_name := "liquidity_counter" ;
 
      (* definitions of operations on pairs and ints *)
-     lmd_prelude := prod_ops ++ nl ++ int_ops;
+     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ result_def;
 
      (* initial storage *)
      lmd_init := init ;
@@ -154,6 +154,7 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
   ; remap <%% option %%> "option"
+  ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
   ; remap <%% Z.sub %%> "subInt"
   ; remap <%% Z.leb %%> "leInt"
@@ -167,6 +168,9 @@ Definition TT_remap : list (kername * string) :=
 Definition TT_rename :=
   [ ("Some", "Some")
   ; ("None", "None")
+  ; ("Ok", "Ok")
+  ; ("Err", "Err")
+  ; ("O", "0")
   ; ("Z0" ,"0")
   ; ("nil", "[]") ].
 
