@@ -115,13 +115,12 @@ jobs:
     - name: Push to the extraction results repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
-        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+        SSH_DEPLOY_KEY: ${{ secrets.EXTRACTION_RESULTS_DEPLOY_KEY }}
       with:
         source-directory: 'extraction/tests/extracted-code'
         destination-github-username: 'AU-COBRA'
         destination-repository-name: 'extraction-resutls'
         user-email: danil.v.annenkov@gmail.com
-        user-name: annenkov
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
       # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
