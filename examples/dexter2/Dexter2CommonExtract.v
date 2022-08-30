@@ -52,13 +52,16 @@ Definition mutez_to_natural_ligo : String.string :=
 (** We change the signature of the original definition slightly, so it takes a [nat] and converts
     in to [tez]. We also return [operation option] instead of failing *)
 Definition xtz_transfer_ligo : String.string :=
-  <$ "let xtz_transfer (to_ : address) (amount_ : nat) : operation option =";
+  <$ "let xtz_transfer (to_ : address) (amount_ : nat) : (operation, nat) result =";
      "  match (Tezos.get_contract_opt to_ : unit contract option) with";
-     "    | None -> None";
-     "    | Some c -> Some (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
+     "    | None -> Err 0n";
+     "    | Some c -> Ok (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
 
 Definition subNatTruncated_ligo : String.string :=
   "let subNTruncated (n : nat) (m : nat) : nat = if n < m then 0n else abs (n-m)".
+
+Definition divN_res_ligo : String.string :=
+  "let divN_res (n : nat) (m : nat) : (nat, nat) result = match ediv n m with | Some (q,_) -> Ok q | None -> Err 0n".
 
 (** Remapping arithmetic operations. *)
 (** We override the default remappings of aritmetic operations since it remaps [Z] to
@@ -121,4 +124,6 @@ Definition TT_inlines_dexter2 : list kername :=
   ; <%% @Dexter2CPMM.setter_from_getter_State_freezeBaker %%>
   ; <%% @Dexter2CPMM.setter_from_getter_State_manager %%>
   ; <%% @Dexter2CPMM.setter_from_getter_State_lqtAddress %%>
+  ; <%% Dexter2CPMM.default_error %%>
+  ; <%% Dexter2FA12.default_error %%>
 ].

@@ -104,6 +104,7 @@ Section EIP20TokenExtraction.
       TT_rename_ctors_default [] "cctx_instance" LIGO_EIP20Token_MODULE).
 
   Time Definition cameLIGO_eip20token := Eval vm_compute in cameLIGO_eip20token_prepared.
+
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "../extraction/tests/extracted-code/cameligo-extract/eip20tokenCertifiedExtraction.mligo"
     MetaCoq Run (tmMsg (bytestring.String.of_string cameLIGO_eip20token)).
