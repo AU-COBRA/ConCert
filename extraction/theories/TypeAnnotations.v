@@ -96,7 +96,7 @@ Section annotate.
       let erΓ1 := Vector.append (Vector.const RelOther #|Γ0|) erΓ in
       (annotate_types (Γ,,,Γ0) (Vector.cast erΓ1 (app_length_transparent _ _)) t _ et _, annotate_branches Γ _ brs ebrs pr _);
     annotate_branches _ _ _ _ _ _ := !.
-  Proof. all: try now depelim wf. Qed.
+  Proof. all: try now depelim wf. Defined.
 
 
   (** Determines whether a type var should be created on the base of [last_var_level].
