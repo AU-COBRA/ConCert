@@ -46,7 +46,7 @@ Section EIP20Token.
     }.
   
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   (* begin hide *)
   MetaCoq Run (make_setters State).

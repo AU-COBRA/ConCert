@@ -56,7 +56,7 @@ Section Escrow.
     }.
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   Inductive Msg :=
   | commit_money

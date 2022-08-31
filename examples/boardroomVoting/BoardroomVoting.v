@@ -63,7 +63,7 @@ Module BoardroomVoting (Params : BoardroomParams).
     }.
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   (* w, a1, b1, a2, b2, d1, d2 *)
   Definition VoteProof := (Z * A * A * A * A * Z * Z * Z * Z)%type.

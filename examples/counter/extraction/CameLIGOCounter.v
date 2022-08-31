@@ -31,7 +31,7 @@ Module Counter.
   Definition storage := Z × address.
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   Definition init (setup : Z * address) : result storage Error :=
     Ok setup.

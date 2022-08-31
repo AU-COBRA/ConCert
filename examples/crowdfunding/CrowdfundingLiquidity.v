@@ -74,7 +74,7 @@ Definition printWrapperAndMain :=
 Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
 Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
 Definition Error : Type := nat.
-Definition default_error : Error := 0%nat.
+Definition default_error : Error := 1%nat.
 
 Definition crowdfunding_init (ctx : SimpleCallCtx)
                              (setup : (time_coq × Z × address_coq))
@@ -115,7 +115,7 @@ Definition CROWDFUNDING_MODULE :
          ++ Common.nl
          ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
          ++ Common.nl
-         ++ "let default_error = 0 in" ;
+         ++ "let default_error = 1 in" ;
 
 
      (* the main functionality *)

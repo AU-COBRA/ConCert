@@ -32,7 +32,7 @@ Module Counter.
   Definition operation := unit.
   Definition storage := Z × address.
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)

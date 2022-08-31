@@ -76,7 +76,7 @@ Section FA12Types.
   }.
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   (* Any contract that wants to receive callback messages from the FA1.2 liquidity contract
     should have this type as its Msg type. The contract may have other endpoints,

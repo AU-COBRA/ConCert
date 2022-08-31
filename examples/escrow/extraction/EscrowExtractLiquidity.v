@@ -64,7 +64,7 @@ Module EscrowLiquidityExtraction.
         ++ nl ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
         ++ nl ++ "let eq_addr (a1 : address) (a2 : address) = a1 = a2 in"
         ++ nl ++ "let andb (a : bool ) (b : bool ) = a & b in"
-        ++ nl ++ "let default_error = 0 in"
+        ++ nl ++ "let default_error = 1 in"
         ++ nl;
 
       (* the main functionality *)

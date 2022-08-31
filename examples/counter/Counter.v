@@ -34,7 +34,7 @@ Section Counter.
   | Dec (i : Z).
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   (** Since a contract is essentially a state transition function, we isolate
       the functionality corresponding to each kind of message into step functions *)

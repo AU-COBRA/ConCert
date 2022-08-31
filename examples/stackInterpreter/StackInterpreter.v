@@ -42,7 +42,7 @@ Section StackInterpreter.
   Definition storage := list value.
 
   Definition Error : Type := nat.
-  Definition default_error : Error := 0%nat.
+  Definition default_error : Error := 1%nat.
 
   Definition init (chain : Chain)
                   (ctx : ContractCallContext)
