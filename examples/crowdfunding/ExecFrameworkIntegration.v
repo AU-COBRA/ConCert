@@ -6,6 +6,7 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
+From ConCert.Examples.Crowdfunding Require Import CrowdfundingCorrect.
 
 From Coq Require Import String.
 From Coq Require Import Basics.
@@ -17,6 +18,7 @@ From Coq Require Import Program.Tactics.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
@@ -79,31 +81,35 @@ Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
   Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
-    Chain -> ContractCallContext -> Setup -> option State_coq
-    := fun c cc setup => Some (f (of_contract_call_context cc) (fst setup) (snd setup)).
+    Chain -> ContractCallContext -> Setup -> result State_coq unit
+    := fun c cc setup => Ok (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
   Definition wrapped_init
-    : Chain -> ContractCallContext -> Setup -> option State_coq
+    : Chain -> ContractCallContext -> Setup -> result State_coq unit
     := init_wrapper Init.init.
 
-    Definition receive_wrapper
+  Definition receive_wrapper
              (f : SimpleChain_coq ->
                   SimpleContractCallContext_coq ->
                    Msg_coq -> State_coq -> option (State_coq * list SimpleActionBody_coq)) :
     Chain -> ContractCallContext ->
-    State_coq -> option Msg_coq -> option (State_coq * list ActionBody) :=
-    fun ch cc st msg => match msg with
-                       Some msg' => option_map (fun '(st0,acts) => (st0, map to_action_body acts)) (f (of_chain ch) (of_contract_call_context cc) msg' st)
-                     | None => None
-                     end.
+    State_coq -> option Msg_coq -> result (State_coq * list ActionBody) unit :=
+    fun ch cc st msg =>
+      match msg with
+      | Some msg' =>
+        let res := option_map (fun '(st0,acts) => (st0, map to_action_body acts))
+                              (f (of_chain ch) (of_contract_call_context cc) msg' st) in
+        result_of_option res tt
+      | None => Err tt
+      end.
 
   Definition wrapped_receive
-    : Chain -> ContractCallContext -> State_coq -> option Msg_coq -> option (State_coq * list ActionBody)
+    : Chain -> ContractCallContext -> State_coq -> option Msg_coq -> result (State_coq * list ActionBody) unit
     := receive_wrapper Receive.receive.
 
 End Wrappers.
 
-Definition cf_contract : Contract Setup Msg_coq State_coq :=
+Definition cf_contract : Contract Setup Msg_coq State_coq unit :=
   build_contract wrapped_init wrapped_receive.
 
 Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_coq :=
@@ -130,7 +136,7 @@ Proof.
 
   assert (Hreceive:
             forall chain ctx prev_state msg new_state new_acts,
-              wrapped_receive chain ctx prev_state msg = Some (new_state, new_acts) ->
+              wrapped_receive chain ctx prev_state msg = Ok (new_state, new_acts) ->
               consistent_balance_deadline (current_slot chain) prev_state ->
               consistent_balance_deadline (current_slot chain) new_state).
   {
@@ -242,7 +248,7 @@ Lemma cf_not_sending_deploy_or_call (bstate : ChainState) addr :
 Proof.
   assert (receive_only_transfer:
             forall chain ctx cstate msg new_cstate acts,
-              wrapped_receive chain ctx cstate msg = Some (new_cstate, acts) ->
+              wrapped_receive chain ctx cstate msg = Ok (new_cstate, acts) ->
               Forall (fun a => ~~ is_deploy a && ~~ is_call a) acts).
   {
     intros ? ? ? ? ? ? receive_some.

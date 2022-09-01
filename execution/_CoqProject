@@ -9,11 +9,12 @@ theories/BuildUtils.v
 theories/ChainedList.v
 theories/Circulation.v
 theories/Containers.v
-theories/ContractMonads.v
 theories/Finite.v
 theories/InterContractCommunication.v
-theories/Monads.v
+theories/Monad.v
+theories/OptionMonad.v
 theories/ResultMonad.v
+theories/ContractMonads.v
 theories/Serializable.v
 theories/ContractCommon.v
 

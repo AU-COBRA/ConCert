@@ -5,7 +5,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon. Import AddressMap.
@@ -89,7 +89,7 @@ Definition oneN : N := 1%N.
 Definition hash_func (l : list positive) : positive :=
   N.succ_pos (fold_left (fun a p => N.lxor (Npos p) a) l oneN).
 
-  
+
 Definition AddrSize := (2^128)%N.
 Instance Base : ChainBase := LocalChainBase AddrSize.
 Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.

@@ -28,19 +28,16 @@ Module DexterGens (Info : DexterTestsInfo).
       amount <- choose (1%N, balance) ;;
       returnGenSome amount.
 
-  Definition gTokenExchange (state : EIP20Token.State) (caller : Address) : G (option Dexter.Msg):=
+  Definition gTokenExchange (state : EIP20Token.State)
+                            (caller : Address)
+                            : G (option Dexter.Msg) :=
     let caller_tokens : N := Extras.with_default 0%N (FMap.find caller state.(balances)) in
     tokens_to_exchange <- gTokensToExchange caller_tokens ;;
     let exchange_msg := {|
       exchange_owner := caller;
       tokens_sold := tokens_to_exchange;
     |} in
-    returnGenSome (tokens_to_asset exchange_msg)
-  .
-
-  Definition liftOptGen {A : Type} (g : G A) : GOpt A :=
-    a <- g ;;
-    returnGenSome a.
+    returnGenSome (tokens_to_asset exchange_msg).
 
   Definition gDexterAction (env : Environment) : GOpt Action :=
     let mk_call caller_addr amount msg :=

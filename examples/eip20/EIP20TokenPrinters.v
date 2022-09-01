@@ -12,17 +12,25 @@ Instance showTokenValue : Show TokenValue :=
 
 Instance showMsg : Show Msg :=
 {|
-  show m := match m with
-            | transfer to amount => "transfer " ++ show to ++ " " ++ show amount
-            | transfer_from from to amount =>
-              "transfer_from " ++ show from ++ " " ++ show to ++ " " ++ show amount
-            | approve delegate amount => "approve " ++ show delegate ++ " " ++ show amount
-            end
+  show m :=
+    match m with
+    | transfer to amount =>
+        "transfer " ++ show to ++ " " ++ show amount
+    | transfer_from from to amount =>
+        "transfer_from " ++ show from ++ " " ++ show to ++ " " ++ show amount
+    | approve delegate amount =>
+        "approve " ++ show delegate ++ " " ++ show amount
+    end
 |}.
 
 Instance showTokenSetup : Show Setup :=
 {|
-  show setup := "Setup{owner: " ++ show setup.(owner) ++ sep ++ "init_amount: " ++ show setup.(init_amount) ++ "}"
+  show setup := "Setup{owner: "
+              ++ show setup.(owner)
+              ++ sep
+              ++ "init_amount: "
+              ++ show setup.(init_amount)
+              ++ "}"
 |}.
 
 Instance showTokenState : Show EIP20Token.State :=

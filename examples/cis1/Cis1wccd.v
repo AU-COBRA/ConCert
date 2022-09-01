@@ -8,7 +8,7 @@
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Logic.Eqdep_dec.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
@@ -42,7 +42,7 @@ Section WccdToken.
       wccd_td_to       : Address }.
 
   Inductive OpUpdateKind :=
-    opAdd
+  | opAdd
   | opDelete.
 
   Inductive Msg :=
@@ -56,8 +56,8 @@ Section WccdToken.
 
   (** The state tracked for each address.*)
   Record AddressState := {
-        wccd_balance:   TokenAmount;
-        wccd_operators: list Address
+      wccd_balance:   TokenAmount;
+      wccd_operators: list Address
     }.
 
   (* begin hide *)

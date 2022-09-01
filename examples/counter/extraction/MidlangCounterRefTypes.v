@@ -11,6 +11,7 @@ From ConCert.Extraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
+From Coq Require Import Lia.
 From Coq Require Import String.
 From Coq Require Import ZArith.
 
@@ -47,8 +48,6 @@ Module CounterRefinmentTypes.
   Definition storage := Z.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
-
-  Import Lia.
 
   Program Definition inc_counter (st : storage) (inc : {z : Z | 0 <? z}) :
     {new_st : storage | st <? new_st} :=
@@ -101,17 +100,16 @@ Definition counter_name := <%% CounterRefinmentTypes.counter %%>.
 (** A translation table for various constants we want to rename *)
 
 Definition TT : list (kername * string) := Eval compute in
-  [
-       remap <%% Z.add %%> "add"
-     ; remap <%% Z.sub %%> "sub"
-     ; remap <%% Z.leb %%> "le"
-     ; remap <%% Z.ltb %%> "lt"
-     ; remap <%% Z %%> "Int"
-     ; ((<%% Z %%>.1, "Z0"%bs),"0")
-     ; remap <%% nat %%> "AccountAddress"
-     ; remap <%% CounterRefinmentTypes.Transaction %%> "Transaction"
-     ; remap <%% CounterRefinmentTypes.Transaction_none %%> "Transaction.none"
-     ; remap <%% bool %%> "Bool" ].
+  [   remap <%% Z.add %%> "add"
+    ; remap <%% Z.sub %%> "sub"
+    ; remap <%% Z.leb %%> "le"
+    ; remap <%% Z.ltb %%> "lt"
+    ; remap <%% Z %%> "Int"
+    ; ((<%% Z %%>.1, "Z0"%bs),"0")
+    ; remap <%% nat %%> "AccountAddress"
+    ; remap <%% CounterRefinmentTypes.Transaction %%> "Transaction"
+    ; remap <%% CounterRefinmentTypes.Transaction_none %%> "Transaction.none"
+    ; remap <%% bool %%> "Bool" ].
 
 Definition midlang_counter_translate (name : kername) : option string :=
   match find (fun '(key, _) => eq_kername key name) (TT ++ midlang_translation_map) with
@@ -140,7 +138,7 @@ Definition counter_extract :=
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 
-Definition counter_result:= Eval compute in
+Definition counter_result := Eval compute in
      (env <- counter_extract ;;
       '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
       ret lines).

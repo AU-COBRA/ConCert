@@ -3,7 +3,8 @@ This format, SerializedValue, is either a unit/int/bool or a pair/list
 of these. We also define Serializable as a type class capturing that a
 type can be converted from and to this format. *)
 
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import OptionMonad.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.
 From Coq Require Import Ascii.
@@ -748,7 +749,7 @@ Proof.
   induction l as [| hd tl IHl];
     intros * HA deser_some;
     cbn.
-  - 
+  -
     destruct ty;
       try discriminate;
       destruct val;

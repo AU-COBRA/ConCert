@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Import Congress_BuggyGens.
@@ -64,8 +64,8 @@ End NotationInfo.
 Module TN := TestNotations NotationInfo. Import TN.
 (* Sample gChain. *)
 
-(* Definition gCongressChain max_acts_per_block congress_cb max_length := 
-  let act_depth := 2 in 
+(* Definition gCongressChain max_acts_per_block congress_cb max_length :=
+  let act_depth := 2 in
   gChain congress_cb
     (fun env act_depth => GCongressAction env act_depth congress_caddr) max_length act_depth max_acts_per_block.
 
@@ -109,8 +109,8 @@ Definition receive_state_well_behaved_P (chain : Chain)
   {{receive_state_well_behaved_P}}
 ). *)
 
-(* 
-Chain{| 
+(*
+Chain{|
 Block 1 [];
 Block 2 [
 Action{act_from: 10%256, act_body: (act_deploy 50, <FAILED DESERIALIZATION>)};

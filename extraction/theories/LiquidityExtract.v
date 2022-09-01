@@ -4,6 +4,7 @@ From MetaCoq.PCUIC Require Import PCUICAst.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Optimize.
@@ -25,20 +26,20 @@ Definition to_constant_decl (gd : option global_decl) :=
   | None => tmFail "Error (expected constant with a body)"
   end.
 
-Record LiquidityMod (msg init_ctx params storage operation : Type) :=
+Record LiquidityMod (msg init_ctx params storage operation error : Type) :=
   { lmd_module_name : String.string ;
     lmd_prelude : String.string ;
-    lmd_init : init_ctx -> params -> option storage;
+    lmd_init : init_ctx -> params -> ConCert.Execution.ResultMonad.result storage error;
     lmd_init_prelude : String.string ;
-    lmd_receive : msg -> storage -> option (list operation * storage);
+    lmd_receive : msg -> storage -> ConCert.Execution.ResultMonad.result (list operation * storage) error;
     lmd_entry_point : String.string }.
 
-Arguments lmd_module_name {_ _ _ _ _}.
-Arguments lmd_prelude {_ _ _ _ _}.
-Arguments lmd_init {_ _ _ _ _}.
-Arguments lmd_init_prelude {_ _ _ _ _}.
-Arguments lmd_receive {_ _ _ _ _}.
-Arguments lmd_entry_point {_ _ _ _ _}.
+Arguments lmd_module_name {_ _ _ _ _ _}.
+Arguments lmd_prelude {_ _ _ _ _ _}.
+Arguments lmd_init {_ _ _ _ _ _}.
+Arguments lmd_init_prelude {_ _ _ _ _ _}.
+Arguments lmd_receive {_ _ _ _ _ _}.
+Arguments lmd_entry_point {_ _ _ _ _ _}.
 
 (* We override masks for *some* constants that have only logical parameters, like
    [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
@@ -269,7 +270,7 @@ Definition wrap_in_delimiters (s : String.string) : String.string :=
 Definition WITH_UNIVERSES := false.
 
 
-Definition liquidity_extraction_ {msg ctx params storage operation : Type}
+Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
            (printLiquidityDefs_ : String.string ->
                                  global_env ->
                                  env String.string ->
@@ -280,7 +281,7 @@ Definition liquidity_extraction_ {msg ctx params storage operation : Type}
            (TT_defs : list (kername *  String.string))
            (TT_ctors : env String.string)
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation) : TemplateMonad String.string :=
+           (m : LiquidityMod msg ctx params storage operation error) : TemplateMonad String.string :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(lmd_init);;
   receive_nm <- extract_def_name m.(lmd_receive);;
@@ -311,10 +312,10 @@ Definition is_empty {A} (xs : list A) :=
   end.
 
 Definition quote_and_preprocess {Base : ChainBase}
-           {msg ctx params storage operation : Type}
+           {msg ctx params storage operation error : Type}
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation)
-  : TemplateMonad (global_env * kername * kername) :=
+           (m : LiquidityMod msg ctx params storage operation error)
+          : TemplateMonad (global_env * kername * kername) :=
    (* we compute with projections before quoting to avoid unnecessary dependencies to be quoted *)
    init <- tmEval cbn m.(lmd_init);;
    receive <-tmEval cbn m.(lmd_receive);;
@@ -342,12 +343,12 @@ Definition quote_and_preprocess {Base : ChainBase}
     The definition consist of a call to erasure and pretty-printing for further
     evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
     which is much faster than running the computations inside [TemplateMonad]. *)
-Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation : Type}
+Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation error : Type}
            (prefix : String.string)
            (TT_defs : list (kername *  String.string))
            (TT_ctors : env String.string)
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation)  :=
+           (m : LiquidityMod msg ctx params storage operation error)  :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
@@ -362,6 +363,9 @@ Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params stora
   tmDefinition (bytestring.String.of_string m.(lmd_module_name) ++ "_prepared") res.
 
 (* Liquidity extraction *without* chainbase specialization *)
-Definition liquidity_extraction {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs.
+Definition liquidity_extraction {msg ctx params storage operation error : Type} :=
+  @liquidity_extraction_ msg ctx params storage operation error printLiquidityDefs.
+
 (* Liquidity extraction *with* chainbase specialization *)
-Definition liquidity_extraction_specialize {msg ctx params storage operation : Type} := @liquidity_extraction_ msg ctx params storage operation printLiquidityDefs_specialize.
+Definition liquidity_extraction_specialize {msg ctx params storage operation error : Type} :=
+  @liquidity_extraction_ msg ctx params storage operation error printLiquidityDefs_specialize.

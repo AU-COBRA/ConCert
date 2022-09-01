@@ -6,6 +6,9 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
+From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require OptionMonad.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Execution Require Import ContractCommon.
@@ -21,8 +24,7 @@ Local Open Scope string_scope.
 Definition PREFIX := "".
 
 Definition TT_remap_default : list (kername * string) :=
-  [
-    (* types *)
+  [ (* types *)
     remap <%% Z %%> "tez"
   ; remap <%% N %%> "int"
   ; remap <%% nat %%> "nat"
@@ -32,13 +34,15 @@ Definition TT_remap_default : list (kername * string) :=
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
+  ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
   ; remap <%% positive %%> "nat"
   ; remap <%% Amount %%> "tez"
   ; remap <%% @Address %%> "address"
 
   (* operations *)
-  (* Note: N is mapped to Int instead of nat because Liquidity's minus operator on nats returns an int, 
-     which is not compatible with N.sub since it returns an N *)
+  (* Note: N is mapped to Int instead of nat because Liquidity's minus
+     operator on nats returns an int, which is not compatible with
+     N.sub since it returns an N *)
   ; remap <%% List.fold_left %%> "List.fold"
   ; remap <%% Pos.add %%> "addNat"
   ; remap <%% Pos.sub %%> "subNat"
@@ -74,29 +78,38 @@ Section EIP20TokenExtraction.
       (ctx : ContractCallContext)
       (state : EIP20Token.State)
       (maybe_msg : option EIP20Token.Msg)
-    : option (list ActionBody * EIP20Token.State) :=
+      : result (list ActionBody * EIP20Token.State) Error :=
     let sender := ctx.(ctx_from) in
-    let without_actions := option_map (fun new_state => ([], new_state)) in
+    let without_actions x := x >>= (fun new_state => Ok ([], new_state)) in
     match maybe_msg with
-    | Some (transfer to_addr amountt) => without_actions (try_transfer sender to_addr amountt state)
-    | Some (transfer_from from to_addr amountt) => without_actions (try_transfer_from sender from to_addr amountt state)
-   | Some (approve delegate amount) => without_actions (try_approve sender delegate amount state)
-    | _ => None
+    | Some (transfer to_addr amountt) =>
+        without_actions (try_transfer sender to_addr amountt state)
+    | Some (transfer_from from to_addr amountt) =>
+        without_actions (try_transfer_from sender from to_addr amountt state)
+    | Some (approve delegate amount) =>
+        without_actions (try_approve sender delegate amount state)
+    | _ => Err default_error
     end.
 
   Definition receive_wrapper
              (params : params)
-             (st : State) : option (list ActionBody × State) :=
+             (st : State)
+             : result (list ActionBody × State) Error :=
     test_receive params.1 st params.2.
 
   (* The same as for [test_receive].
      TODO: remove, once the [LiquidityMod] is fixed. *)
-  Definition init (ctx : ContractCallContext) (setup : EIP20Token.Setup) : option EIP20Token.State :=
+  Definition init (ctx : ContractCallContext)
+                  (setup : EIP20Token.Setup)
+                  : result EIP20Token.State Error :=
     (* ensure extraction does not optimize unused ctx away
-       NOTE: can be dealt with in a better way using the mask-override mechanism of dearging *)
+       NOTE: can be dealt with in a better way using
+       the mask-override mechanism of dearging *)
     let ctx_ := ctx in
-    Some {| total_supply := setup.(init_amount);
-            balances := AddressMap.add (EIP20Token.owner setup) (init_amount setup) AddressMap.empty;
+    Ok {| total_supply := setup.(init_amount);
+            balances := AddressMap.add (EIP20Token.owner setup)
+                                       (init_amount setup)
+                                       AddressMap.empty;
             allowances := AddressMap.empty |}.
   Open Scope Z_scope.
 
@@ -104,16 +117,15 @@ Section EIP20TokenExtraction.
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " (" ++ liquidity_call_ctx ++ ", param) st" ++ " with"
-        ++ "| Some v -> v"
-        ++ "| None -> failwith ()".
+        ++ "| Ok v -> v"
+        ++ "| Err e -> failwith e".
 
-  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody :=
+  Definition EIP20Token_MODULE : LiquidityMod params ContractCallContext EIP20Token.Setup EIP20Token.State ActionBody Error :=
   {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_eip20token" ;
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude := LPretty.LiquidityPrelude;
-
 
       (* initial storage *)
       lmd_init := init ;
@@ -124,33 +136,40 @@ Section EIP20TokenExtraction.
       lmd_receive := receive_wrapper ;
 
       (* code for the entry point *)
-      lmd_entry_point := "type storage = state" ++ nl
-                          ++ printERC20Wrapper (PREFIX ++ "receive_wrapper") ++ nl
-      ++ LPretty.printMain |}.
+      lmd_entry_point := "type storage = state"
+                          ++ nl
+                          ++ printERC20Wrapper (PREFIX ++ "receive_wrapper")
+                          ++ nl
+                          ++ LPretty.printMain
+  |}.
 
 
   Definition TT_remap_eip20token : list (kername * string) :=
     TT_remap_default ++ [
-    remap <%% @ContractCallContext %%> "(timestamp * (address * (tez * tez)))"
-  ; remap <%% @ctx_from %%> "(fun x -> x.(1).(0))" (* small hack, but valid since ContractCallContext is mapped to a tuple *)
-  ; remap <%% gmap.gmap %%> "map"
-  ; remap <%% @AddressMap.add %%> "Map.add"
-  ; remap <%% @AddressMap.find %%> "Map.find"
-  ; remap <%% @AddressMap.empty %%> "(Map [])"
+      remap <%% @ContractCallContext %%> "(timestamp * (address * (tez * tez)))"
+      (* small hack, but valid since ContractCallContext is mapped to a tuple *)
+    ; remap <%% @ctx_from %%> "(fun x -> x.(1).(0))"
+    ; remap <%% gmap.gmap %%> "map"
+    ; remap <%% @AddressMap.add %%> "Map.add"
+    ; remap <%% @AddressMap.find %%> "Map.find"
+    ; remap <%% @AddressMap.empty %%> "(Map [])"
   ].
 
   Definition TT_rename_eip20token :=
     [ ("Z0" ,"0tez")
     ; ("N0", "0")
     ; ("N1", "1")
+    ; ("O", "0")
+    ; ("Ok", "Ok")
+    ; ("Err", "Err")
     ; ("nil", "[]")
     ; ("tt", "()") ].
 
-  Definition TT_inlines_eip20token : list kername := 
-    [
-      <%% Monads.Monad_option %%>
-    ; <%% @Monads.bind %%>
-    ; <%% @Monads.ret %%>
+  Definition TT_inlines_eip20token : list kername :=
+    [ <%% OptionMonad.Monad_option %%>
+    ; <%% @ConCert.Execution.ResultMonad.Monad_result %%>
+    ; <%% @Monad.bind %%>
+    ; <%% @Monad.ret %%>
     ; <%% bool_rect %%>
     ; <%% bool_rec %%>
     ; <%% option_map %%>
@@ -161,17 +180,16 @@ Section EIP20TokenExtraction.
     ; <%% @setter_from_getter_State_allowances %%>
     ; <%% @set_State_balances %%>
     ; <%% @set_State_allowances%%>
-
     ].
 
   Time MetaCoq Run
-  (liquidity_prepare_extraction PREFIX TT_remap_eip20token TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE).
-
+    (liquidity_prepare_extraction PREFIX TT_remap_eip20token
+      TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE).
 
   Time Definition liquidity_eip20token := Eval vm_compute in liquidity_eip20token_prepared.
-  
+
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "../extraction/tests/extracted-code/liquidity-extract/liquidity_eip20token.liq"
-  MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).
+    MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).
 
 End EIP20TokenExtraction.

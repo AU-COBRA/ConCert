@@ -10,6 +10,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 
 Import MCMonadNotation.
 
@@ -24,12 +25,16 @@ Module Counter.
   Set Nonrecursive Elimination Schemes.
 
   (** The definitions in this section are generalized over the [ChainBase] that specifies the type of addresses and which properties such a type must have *)
-  Notation address := nat.
+  Definition address := nat.
 
   Definition operation := ActionBody.
   Definition storage := Z × address.
 
-  Definition init (setup : Z * address) : option storage := Some setup.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 1%nat.
+
+  Definition init (setup : Z * address) : result storage Error :=
+    Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
@@ -41,17 +46,18 @@ Module Counter.
   Definition dec_balance (st : storage) (new_balance : Z) :=
     (st.1 - new_balance, st.2).
 
-  Definition counter_inner (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter_inner (msg : msg)
+                           (st : storage)
+                           : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
-        Some ([],inc_balance st i)
-      else None
+        Ok ([],inc_balance st i)
+      else Err default_error
     | Dec i =>
       if (0 <=? i) then
-        Some ([],dec_balance st i)
-      else None
+        Ok ([],dec_balance st i)
+      else Err default_error
     end.
 
   Definition counter (c : Chain) (ctx : ContractCallContext) st msg :=
@@ -60,11 +66,11 @@ Module Counter.
     let c_ := c in
     let ctx_ := ctx in
     match msg with
-    | Some msg =>counter_inner msg st
-    | None => None
+    | Some msg => counter_inner msg st
+    | None => Err default_error
     end.
 
-  Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation :=
+  Definition LIGO_COUNTER_MODULE : CameLIGOMod msg _ (Z × address) storage operation Error :=
     {| (* a name for the definition with the extracted code *)
         lmd_module_name := "cameLIGO_counter" ;
 
@@ -85,7 +91,8 @@ Module Counter.
 
         (* code for the entry point *)
         lmd_entry_point :=
-          CameLIGOPretty.printMain "counter" "msg" "storage" |}.
+          CameLIGOPretty.printMain "counter" "msg" "storage"
+    |}.
 
 End Counter.
 Section CounterExtraction.
@@ -104,7 +111,7 @@ Section CounterExtraction.
     ; remap <%% Z.abs_N %%> "abs"
     ; remap <%% address_coq %%> "address"
     ; remap <%% time_coq %%> "timestamp"
-    ; remap <%% nat %%> "address"
+    ; remap <%% address %%> "address"
     ; remap <%% operation %%> "operation"
     ].
 

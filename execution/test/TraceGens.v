@@ -159,7 +159,7 @@ Section TraceGens.
         | Ok r => returnGen (Ok r)
         end
       end.
-  
+
   Definition try_repeated {T E} (default : E) (n : nat) (g : G (result T E)) : G (result T E) :=
     backtrack_result default (repeat (1, g) n).
 
@@ -483,7 +483,7 @@ Section TraceGens.
                               : Checker :=
     let printOnFail (cs : ChainState) : Checker := whenFail (show cs) (checker (implied_prop cs)) in
     let map_implication (states : list ChainState) : list Checker :=
-       snd (fold_left (fun '(b, checkers) state => 
+       snd (fold_left (fun '(b, checkers) state =>
         (b && (pf state), (implication b (printOnFail state)) :: checkers)) states (true, [])) in
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => conjoin (map_implication (trace_states (builder_trace cb)))).

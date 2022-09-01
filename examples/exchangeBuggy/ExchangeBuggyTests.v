@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ContractCommon.
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Execution.Test Require TestUtils.
@@ -23,36 +23,40 @@ Definition exchange_caddr : Address := addr_of_Z 129.
 Definition exploit_caddr : Address := addr_of_Z 130.
 
 Section ExplotContract.
-Definition ExploitContractMsg := fa2_token_sender.
-Definition ExploitContractState := nat.
-Definition ExplotContractSetup := unit.
-Definition exploit_init
-            (chain : Chain)
-            (ctx : ContractCallContext)
-            (setup : ExplotContractSetup) : option ExploitContractState :=
-  Some 1.
-Definition exploit_receive (chain : Chain)
-                   (ctx : ContractCallContext)
-                   (state : ExploitContractState)
-                   (maybe_msg : option ExploitContractMsg)
-                   : option (ExploitContractState * list ActionBody) :=
-  match maybe_msg with
-  | Some (tokens_sent param) =>
-    if 5 <? state (* Repeat reentrancy up to five times *)
-    then Some (state, [])
-    else
-      let token_exchange_msg := other_msg (tokens_to_asset {|
-        exchange_owner := person_1;
-        ExchangeBuggy.exchange_token_id := exchange_token_id;
-        tokens_sold := 200%N;
-        callback_addr := ctx.(ctx_contract_address);
-      |}) in
-      Some (state + 1, [act_call exchange_caddr 0 (serialize token_exchange_msg)])
-  | _ => Some (state, [])
-  end.
+  Definition ExploitContractMsg := fa2_token_sender.
+  Definition ExploitContractState := nat.
+  Definition ExplotContractSetup := unit.
+  Definition ExplotContractError := unit.
+  Definition exploit_init
+              (chain : Chain)
+              (ctx : ContractCallContext)
+              (setup : ExplotContractSetup)
+              : result ExploitContractState ExplotContractError :=
+    Ok 1.
 
-Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState :=
-  build_contract exploit_init exploit_receive.
+  Definition exploit_receive
+              (chain : Chain)
+              (ctx : ContractCallContext)
+              (state : ExploitContractState)
+              (maybe_msg : option ExploitContractMsg)
+              : result (ExploitContractState * list ActionBody) ExplotContractError :=
+    match maybe_msg with
+    | Some (tokens_sent param) =>
+      if 5 <? state (* Repeat reentrancy up to five times *)
+      then Ok (state, [])
+      else
+        let token_exchange_msg := other_msg (tokens_to_asset {|
+          exchange_owner := person_1;
+          ExchangeBuggy.exchange_token_id := exchange_token_id;
+          tokens_sold := 200%N;
+          callback_addr := ctx.(ctx_contract_address);
+        |}) in
+        Ok (state + 1, [act_call exchange_caddr 0 (serialize token_exchange_msg)])
+    | _ => Ok (state, [])
+    end.
+
+  Definition exploit_contract : Contract ExplotContractSetup ExploitContractMsg ExploitContractState ExplotContractError :=
+    build_contract exploit_init exploit_receive.
 
 End ExplotContract.
 
@@ -162,13 +166,13 @@ Definition account_tokens (env : Environment) (account : Address) : N :=
 (* Compute exchange_liquidity. *)
 (* 30%Z *)
 
-(* --- PATH-DEPENDENCE --- 
-  This property is a consequence of the *path-dependence* property, 
+(* --- PATH-DEPENDENCE ---
+  This property is a consequence of the *path-dependence* property,
   and asserts that the token reserve of the exchange contract is consistent
   with how much money has been exchanged for tokens, with respect to the conversion function 'getInputPrice'.
   "Consistency" in this case means that given a sequence of trades for some account, the total tokens obtained
   by this sequence of trades should be less than if the trades were combined into a single trade, i.e.
-  *splitting trades should always be more expensive*  
+  *splitting trades should always be more expensive*
 *)
 Open Scope Z_scope.
 Definition tokens_to_asset_correct_P_opt (old_env new_env : Environment) : option Checker :=

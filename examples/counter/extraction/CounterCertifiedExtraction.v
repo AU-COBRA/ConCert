@@ -9,6 +9,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import String.
 From Coq Require Import Lia.
 From Coq Require Import ZArith.
@@ -26,44 +27,49 @@ Module Counter.
   Set Nonrecursive Elimination Schemes.
 
   (** The definitions in this section are generalized over the [ChainBase] that specifies the type of addresses and which properties such a type must have *)
-  Notation address := nat.
+  Definition address := nat.
 
   Definition operation := ActionBody.
   Definition storage := Z × address.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 1%nat.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : Z * address)
+                  : result storage Error :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+    Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st : storage) (new_balance : Z) :=
+  Definition inc_balance (st : storage) (new_balance : Z) : storage :=
     (st.1 + new_balance, st.2).
 
-  Definition dec_balance (st : storage) (new_balance : Z) :=
+  Definition dec_balance (st : storage) (new_balance : Z) : storage :=
     (st.1 - new_balance, st.2).
 
-  Definition counter (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter (msg : msg)
+                     (st : storage)
+                     : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       if (0 <=? i) then
-        Some ([],inc_balance st i)
-      else None
+        Ok ([],inc_balance st i)
+      else Err default_error
     | Dec i =>
       if (0 <=? i) then
-        Some ([],dec_balance st i)
-      else None
+        Ok ([],dec_balance st i)
+      else Err default_error
     end.
 
-  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+  Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
      (* definitions of operations on pairs and ints *)
-     lmd_prelude := prod_ops ++ nl ++ int_ops;
+     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ result_def;
 
      (* initial storage *)
      lmd_init := init ;
@@ -76,7 +82,8 @@ Module Counter.
 
      (* code for the entry point *)
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
-                       ++ printMain |}.
+                       ++ printMain
+  |}.
 
 
 
@@ -84,15 +91,18 @@ Module Counter.
   Definition counter_init (ch : Chain) (ctx : ContractCallContext) :=
     init_wrapper init ch ctx.
 
-  Definition counter_receive (chain : Chain) (ctx : ContractCallContext)
-              (st : storage) (msg : option msg) : option (storage * list ActionBody)
-    := match msg with
-        | Some m => match counter m st with
-                  | Some res => Some (res.2,res.1)
-                  | None => None
-                  end
-        | None => None
-        end.
+  Definition counter_receive (chain : Chain)
+                             (ctx : ContractCallContext)
+                             (st : storage)
+                             (msg : option msg)
+                             : result (storage * list ActionBody) Error :=
+    match msg with
+    | Some m => match counter m st with
+              | Ok res => Ok (res.2,res.1)
+              | Err e => Err e
+              end
+    | None => Err default_error
+    end.
 
   (** Deriving the [Serializable] instances for the state and for the messages *)
   Global Instance Msg_serializable : Serializable msg :=
@@ -109,25 +119,31 @@ Import Counter.
 Lemma inc_correct state n m :
   0 <= m ->
   state.1 = n ->
-  exists new_state, counter (Inc m) state = Some ([],new_state)
+  exists new_state, counter (Inc m) state = Ok ([],new_state)
                     /\ new_state.1 = (n + m)%Z.
 Proof.
   intros Hm Hn.
-  eexists. split.
-  - simpl. destruct ?; propify;auto;lia.
-  - simpl. congruence.
+  eexists.
+  split.
+  - simpl.
+    destruct ?; propify;auto;lia.
+  - simpl.
+    congruence.
 Qed.
 
 Lemma dec_correct state n m :
   0 <= m ->
   state.1 = n ->
-  exists new_state, counter (Dec m) state = Some ([],new_state)
+  exists new_state, counter (Dec m) state = Ok ([],new_state)
                     /\ new_state.1 = (n - m)%Z.
 Proof.
   intros Hm Hn.
-  eexists. split.
-  - simpl. destruct ?; propify;auto;lia.
-  - simpl. congruence.
+  eexists.
+  split.
+  - simpl.
+    destruct ?; propify;auto;lia.
+  - simpl.
+    congruence.
 Qed.
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
@@ -138,11 +154,12 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
   ; remap <%% option %%> "option"
+  ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
   ; remap <%% Z.sub %%> "subInt"
   ; remap <%% Z.leb %%> "leInt"
   ; remap <%% Z %%> "int"
-  ; remap <%% nat %%> "key_hash" (* type of account addresses*)
+  ; remap <%% address %%> "key_hash" (* type of account addresses*)
   ; remap <%% operation %%> "operation"
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd" ].
@@ -151,6 +168,9 @@ Definition TT_remap : list (kername * string) :=
 Definition TT_rename :=
   [ ("Some", "Some")
   ; ("None", "None")
+  ; ("Ok", "Ok")
+  ; ("Err", "Err")
+  ; ("O", "0")
   ; ("Z0" ,"0")
   ; ("nil", "[]") ].
 
@@ -162,7 +182,7 @@ Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t).
 
-Print liquidity_counter.
+(* Print liquidity_counter. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterCertifiedExtraction.liq" Compute liquidity_counter.

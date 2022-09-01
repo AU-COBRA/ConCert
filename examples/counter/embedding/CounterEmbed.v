@@ -107,7 +107,7 @@ Definition TT  :=
   [(to_string_name <% Z.add %>, "addTez")].
 
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)
-Compute liquidifyModule TT TTty Counter.CounterModule.
+(* Compute liquidifyModule TT TTty Counter.CounterModule. *)
 
 (** An attempt of extraction from the shallow embedding using the "native" Coq extraction mechanism *)
 

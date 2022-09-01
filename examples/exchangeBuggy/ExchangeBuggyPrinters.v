@@ -18,10 +18,13 @@ Instance showExchangeExchangeParam : Show ExchangeBuggy.exchange_param :=
 
 Instance showExchangeMsgMsg : Show ExchangeBuggy.ExchangeMsg :=
 {|
-  show m := match m with
-            | tokens_to_asset param => "token_to_asset " ++ show param
-            | add_to_tokens_reserve tokenid => "add_to_tokens_reserve (token_id=" ++ show tokenid ++ ")"
-            end
+  show m :=
+    match m with
+    | tokens_to_asset param =>
+        "token_to_asset " ++ show param
+    | add_to_tokens_reserve tokenid =>
+        "add_to_tokens_reserve (token_id=" ++ show tokenid ++ ")"
+    end
 |}.
 
 Instance showExchangeMsg : Show ExchangeBuggy.Msg :=

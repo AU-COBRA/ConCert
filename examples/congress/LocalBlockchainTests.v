@@ -3,7 +3,7 @@ implementation, showing that everything computes from within Coq. It
 also contains specializations of the results proven in Congress.v to
 our particular implementations of blockchains. *)
 
-From ConCert.Execution Require Import Monads.
+From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import BoundedN.
@@ -11,9 +11,10 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.Congress Require Import Congress.
-From Coq Require Import List.
-From Coq Require Import ZArith.
-Import ListNotations.
+From ConCert.Examples.Congress Require Import CongressCorrect.
+From Coq Require Import List. Import ListNotations.
+From Coq Require Import ZArith_base.
+
 
 Section LocalBlockchainTests.
   Let AddrSize := (2^128)%N.
@@ -48,21 +49,26 @@ Section LocalBlockchainTests.
   Definition chain2 : ChainBuilder :=
     unpack_result (add_block chain1 []).
 
-  Compute (env_account_balances chain2 person_1).
-  Compute (env_account_balances chain2 creator).
+  Goal (env_account_balances chain2 person_1) = 0%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain2 creator) = 50%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   (* Creator transfers 10 coins to person_1 *)
   Definition chain3 : ChainBuilder :=
     unpack_result (add_block chain2 [build_act creator creator (act_transfer person_1 10)]).
 
-  Compute (env_account_balances chain3 person_1).
-  Compute (env_account_balances chain3 creator).
+  Goal (env_account_balances chain3 person_1) = 10%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain3 creator) = 90%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   (* person_1 deploys a Congress contract *)
   Definition setup_rules :=
     {| min_vote_count_permille := 200; (* 20% of congress needs to vote *)
        margin_needed_permille := 501;
-       debating_period_in_blocks := 0; |}.
+       debating_period_in_blocks := 0;
+    |}.
 
   Definition setup := Congress.build_setup setup_rules.
 
@@ -78,9 +84,12 @@ Section LocalBlockchainTests.
     | _ => person_1
     end.
 
-  Compute (env_account_balances chain4 person_1).
-  Compute (env_account_balances chain4 creator).
-  Compute (env_account_balances chain4 congress_1).
+  Goal (env_account_balances chain4 person_1) = 5%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain4 creator) = 140%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain4 congress_1) = 5%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   Definition congress_ifc : ContractInterface Congress.Msg :=
     match get_contract_interface chain4 congress_1 Congress.Msg with
@@ -104,8 +113,20 @@ Section LocalBlockchainTests.
                  members := FMap.empty |}
     end.
 
-  Compute (congress_state chain4).
-  Compute (FMap.elements (congress_state chain4).(members)).
+  Goal (congress_state chain4) = {|
+       owner := person_1;
+       state_rules := {|
+        min_vote_count_permille := 200;
+        margin_needed_permille := 501;
+        debating_period_in_blocks := 0
+        |};
+       proposals := FMap.empty;
+       next_proposal_id := 1;
+       members := FMap.empty
+  |}.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (FMap.elements (congress_state chain4).(members)) = [].
+  Proof. vm_compute. reflexivity. Qed.
 
   (* person_1 adds person_1 and person_2 as members of congress *)
   Definition add_person p :=
@@ -116,8 +137,10 @@ Section LocalBlockchainTests.
                  build_act person_1 person_1 (add_person person_2)] in
     unpack_result (add_block chain4 acts).
 
-  Compute (FMap.elements (congress_state chain5).(members)).
-  Compute (env_account_balances chain5 congress_1).
+  Goal (FMap.elements (congress_state chain5).(members)) = [(person_1, tt); (person_2, tt)].
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain5 congress_1) = 5%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   (* person_1 creates a proposal to send 3 coins to person_3 using funds
      of the contract *)
@@ -127,7 +150,13 @@ Section LocalBlockchainTests.
   Definition chain6 : ChainBuilder :=
     unpack_result (add_block chain5 [build_act person_1 person_1 create_proposal_call]).
 
-  Compute (FMap.elements (congress_state chain6).(proposals)).
+  Goal (FMap.elements (congress_state chain6).(proposals)) = 
+    [(1, {|
+        actions := [cact_transfer person_3 3];
+        votes := FMap.empty;
+        vote_result := 0;
+        proposed_in := 5 |})].
+  Proof. vm_compute. reflexivity. Qed.
 
   (* person_1 and person_2 vote for the proposal *)
   Definition vote_proposal :=
@@ -137,8 +166,9 @@ Section LocalBlockchainTests.
     let acts := [build_act person_1 person_1 vote_proposal;
                  build_act person_2 person_2 vote_proposal] in
     unpack_result (add_block chain6 acts).
-
-  Compute (FMap.elements (congress_state chain7).(proposals)).
+  
+  Goal (match FMap.find 1 (congress_state chain7).(proposals) with Some x => x.(vote_result) | None => 0%Z end) = 2%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   (* Person 3 finishes the proposal (anyone can finish it after voting) *)
   Definition finish_proposal :=
@@ -147,14 +177,18 @@ Section LocalBlockchainTests.
   Definition chain8 : ChainBuilder :=
     unpack_result (add_block chain7 [build_act person_3 person_3 finish_proposal]).
 
-  Compute (FMap.elements (congress_state chain8).(proposals)).
+  Goal (FMap.elements (congress_state chain8).(proposals)) = [].
+  Proof. vm_compute. reflexivity. Qed.
   (* Balances before: *)
-  Compute (env_account_balances chain7 congress_1).
-  Compute (env_account_balances chain7 person_3).
+  Goal (env_account_balances chain7 congress_1) = 5%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain7 person_3) = 0%Z.
+  Proof. vm_compute. reflexivity. Qed.
   (* Balances after: *)
-  Compute (env_account_balances chain8 congress_1).
-  Compute (env_account_balances chain8 person_3).
-  Print Assumptions chain8.
+  Goal (env_account_balances chain8 congress_1) = 2%Z.
+  Proof. vm_compute. reflexivity. Qed.
+  Goal (env_account_balances chain8 person_3) = 3%Z.
+  Proof. vm_compute. reflexivity. Qed.
 
   Hint Resolve congress_correct_after_block : core.
   Definition BuilderDF := LocalChainBuilderImpl AddrSize true.
@@ -169,6 +203,7 @@ Section LocalBlockchainTests.
         length (outgoing_txs (builder_trace new) caddr) <=
         num_acts_created_in_proposals inc_calls.
   Proof. eauto. Qed.
+
   (* And of course, it is satisfied for the breadth first chain as well. *)
   Definition BuilderBF := LocalChainBuilderImpl AddrSize false.
   Lemma congress_txs_after_local_chain_bf_block

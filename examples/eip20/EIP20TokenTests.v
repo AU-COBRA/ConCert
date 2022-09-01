@@ -15,7 +15,7 @@ Import ListNotations.
 
 Definition init_supply := (100%N).
 Definition token_setup := EIP20Token.build_setup creator init_supply.
-Definition deploy_eip20token := create_deployment .
+Definition deploy_eip20token := create_deployment.
 
 (* In the initial chain we transfer some assets to a few accounts, just to make the addresses
    present in the chain state. The amount transferred is irrelevant. *)
@@ -44,7 +44,11 @@ Module TN := TestNotations NotationInfo. Import TN.
 Local Open Scope N_scope.
 Extract Constant defNumDiscards => "(3 * defNumTests)".
 
-Definition post_not_payable (chain : Chain) cctx (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_not_payable (chain : Chain)
+                            (cctx : ContractCallContext)
+                            (old_state : State)
+                            (msg : Msg)
+                            (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, _), _) =>
     (checker (cctx.(ctx_amount) =? 0)%Z)
@@ -62,7 +66,11 @@ Definition post_not_payable (chain : Chain) cctx (old_state : State) (msg : Msg)
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition post_no_new_acts (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_no_new_acts (chain : Chain)
+                            (cctx : ContractCallContext)
+                            (old_state : State)
+                            (msg : Msg)
+                            (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (_, new_acts), _) =>
     match new_acts with
@@ -80,7 +88,11 @@ Definition post_no_new_acts (chain : Chain) (cctx : ContractCallContext) (old_st
 
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_total_supply_constant (chain : Chain) (cctx : ContractCallContext) (old_state : State) (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_total_supply_constant (chain : Chain)
+                                      (cctx : ContractCallContext)
+                                      (old_state : State)
+                                      (msg : Msg)
+                                      (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
     checker (old_state.(total_supply) =? new_state.(total_supply))
@@ -96,19 +108,25 @@ Definition post_total_supply_constant (chain : Chain) (cctx : ContractCallContex
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition msg_is_transfer (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
+Definition msg_is_transfer (cstate : EIP20Token.State)
+                           (msg : EIP20Token.Msg)
+                           : bool :=
   match msg with
   | transfer _ _ => true
   | _ => false
   end.
 
-Definition msg_is_transfer_from (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
+Definition msg_is_transfer_from (cstate : EIP20Token.State)
+                                (msg : EIP20Token.Msg)
+                                : bool :=
   match msg with
   | transfer_from _ _ _ => true
   | _ => false
   end.
 
-Definition msg_is_approve (cstate : EIP20Token.State) (msg : EIP20Token.Msg) : bool :=
+Definition msg_is_approve (cstate : EIP20Token.State)
+                          (msg : EIP20Token.Msg)
+                          : bool :=
   match msg with
   | approve _ _ => true
   | _ => false
@@ -150,14 +168,21 @@ Definition post_transfer_correct (chain : Chain) cctx old_state msg (result_opt 
 
 
 Definition get_allowance state from delegate :=
-  with_default 0 (FMap.find delegate (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
+  with_default 0 (FMap.find delegate (with_default
+    (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state)))).
 
-Definition transfer_from_allowances_update_correct (old_state new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+Definition transfer_from_allowances_update_correct (old_state new_state : State)
+                                                   (from delegate : Address)
+                                                   (tokens : TokenValue) :=
   let delegate_allowance_before := get_allowance old_state from delegate in
-  let delegate_allowance_after := get_allowance new_state from delegate in 
+  let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_before =? delegate_allowance_after + tokens.
 
-Definition post_transfer_from_correct (chain : Chain) cctx old_state msg (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_correct (chain : Chain)
+                                      (cctx : ContractCallContext)
+                                      (old_state : State)
+                                      (msg : Msg)
+                                      (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), transfer_from from to tokens) =>
     let sender := cctx.(ctx_from) in
@@ -178,11 +203,17 @@ Definition post_transfer_from_correct (chain : Chain) cctx old_state msg (result
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition approve_allowance_update_correct (new_state : State) (from delegate : Address) (tokens : TokenValue) :=
+Definition approve_allowance_update_correct (new_state : State)
+                                            (from delegate : Address)
+                                            (tokens : TokenValue) :=
   let delegate_allowance_after := get_allowance new_state from delegate in
     delegate_allowance_after =? tokens.
 
-Definition post_approve_correct (chain : Chain) cctx (old_state : State) msg (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_correct (chain : Chain)
+                                (cctx : ContractCallContext)
+                                (old_state : State)
+                                (msg : Msg)
+                                (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), approve delegate tokens) =>
     let from := cctx.(ctx_from) in
@@ -208,10 +239,14 @@ Definition sum_balances_eq_total_supply (state : EIP20Token.State) :=
   let balances_sum : N := fold_left N.add balances_list 0%N in
   balances_sum =? state.(total_supply).
 
-Definition checker_get_state {prop} `{Checkable prop} (pf : State -> prop) (cs : ChainState) : Checker := 
+Definition checker_get_state {prop}
+                            `{Checkable prop}
+                             (pf : State -> prop)
+                             (cs : ChainState)
+                             : Checker :=
   match get_contract_state EIP20Token.State cs contract_base_addr with
   | Some state => checker (pf state)
-  | None => checker true (* trivially true case *) 
+  | None => checker true (* trivially true case *)
   end.
 
 (* Time QuickChick (forAllBlocks (checker_get_state sum_balances_eq_total_supply)). *)
@@ -243,7 +278,7 @@ Definition sum_allowances_le_init_supply_P :=
 (* QuickChick (expectFailure sum_allowances_le_init_supply_P). *)
 
 Definition person_has_tokens person (n : N) :=
-  fun cs => 
+  fun cs =>
     match get_contract_state State cs contract_base_addr with
     | Some state => n =? (FMap_find_ person state.(balances) 0)
     | None => true (* trivial case *)
@@ -370,7 +405,10 @@ Definition delegate_transferFrom_sum_of_approver approver delegate (trace : list
     step_sum + acc
   ) trace 0.
 
-Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list ChainState) allower delegate (first_approval_amount : N) :=
+Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list ChainState)
+                                                   allower
+                                                   delegate
+                                                   (first_approval_amount : N) :=
   let trace := pre_trace ++ post_trace in
   let reapprove_correct cs :=
   (* Checks if a chainstate has a re-approval act, and if so, then checks that the spent amount inbetween
@@ -407,8 +445,8 @@ Definition reapprove_transfer_from_safe_P :=
 
 (* QuickChick reapprove_transfer_from_safe_P. *)
 
-(* 
-Chain{| 
+(*
+Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};

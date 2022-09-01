@@ -18,6 +18,7 @@ From MetaCoq.Template Require Import MCPrelude.
 From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
+From ConCert.Execution Require ResultMonad.
 
 From Coq Require Import String.
 From Coq Require Import Nat.
@@ -568,6 +569,11 @@ Section PPTerm.
             (* is it a transfer *)
             else if (uncapitalize nm =? "act_transfer") then
               print_transfer apps
+            (* is it a Ok *)
+            else if ((nm =? "Ok") && (eq_kername mind <%% ConCert.Execution.ResultMonad.result %%>)) then
+              "(" ++ parens false (print_uncurried_app nm apps) ++ ":" ++ print_box_type ty_ctx TT bt ++ ")"
+            else if ((nm =? "Err") && (eq_kername mind <%% ConCert.Execution.ResultMonad.result %%>)) then
+              "(" ++ parens false (print_uncurried_app nm apps) ++ ":" ++ print_box_type ty_ctx TT bt ++ ")"
             else if (nm =? "_") then
               fresh_id_from ctx 10 "a"
             (* inductive constructors of 1 arg are treated as records *)
@@ -796,8 +802,8 @@ Section PPLigo.
         end in
       let wrap t :=
         "match " ++ t ++ " with" ++ nl ++
-        "  Some v -> v"++ nl ++
-        "| None -> (failwith (""Init failed""): " ++ printed_outer_ret_ty ++ ")" in
+        "  Ok v -> Ok v"++ nl ++
+        "| Err e -> (failwith e: " ++ printed_outer_ret_ty ++ ")" in
       let let_inner :=
           "let " ++ decl_inner ++ " :" ++ printed_inner_ret_ty ++ " = " ++ nl
                 ++ print_term env TT ctx [] true false lam_body body_annot
@@ -1000,6 +1006,13 @@ Section PPLigo.
   ; "let finalized_height (c : chain) = c.finalized_height_"
   $>.
 
+  Definition result_def :=
+  <$
+    "type ('t,'e) result ="
+  ; "  Ok of 't"
+  ; "| Err of 'e"
+  $>.
+
   Definition CameLIGO_Chain_CallContext :=
   <$ CameLIGO_call_ctx_type
    ; CameLIGO_call_ctx_instance
@@ -1010,6 +1023,7 @@ Section PPLigo.
     print_list id (nl ++ nl)
                [int_ops; tez_ops; nat_ops;
                 bool_ops; time_ops; address_ops;
+                result_def;
                 get_contract_def; CameLIGO_Chain_CallContext].
 
   Definition printMain (contract parameter_name storage_name : string) : string :=
@@ -1018,8 +1032,8 @@ Section PPLigo.
        "" ;
        "let main (p, st : " ++ parameter_name ++ " option * " ++ storage_name ++ ") : return = " ;
        "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
-       "      Some v -> (v.0, v.1)" ;
-       "    | None -> (failwith (""Contract returned None"") : return))" $>.
+       "      Ok v -> (v.0, v.1)" ;
+       "    | Err e -> (failwith e : return))" $>.
 
   Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
   let st := print_type_name state_nm in

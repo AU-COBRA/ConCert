@@ -27,7 +27,7 @@ Module Dexter2Gens (Info : Dexter2Info).
   (** * Dexter2 CPMM generators *)
 
   Definition gNonBrokeAddr (env : Environment) : G (option Address) :=
-    let freq_accounts := map (fun addr => 
+    let freq_accounts := map (fun addr =>
       (Z.to_nat ((env_account_balances env) addr), returnGenSome addr)) accounts in
     freq_ (returnGen None) freq_accounts.
 

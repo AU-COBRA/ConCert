@@ -6,18 +6,21 @@ From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 Local Open Scope string_scope.
 Instance showMsg : Show Msg :=
 {|
-  show m := match m with
-            | transfer_from from to amount =>
-              "transfer_from " ++ show from ++ " " ++ show to ++ " " ++ show amount
-            | approve delegate amount => "approve " ++ show delegate ++ " " ++ show amount
-            | mint amount => "mint " ++ show amount
-            | burn amount => "burn " ++ show amount
-            end
+  show m :=
+    match m with
+    | transfer_from from to amount =>
+        "transfer_from " ++ show from ++ " " ++ show to ++ " " ++ show amount
+    | approve delegate amount =>
+        "approve " ++ show delegate ++ " " ++ show amount
+    | mint amount => "mint " ++ show amount
+    | burn amount => "burn " ++ show amount
+    end
 |}.
 
 Instance showTokenSetup : Show Setup :=
 {|
-  show setup := "Setup{owner: " ++ show setup.(owner) ++ sep ++ "init_amount: " ++ show setup.(init_amount) ++ "}"
+  show setup := "Setup{owner: " ++ show setup.(owner) ++ sep ++
+                  "init_amount: " ++ show setup.(init_amount) ++ "}"
 |}.
 
 Instance showTokenState : Show iTokenBuggy.State :=

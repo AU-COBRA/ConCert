@@ -166,7 +166,7 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
         | Some current_diff => FMap.add to_key (current_diff + amount) m1
         | None => FMap.add to_key amount m1
         end in
-      m2) in 
+      m2) in
       fold_left iter trx.(txs) current_diff_map
   ) transfers FMap.empty in
   let balance_update_correct p balance_diff :=
@@ -178,19 +178,25 @@ Definition transfer_state_update_correct prev_state next_state transfers :=
     whenFail (
       "Failed predicate with owner: " ++ show addr ++ nl ++
       "Expected new balance: " ++ show balance_after ++ nl ++
-      "But got: " ++ show balance_before ++ " + " ++ show balance_diff ++ " = " ++ show (balance_before + balance_diff)  
+      "But got: " ++ show balance_before ++ " + " ++
+        show balance_diff ++ " = " ++ show (balance_before + balance_diff)
       )
     ((balance_before + balance_diff) =? balance_after) in
   forEachMapEntry balance_diffs_map balance_update_correct.
 Local Close Scope Z_scope.
 
-Definition msg_is_transfer (cstate : FA2Token.State) (msg : FA2Token.Msg) :=
+Definition msg_is_transfer (cstate : FA2Token.State)
+                           (msg : FA2Token.Msg) :=
   match msg with
   | msg_transfer _ => true
   | _ => false
   end.
 
-Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) old_state msg (result_opt : option (FA2Token.State * list ActionBody)) :=
+Definition post_transfer_correct (chain : Chain)
+                                 (cctx : ContractCallContext)
+                                 old_state
+                                 msg
+                                 (result_opt : option (FA2Token.State * list ActionBody)) :=
   match result_opt with
   | Some (new_state, _) =>
     let transfers :=
@@ -210,7 +216,8 @@ Definition post_transfer_correct (chain : Chain) (cctx : ContractCallContext) ol
 (* 14 seconds, max size 7, 1 act per block *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition get_transfer_from_act (act : Action) : option (list transfer) :=
+Definition get_transfer_from_act (act : Action)
+                                 : option (list transfer) :=
   match act.(act_body) with
     | act_call _ _ msg =>
       match deserialize FA2Token.Msg _ msg with
@@ -250,7 +257,8 @@ Definition transfer_balances_correct (old_cs new_cs : ChainState) :=
 (* +++ Passed 10000 tests (0 discards) *)
 
 
-Definition get_transfers (acts : list Action) : list (Address * list FA2LegacyInterface.transfer) :=
+Definition get_transfers (acts : list Action)
+                         : list (Address * list FA2LegacyInterface.transfer) :=
   fold_left (fun trxs act =>
     match act.(act_body) with
     | act_call _ _ msg =>
@@ -291,7 +299,7 @@ Definition transfer_satisfies_policy sender trx state : Checker :=
   | (self_transfer_denied, operator_transfer_permitted) =>
     if address_eqb sender trx.(from_)
     then whenFail "self transfer was denied but got transfer with sender = from" false
-    else 
+    else
       (* Note: this case seems to not be hit during testing *)
       is_valid_operator_transfer
   | (self_transfer_permitted, operator_transfer_permitted) =>
@@ -354,10 +362,11 @@ Definition msg_is_update_operator (cstate : FA2Token.State) (msg : FA2Token.Msg)
   | _ => false
   end.
 
-Definition post_last_update_operator_occurrence_takes_effect (chain : Chain) (cctx : ContractCallContext)
-                                 (old_state : FA2Token.State)
-                                 msg
-                                 (result_opt : option (FA2Token.State * list ActionBody)) :=
+Definition post_last_update_operator_occurrence_takes_effect (chain : Chain)
+                                                             (cctx : ContractCallContext)
+                                                             (old_state : FA2Token.State)
+                                                             msg
+                                                             (result_opt : option (FA2Token.State * list ActionBody)) :=
   match result_opt with
   | Some (new_state, _) =>
     let update_ops :=

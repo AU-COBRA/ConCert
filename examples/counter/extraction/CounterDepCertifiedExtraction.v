@@ -9,6 +9,7 @@ From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
+From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
@@ -26,62 +27,68 @@ Definition PREFIX := "coq_".
 
 Module Counter.
 
-  Notation address := nat.
+  Definition address := nat.
 
   Definition operation := unit.
   Definition storage := Z × address.
+  Definition Error : Type := nat.
+  Definition default_error : Error := 1%nat.
 
-  Definition init (ctx : SimpleCallCtx) (setup : Z * address) : option storage :=
+  Definition init (ctx : SimpleCallCtx)
+                  (setup : Z * address)
+                  : result storage Error :=
     let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
-    Some setup.
+    Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st :  Z × nat) (new_balance : Z)
-               (p : (0 <=? new_balance) = true) :=
+  Definition inc_balance (st :  storage) (new_balance : Z)
+               (p : (0 <=? new_balance) = true) : storage :=
     (st.1 + new_balance, st.2).
 
 
   Definition dec_balance (st : storage) (new_balance : Z)
-             (p : (0 <=? new_balance) = true) :=
+             (p : (0 <=? new_balance) = true): storage :=
     (st.1 -  new_balance, st.2).
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
-  Definition counter (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter (msg : msg)
+                     (st : storage)
+                     : result (list operation * storage) Error :=
     match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
-        Some ([], inc_balance st i h)
-      | right _ => None
+        Ok ([], inc_balance st i h)
+      | right _ => Err default_error
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
+      | left h => Ok ([], dec_balance st i h)
+      | right _ => Err default_error
       end
     end.
 
   (** A version of the counter with [inc_balance] applied only partially.
       Requires eta-expansion for deboxing, because the last argument is logial. *)
-  Definition counter_partially_applied (msg : msg) (st : storage)
-    : option (list operation * storage) :=
+  Definition counter_partially_applied (msg : msg)
+                                       (st : storage)
+                                       : result (list operation * storage) Error :=
   match msg with
     | Inc i =>
       match (my_bool_dec (0 <=? i) true) with
       | left h =>
         let f := inc_balance st i in
-        Some ([], f h)
-      | right _ => None
+        Ok ([], f h)
+      | right _ => Err default_error
       end
     | Dec i =>
       match (my_bool_dec (0 <=? i) true) with
-      | left h => Some ([], dec_balance st i h)
-      | right _ => None
+      | left h => Ok ([], dec_balance st i h)
+      | right _ => Err default_error
       end
     end.
 
@@ -97,30 +104,34 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
   ; remap <%% option %%> "option"
+  ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
   ; remap <%% Z.sub %%> "subInt"
   ; remap <%% Z.leb %%> "leInt"
   ; remap <%% Z %%> "int"
-  ; remap <%% nat %%> "key_hash" (* type of account addresses*)
+  ; remap <%% address %%> "key_hash" (* type of account addresses*)
   ; remap <%% operation %%> "operation"
   ; remap <%% @fst %%> "fst"
   ; remap <%% @snd %%> "snd" ].
 
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-Definition TT_rename : list (string * string):=
+Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
+  ; ("Ok", "Ok")
+  ; ("Err", "Err")
+  ; ("O", "0")
   ; ("Z0" ,"0")
   ; ("nil", "[]")
   ; ("true", "true")
   ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
 
-Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter" ;
 
      (* definitions of operations on pairs and ints *)
-     lmd_prelude := prod_ops ++ nl ++ int_ops;
+     lmd_prelude := prod_ops ++ nl ++ int_ops ++ nl ++ result_def;
 
      (* initial storage *)
      lmd_init := init ;
@@ -133,7 +144,8 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
 
      (* code for the entry point *)
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
-                       ++ printMain |}.
+                       ++ printMain
+  |}.
 
 (** We run the extraction procedure inside the [TemplateMonad].
     It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
@@ -144,13 +156,13 @@ Time MetaCoq Run
       tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t
      ).
 
-Print liquidity_counter.
+(* Print liquidity_counter. *)
 
 (* Now we show how we can also eta expand using MetaCoq.
    There is a version of the counter above that it partially applied, and if we
    try to extract that extraction fails. *)
 
-Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied" ;
 
@@ -203,14 +215,14 @@ MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
 (** [Σexpanded] contains expanded definitions *)
 
 (** A proof generated by the eta-expansion procedure. *)
-Check ConCert_Examples_Counter_extraction_CounterDepCertifiedExtraction_Counter_counter_partially_applied_expanded_convertible.
+(* Check ConCert_Examples_Counter_extraction_CounterDepCertifiedExtraction_Counter_counter_partially_applied_expanded_convertible. *)
 (* ConCert_Extraction_Tests_CounterDepCertifiedExtraction_Counter_counter_partially_applied_expanded_convertible
      : counter_partially_applied =
        ConCert_Extraction_Tests_CounterDepCertifiedExtraction_Counter_counter_partially_applied_expanded *)
 
 (* Now we can extract this one successfully. *)
 
-Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation :=
+Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_counter_partially_applied_expanded" ;
 
@@ -235,7 +247,7 @@ Time MetaCoq Run
       tmDefinition (String.of_string COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name)) t
      ).
 
-Print liquidity_counter_partially_applied_expanded.
+(* Print liquidity_counter_partially_applied_expanded. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
 Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterDepCertifiedExtraction.liq" Compute liquidity_counter.

@@ -1,7 +1,8 @@
 (* This file formalizes a bounded natural number type which is
 efficient to compute with. *)
-From ConCert.Execution Require Import Monads.
 From ConCert.Execution Require Import Finite.
+From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import OptionMonad.
 From ConCert.Utils Require Import Extras.
 From Coq Require Import NArith.
 From Coq Require Import ZArith.

@@ -54,7 +54,9 @@ dexter2/Dexter2FA12.v
 dexter2/Dexter2CPMM.v
 dexter2/Dexter2FA12Correct.v
 dexter2/Dexter2CPMMCorrect.v
-dexter2/Dexter2Extract.v
+dexter2/Dexter2CommonExtract.v
+dexter2/Dexter2FA12Extract.v
+dexter2/Dexter2CPMMExtract.v
 dexter2/Dexter2Printers.v
 dexter2/Dexter2Gens.v
 dexter2/Dexter2Tests.v
@@ -80,9 +82,12 @@ cis1/Cis1wccd.v
 stackInterpreter/StackInterpreter.v
 stackInterpreter/RustInterpExtract.v
 stackInterpreter/StackInterpreterExtract.v
+stackInterpreter/StackInterpreterLiquidityExtract.v
+stackInterpreter/StackInterpreterLIGOExtract.v
 
 -Q congress ConCert.Examples.Congress
 congress/Congress.v
+congress/CongressCorrect.v
 congress/Congress_Buggy.v
 congress/LocalBlockchainTests.v
 congress/tests/CongressGens.v
@@ -94,20 +99,22 @@ congress/tests/Congress_BuggyTests.v
 
 -Q escrow ConCert.Examples.Escrow
 escrow/Escrow.v
+escrow/EscrowCorrect.v
 escrow/tests/EscrowGens.v
 escrow/tests/EscrowPrinters.v
 escrow/tests/EscrowTests.v
-escrow/extraction/EscrowExtract.v
+escrow/extraction/EscrowExtractLIGO.v
+escrow/extraction/EscrowExtractLiquidity.v
 escrow/extraction/MidlangEscrow.v
 escrow/extraction/RustEscrow.v
 
 -Q boardroomVoting ConCert.Examples.BoardroomVoting
+boardroomVoting/Egcd.v
+boardroomVoting/Euler.v
 boardroomVoting/BoardroomMath.v
 boardroomVoting/BoardroomVoting.v
 boardroomVoting/BoardroomVotingZ.v
 boardroomVoting/BoardroomVotingTest.v
-boardroomVoting/Egcd.v
-boardroomVoting/Euler.v
 boardroomVoting/BoardroomVotingExtractionCameLIGO.v
 boardroomVoting/BoardroomVotingExtractionLiquidity.v
 
@@ -116,7 +123,8 @@ counter/Counter.v
 counter/embedding/CounterEmbed.v
 counter/extraction/CounterCertifiedExtraction.v
 counter/extraction/CounterDepCertifiedExtraction.v
-counter/extraction/CounterSubsetTypes.v
+counter/extraction/CounterSubsetTypesLIGO.v
+counter/extraction/CounterSubsetTypesLiquidity.v
 counter/extraction/MidlangCounterRefTypes.v
 counter/extraction/RustCounter.v
 counter/extraction/CameLIGOCounter.v
@@ -124,8 +132,9 @@ counter/extraction/CameLIGOCounter.v
 -Q crowdfunding ConCert.Examples.Crowdfunding
 crowdfunding/CrowdfundingData.v
 crowdfunding/Crowdfunding.v
+crowdfunding/CrowdfundingCorrect.v
 crowdfunding/ExecFrameworkIntegration.v
 crowdfunding/CrowdfundingDataExt.v
 crowdfunding/CrowdfundingExt.v
 crowdfunding/CrowdfundingCameLIGO.v
-crowdfunding/CrowdfundingCertifiedExtraction.v
+crowdfunding/CrowdfundingLiquidity.v

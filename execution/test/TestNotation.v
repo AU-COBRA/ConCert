@@ -22,7 +22,7 @@ From Coq Require Import Bool.
       If the maximum number of attempts is exceeded the generator will proceed to the next block.
       This value should be kept low as it has a high impact on performance of trace generation.
       Default value is 2.
-    
+
     These values can be overwritten between tests by: << Extract Constant max_trace_length => "3" >>
 *)
 Definition max_trace_length : nat := 7.
@@ -38,11 +38,11 @@ End TestNotationParameters.
 
 Module TestNotations (p : TestNotationParameters).
   Import p.
-  
+
   Definition gChain_ init_cb max_trace_length :=
     gChain init_cb
       (fun env act_depth => gAction env) max_trace_length act_depth max_acts_per_block.
-  
+
   Definition gChain :=
     gChain init_cb
       (fun env act_depth => gAction env) max_trace_length act_depth max_acts_per_block.
@@ -62,7 +62,7 @@ Module TestNotations (p : TestNotationParameters).
 
   Definition forAllBlocks `{Show ChainState} `{Show ChainBuilder} :=
     forAllBlocks max_trace_length init_cb gChain_.
-  
+
   Definition forAllChainStatePairs `{Show ChainBuilder} :=
     forAllChainStatePairs max_trace_length init_cb gChain_.
 

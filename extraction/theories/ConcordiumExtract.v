@@ -6,6 +6,7 @@ From Coq Require Import ZArith.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 From ConCert.Utils Require Import StringExtra.
+From ConCert.Execution Require Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import Extraction.
@@ -172,6 +173,12 @@ Definition remap_option : remapped_inductive :=
      re_ind_match := None
   |}.
 
+Definition remap_result : remapped_inductive :=
+  {| re_ind_name := "Result";
+     re_ind_ctors := ["Ok"; "Err"];
+     re_ind_match := None
+  |}.
+
 Definition remap_unit : remapped_inductive :=
   {| re_ind_name := "()";
      re_ind_ctors := ["()"];
@@ -192,6 +199,7 @@ Definition remap_std_types :=
   ; (<! bool !>, remap_bool)
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)
+  ; (<! ConCert.Execution.ResultMonad.result !>, remap_result)
   ; (<! unit !>, remap_unit)
   ; (<! String.string !>, remap_string) ].
 
@@ -213,7 +221,7 @@ Definition remap_blockchain_inductives : list (inductive * remapped_inductive) :
   ].
 
 Definition ignored_concert :=
-  [ <%% Monads.Monad %%> ;
+  [ <%% Monad.Monad %%> ;
     <%% @RecordSet.SetterFromGetter %%>
   ].
 
@@ -250,6 +258,7 @@ Module ConcordiumPreamble.
 "use concert_std::{ActionBody, ConCertDeserial, ConCertSerial, SerializedValue};";
 "use core::marker::PhantomData;";
 "use immutable_map::TreeMap;";
+"use std::convert::TryFrom;";
 "";
 "fn __nat_succ(x: u64) -> u64 {";
 "  x.checked_add(1).unwrap()";
@@ -343,20 +352,84 @@ Module ConcordiumPreamble.
 "  f";
 "}";
 "";
-"#[derive(Debug, PartialEq, Eq, Reject)]";
+"#[derive(Debug, PartialEq, Eq)]";
 "enum InitError {";
 "   DeserialParams,";
 "   SerialParams,";
-"   Error";
+"   Error(u64)";
 "}";
 "";
-"#[derive(Debug, PartialEq, Eq, Reject)]";
+"impl From<InitError> for Reject {";
+"    fn from(err: InitError) -> Self {";
+"        let error_code = match err {";
+"            InitError::DeserialParams => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000001)";
+"            },";
+"            InitError::SerialParams => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000002)";
+"            },";
+"            InitError::Error(error) => unsafe {";
+"              match i32::try_from(error).ok() {";
+"                Option::Some(0) => {";
+"                  crate::num::NonZeroI32::new_unchecked(i32::MIN)";
+"                },";
+"                Option::Some(v) => {";
+"                  crate::num::NonZeroI32::new_unchecked(v)";
+"                },";
+"                Option::None => {";
+"                  crate::num::NonZeroI32::new_unchecked(i32::MIN)";
+"                }";
+"              }";
+"            }";
+"        };";
+"        Self {";
+"            error_code";
+"        }";
+"    }";
+"}";
+"";
+"#[derive(Debug, PartialEq, Eq)]";
 "enum ReceiveError {";
 "    DeserialMsg,";
 "    DeserialOldState,";
 "    SerialNewState,";
 "    ConvertActions, // Cannot convert ConCert actions to Concordium actions";
-"    Error";
+"    Error(u64)";
+"}";
+"";
+"impl From<ReceiveError> for Reject {";
+"    fn from(err: ReceiveError) -> Self {";
+"        let error_code = match err {";
+"            ReceiveError::DeserialMsg => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000001)";
+"            },";
+"            ReceiveError::DeserialOldState => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000002)";
+"            },";
+"            ReceiveError::SerialNewState => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000003)";
+"            },";
+"            ReceiveError::ConvertActions => unsafe {";
+"                crate::num::NonZeroI32::new_unchecked(-42000004)";
+"            },";
+"            ReceiveError::Error(error) => unsafe {";
+"              match i32::try_from(error).ok() {";
+"                Option::Some(0) => {";
+"                  crate::num::NonZeroI32::new_unchecked(i32::MIN)";
+"                },";
+"                Option::Some(v) => {";
+"                  crate::num::NonZeroI32::new_unchecked(v)";
+"                },";
+"                Option::None => {";
+"                  crate::num::NonZeroI32::new_unchecked(i32::MIN)";
+"                }";
+"              }";
+"            }";
+"        };";
+"        Self {";
+"            error_code";
+"        }";
+"    }";
 "}"
 ];
 program_preamble := [
@@ -467,13 +540,13 @@ Section ConcordiumPrinting.
      "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername init_name ++ "(&cchain, &cctx, params);";
      "    match res {";
-     "        Option::Some(init_state) => {";
+     "        Result::Ok(init_state) => {";
      "            match init_state.concert_serial(state) {";
      "                Ok(_) => Ok(()),";
      "                Err(_) => Err(InitError::SerialParams)";
      "            }";
      "        }";
-     "        Option::None => Err(InitError::Error)";
+     "        Result::Err(error) => Err(InitError::Error(error))";
      "    }";
 "}" $>.
 
@@ -547,14 +620,14 @@ Section ConcordiumPrinting.
      "            amount.micro_ccd as i64);";
      "    let res = prg." ++ RustExtract.const_global_ident_of_kername receive_name ++ "(&cchain, &cctx, old_state, msg);";
      "    match res {";
-     "        Option::Some((new_state, acts)) => {";
+     "        Result::Ok((new_state, acts)) => {";
      "            state.truncate(0);";
      "            match new_state.concert_serial(state) {";
      "                Ok(_) => convert_actions(acts),";
      "                Err(_) => Err(ReceiveError::SerialNewState)";
      "            }";
      "        }";
-     "        Option::None => Err(ReceiveError::Error)";
+     "        Result::Err(error) => Err(ReceiveError::Error(error))";
      "    }";
 "}" $>.
 
