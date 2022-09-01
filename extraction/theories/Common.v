@@ -1,5 +1,5 @@
 From Coq Require Import String.
-From ConCert.Extraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
@@ -124,53 +124,6 @@ Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :
     | None => tmFail ("The constant doesn't have a body: " ++ kn.2)
     end
   | _ => tmFail ("Not found: " ++ kn.2)
-  end.
-
-Definition map_subterms (f : term -> term) (t : term) : term :=
-  match t with
-  | tEvar n ts => tEvar n (map f ts)
-  | tCast t kind ty => tCast (f t) kind (f ty)
-  | tProd na ty body => tProd na (f ty) (f body)
-  | tLambda na ty body => tLambda na (f ty) (f body)
-  | tLetIn na val ty body => tLetIn na (f val) (f ty) (f body)
-  | tApp hd arg => tApp (f hd) (map f arg)
-  | tCase ci p disc brs =>
-    tCase ci (map_predicate id f f p) (f disc) (map (map_branch f) brs)
-  | tProj p t => tProj p (f t)
-  | tFix def i => tFix (map (map_def f f) def) i
-  | tCoFix def i => tCoFix (map (map_def f f) def) i
-  | t => t
-  end.
-
-Fixpoint beta_body (body : term) (args : list term) {struct args} : term :=
-  match args with
-  | [] => body
-  | a :: args =>
-    match body with
-    | tLambda na _ body => beta_body (body{0 := a}) args
-    | _ => mkApps body (a :: args)
-    end
-  end.
-
-Definition iota_body (Σ : global_env) (body : term) : term :=
-  match body with
-  | tCase ci p discr brs =>
-    let (hd, args) := decompose_app discr in
-    match hd with
-    | tConstruct _ c _ =>
-      match nth_error brs c with
-      | Some br =>
-          match TermEquality.lookup_constructor Σ ci.(ci_ind) c with
-          | Some (mib, _, cb) =>
-              let bctx := case_branch_context ci.(ci_ind) mib cb p br in
-              iota_red ci.(ci_npar) args bctx br
-          | None => body
-          end
-      | None => body
-      end
-    | _ => body
-    end
-  | t => t
   end.
 
 Fixpoint nat_syn_to_nat (t : EAst.term) : option nat :=

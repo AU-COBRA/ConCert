@@ -1,7 +1,7 @@
 
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import monad_utils.
 From Coq Require Import ZArith.

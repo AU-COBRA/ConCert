@@ -18,7 +18,7 @@ Set Warnings "-extraction-reserved-identifier".
 
 From MetaCoq.Erasure Require Import EAst EAstUtils EInduction ELiftSubst EGlobalEnv Extract ErasureFunction Erasure.
 From ConCert.Extraction Require Import PluginExtract.
-From ConCert.Extraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import Utils.
 
 
 Extraction Inline Equations.Prop.Classes.noConfusion.

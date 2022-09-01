@@ -17,7 +17,7 @@
 (* From Coq Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 

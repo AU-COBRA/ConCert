@@ -6,12 +6,12 @@ refinement types (a type with a predicate) to express the fact that
 the list of users contains only valid data. *)
 
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import ElmExtract.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
-From ConCert.Extraction Require Import ResultMonad.
+From ConCert.Extraction Require Import ElmExtract.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import CertifyingInlining.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Utils Require Import RecordUpdate.
 From MetaCoq.Template Require Import Ast.

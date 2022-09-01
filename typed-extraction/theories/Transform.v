@@ -1,7 +1,7 @@
 From MetaCoq.Template Require Import utils.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import WcbvEvalAux.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import WcbvEvalAux.
 
 Import MCString.
 Import MCMonadNotation.

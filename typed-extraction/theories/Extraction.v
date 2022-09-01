@@ -1,12 +1,12 @@
 (* This file provides the main function for invoking our extraction. *)
 From Coq Require Import String.
-From ConCert.Extraction Require Import Erasure.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require OptimizePropDiscr.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import Certifying.
+From MetaCoq.TypedExtraction Require Import Erasure.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require OptimizePropDiscr.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Transform.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import Certifying.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import config.
 From MetaCoq.Template Require Import TemplateMonad.

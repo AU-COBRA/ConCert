@@ -1,7 +1,6 @@
 From Coq Require Import List.
 From Coq Require Import ssrbool.
-From ConCert.Utils Require Import Automation.
-From ConCert.Extraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import Utils.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.

@@ -1,7 +1,7 @@
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Transform.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq.Template Require Import utils.
 

@@ -1,0 +1,29 @@
+-arg -w -arg -undeclared-scope
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+
+-Q theories MetaCoq.TypedExtraction
+
+theories/Annotations.v
+theories/CertifyingBeta.v
+theories/CertifyingEta.v
+theories/CertifyingInlining.v
+theories/Certifying.v
+theories/ClosedAux.v
+theories/ErasureCorrectness.v
+theories/Erasure.v
+theories/ExAst.v
+theories/ExtractionCorrectness.v
+theories/Extraction.v
+theories/OptimizeCorrectness.v
+theories/OptimizePropDiscr.v
+theories/Optimize.v
+theories/ResultMonad.v
+theories/Transform.v
+theories/TypeAnnotations.v
+theories/Utils.v
+theories/WcbvEvalAux.v
+
+-Q tests MetaCoq.TypedExtraction.Tests
+tests/ErasureTests.v
+tests/TypeAnnotationTests.v

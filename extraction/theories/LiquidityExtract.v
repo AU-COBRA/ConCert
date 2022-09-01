@@ -7,11 +7,11 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import CertifyingInlining.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import CertifyingInlining.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import Env.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.

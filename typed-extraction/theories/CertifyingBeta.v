@@ -1,10 +1,9 @@
 From Coq Require Import List.
 From Coq Require Import String.
-From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import Certifying.
+From MetaCoq.TypedExtraction Require Import Transform.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import Certifying.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 
@@ -66,7 +65,7 @@ Definition betared_def {A}
            (def : A) : TemplateMonad _ :=
   mpath <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
-  kn <- Common.extract_def_name def ;;
+  kn <- extract_def_name def ;;
   betared_globals_template mpath (declarations p.1) (KernameSet.singleton kn).
 
 
@@ -79,13 +78,14 @@ Module Ex1.
 
   MetaCoq Run (betared_def foo).
 
+  (* FIXME: it's a bit fragile to refer to unquoted definitions, because their names depend on a module/path they are in *)
   MetaCoq Quote Recursively Definition foo_after :=
-    ConCert_Extraction_CertifyingBeta_Ex1_foo_after_betared.
+    MetaCoq_TypedExtraction_CertifyingBeta_Ex1_foo_after_betared.
 
   MetaCoq Quote Recursively Definition foo_before := foo.
 
   Lemma after_not_before :
-    lookup_env foo_after.1 <%% ConCert_Extraction_CertifyingBeta_Ex1_foo_after_betared %%> =
+    lookup_env foo_after.1 <%% MetaCoq_TypedExtraction_CertifyingBeta_Ex1_foo_after_betared %%> =
     lookup_env foo_before.1 <%% foo %%> -> False.
   Proof. easy. Qed.
 End Ex1.

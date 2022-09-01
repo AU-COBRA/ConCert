@@ -1,8 +1,8 @@
 (** * Tests for extraction to Rust *)
-From ConCert.Extraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From ConCert.Extraction Require Import RustExtract.
 From ConCert.Extraction Require Import Printing.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import Kernames.

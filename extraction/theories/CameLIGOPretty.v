@@ -6,11 +6,11 @@
 (** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of CameLIGO, or some times, lack of proper support.
 
 CameLIGO allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied. *)
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Annotations.
-From ConCert.Extraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Annotations.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Template Require Import MCList.
@@ -19,6 +19,7 @@ From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Execution Require ResultMonad.
+From ConCert.Extraction Require Import Common.
 
 From Coq Require Import String.
 From Coq Require Import Nat.

@@ -1,9 +1,9 @@
 From MetaCoq.Template Require Import monad_utils.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Common.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
+From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From Coq Require Import Ascii.
 From Coq Require Import String.
@@ -20,7 +20,7 @@ Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.ErasureFunction.
-Module Ex := ConCert.Extraction.ExAst.
+Module Ex := MetaCoq.TypedExtraction.ExAst.
 
 Local Open Scope string.
 

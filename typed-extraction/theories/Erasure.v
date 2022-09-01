@@ -1,6 +1,6 @@
 From Coq Require Import Program.
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import ExAst.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import EArities.
 From MetaCoq.Erasure Require Import EAstUtils.

@@ -1,6 +1,5 @@
-From ConCert.Utils Require Import Automation.
-From ConCert.Extraction Require Import ClosedAux.
 From Equations Require Import Equations.
+From MetaCoq.TypedExtraction Require Import ClosedAux.
 From MetaCoq.Template Require Import MCPrelude.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Erasure Require Import EAst.

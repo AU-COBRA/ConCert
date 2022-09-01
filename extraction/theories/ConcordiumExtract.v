@@ -9,14 +9,14 @@ From ConCert.Utils Require Import StringExtra.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Utils.
 From ConCert.Extraction Require Import RustExtract.
-From ConCert.Extraction Require Import Optimize.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Utils.
 
 Import MCMonadNotation.
 

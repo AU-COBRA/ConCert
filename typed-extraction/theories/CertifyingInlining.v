@@ -5,12 +5,11 @@
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import Bool.
-From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import CertifyingBeta.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import Certifying.
+From MetaCoq.TypedExtraction Require Import Transform.
+From MetaCoq.TypedExtraction Require Import CertifyingBeta.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import Certifying.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Kernames.
 
@@ -111,17 +110,6 @@ Section inlining.
 
 End inlining.
 
-
-(* Definition inline_in_decls (should_inline : kername -> bool) (Σ : global_declarations) : global_env:= *)
-(*   let newΣ := *)
-(*     fold_right (fun '(kn, decl) decls => *)
-(*                   let Σ0 := {| universes := Σ.(universes); *)
-(*                                declarations := decls |} in *)
-(*                   (kn, inline_in_decl should_inline Σ0 decl) :: decls) []) Σ in *)
-(*   map_global_env_decls (filter (fun '(kn, _) => negb (should_inline kn))) newΣ. *)
-
-
-
 Definition inline_globals (should_inline : kername -> bool) (Σ : global_declarations) : global_declarations :=
   let newΣ :=
     fold_right (fun '(kn, decl) decls =>
@@ -151,7 +139,7 @@ Definition inline_def {A}
            (def : A) : TemplateMonad _ :=
   mpath <- tmCurrentModPath tt;;
   p <- tmQuoteRecTransp def false ;;
-  kn <- Common.extract_def_name def ;;
+  kn <- extract_def_name def ;;
   inline_globals_template mpath (declarations p.1) should_inline (KernameSet.singleton kn).
 
 

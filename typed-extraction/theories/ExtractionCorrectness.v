@@ -1,11 +1,11 @@
 From Coq Require Import List.
-From ConCert.Extraction Require Import ErasureCorrectness.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import OptimizeCorrectness.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import WcbvEvalAux.
+From MetaCoq.TypedExtraction Require Import ErasureCorrectness.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import OptimizeCorrectness.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import WcbvEvalAux.
 From Equations Require Import Equations.
 From MetaCoq.Erasure Require Import ErasureCorrectness.
 From MetaCoq.Erasure Require Import ErasureFunction.
@@ -66,6 +66,7 @@ Proof.
       unfold trans_global_decl,trans_cst.
       cbn.
       unfold MCOption.option_default.
+      (* global_erased_with_deps *)
       (* erase_constant_body_correct'' *)
 Admitted.
 

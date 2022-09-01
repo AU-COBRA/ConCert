@@ -1,11 +1,11 @@
 From MetaCoq.Template Require Import monad_utils.
 From MetaCoq.Template Require Import MCList.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import CertifyingInlining.
-From ConCert.Extraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import CertifyingInlining.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 From ConCert.Extraction Require Import Printing.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Extraction Require Import TopLevelFixes.
 From Coq Require Import PeanoNat.
 From Coq Require Import Ascii.
@@ -22,7 +22,7 @@ Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.ErasureFunction.
-Module Ex := ConCert.Extraction.ExAst.
+Module Ex := MetaCoq.TypedExtraction.ExAst.
 
 Local Open Scope string.
 

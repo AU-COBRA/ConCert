@@ -1,4 +1,4 @@
-all: utils execution embedding extraction
+all: utils execution embedding typed-extraction extraction
 .PHONY: all
 
 utils:
@@ -12,6 +12,10 @@ execution: utils
 embedding: utils execution
 	+make -C embedding
 .PHONY: embedding
+
+typed-extraction:
+	+make -C typed-extraction
+.PHONY: typed-extraction
 
 extraction: utils execution
 	+make -C extraction

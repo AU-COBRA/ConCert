@@ -1,10 +1,9 @@
-From ConCert.Utils Require Import Automation.
-From ConCert.Extraction Require Import Utils.
-From ConCert.Extraction Require Import ClosedAux.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Transform.
-From ConCert.Extraction Require Import WcbvEvalAux.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import ClosedAux.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import Transform.
+From MetaCoq.TypedExtraction Require Import WcbvEvalAux.
 From Coq Require Import Btauto.
 From Coq Require Import List.
 From Coq Require Import ssrbool.
@@ -1498,7 +1497,7 @@ Proof.
     f_equal.
     now apply (IHt2 _ _ []).
   - now rewrite subst_dearg_single, map_map.
-  - destruct args0;tryfalse.
+  - destruct args0;try congruence.
     now rewrite subst_dearg_single, map_map.
   - destruct p.
     propify.
@@ -1826,7 +1825,7 @@ Lemma eval_is_expanded_aux {wfl:WcbvFlags} Σ t v k :
   is_expanded_aux k v.
 Proof.
   intros ? ev exp_env exp_t.
-  induction ev in t, v, k, ev, exp_t |- *; auto; cbn in *; propify;tryfalse.
+  induction ev in t, v, k, ev, exp_t |- *; auto; cbn in *; propify;try congruence.
   - apply IHev3.
     apply is_expanded_csubst; intuition auto.
     now eapply is_expanded_aux_upwards.
@@ -1975,7 +1974,7 @@ Proof.
     now propify.
   - easy.
   - easy.
-  - now destruct args;tryfalse.
+  - now destruct args;try congruence.
   - destruct p.
     propify.
     split.
@@ -2012,7 +2011,7 @@ Proof.
     now cbn in *; propify.
   - easy.
   - easy.
-  - now destruct args;tryfalse.
+  - now destruct args;try congruence.
   - destruct p.
     cbn in *; propify.
     split.
@@ -2401,13 +2400,13 @@ Proof.
   unfold declared_inductive,declared_minductive in *.
   rewrite lookup_env_trans_env in decl_ind.
   destruct decl_ind as [decl_mind nth].
-  destruct (lookup_env Σ _) as [cst|] eqn:Hm; cbn in *;tryfalse.
+  destruct (lookup_env Σ _) as [cst|] eqn:Hm; cbn in *;try congruence.
   inversion decl_mind as [H0];subst;clear decl_mind.
   eapply lookup_env_Forall in valid_env as [b Hb];eauto.
   cbn in *.
-  destruct cst;cbn in *;tryfalse.
+  destruct cst;cbn in *;try congruence.
   inversion H0;subst;clear H0;cbn in *.
-  destruct get_mib_masks;tryfalse.
+  destruct get_mib_masks;try congruence.
   eexists;eauto.
 Qed.
 
@@ -2436,7 +2435,7 @@ Lemma eval_valid_cases {wfl:WcbvFlags} Σ t v :
   valid_cases v.
 Proof with auto with dearg.
   intros ? ev clos_env clos_t valid_env valid_t.
-  induction ev in t, v, ev, clos_t, valid_t |- *; auto; cbn in *; propify;tryfalse.
+  induction ev in t, v, ev, clos_t, valid_t |- *; auto; cbn in *; propify;try congruence.
   - intuition auto.
     eapply eval_closed in ev1 as ?...
     eapply eval_closed in ev2 as ?...
@@ -2774,9 +2773,9 @@ Proof.
     constructor.
     cbn.
     unfold EGlobalEnv.lookup_constructor in *;cbn in *.
-    destruct EGlobalEnv.lookup_env as [g|];tryfalse.
-    destruct g;cbn in *;tryfalse.
-    now repeat destruct nth_error;cbn;tryfalse.
+    destruct EGlobalEnv.lookup_env as [g|];try congruence.
+    destruct g;cbn in *;try congruence.
+    now repeat destruct nth_error;cbn;try congruence.
   - destruct argsv as [|? ? _] using MCList.rev_ind.
     { apply All2_length in all as len.
       rewrite app_length in len; cbn in *; lia. }
@@ -2882,13 +2881,13 @@ Section dearg.
     intros Hlook.
     unfold EGlobalEnv.lookup_constructor,lookup_constructor_full,lookup_minductive in *;cbn in *.
     rewrite lookup_env_trans_env in Hlook.
-    destruct (lookup_env _ _);tryfalse.
-    destruct g;tryfalse;cbn in *.
+    destruct (lookup_env _ _);cbn in *;try congruence.
+    destruct g;cbn in *;try congruence.
     rewrite nth_error_map in Hlook;cbn in *.
-    destruct (nth_error _ _);tryfalse;cbn in *.
+    destruct (nth_error _ _);cbn in *;try congruence.
     unfold trans_ctors in *.
     rewrite nth_error_map in Hlook.
-    destruct (nth_error _ c) eqn:nth1;tryfalse.
+    destruct (nth_error _ c) eqn:nth1;cbn in *;try congruence.
     cbn in *.
     destruct p as [p0 ?];cbn in *.
     destruct p0;cbn in *.
@@ -2903,13 +2902,13 @@ Section dearg.
     intros Hlook.
     unfold EGlobalEnv.lookup_constructor,lookup_constructor_full,lookup_minductive in *;cbn in *.
     rewrite lookup_env_trans_env.
-    destruct (lookup_env _ _);tryfalse.
-    destruct g;tryfalse;cbn in *.
+    destruct (lookup_env _ _);try congruence.
+    destruct g;try congruence;cbn in *.
     rewrite nth_error_map;cbn in *.
-    destruct (nth_error _ _);tryfalse;cbn in *.
+    destruct (nth_error _ _);try congruence;cbn in *.
     unfold trans_ctors in *.
     rewrite nth_error_map.
-    destruct (nth_error _ c) eqn:nth1;tryfalse.
+    destruct (nth_error _ c) eqn:nth1;try congruence.
     cbn in *.
     destruct p as [p0 ?];cbn in *.
     destruct p0;cbn in *.
@@ -2927,14 +2926,14 @@ Section dearg.
     intros ind c mmasks mdecl idecl cdecl Hlook Hmasks.
     unfold lookup_constructor_full,lookup_minductive in *.
     rewrite lookup_env_dearg_env.
-    destruct (lookup_env _ _) as [mdecl_e|] eqn:Henv;tryfalse;cbn in *.
-    destruct mdecl_e as [| mib |]eqn:Hgd;tryfalse;cbn in *.
+    destruct (lookup_env _ _) as [mdecl_e|] eqn:Henv;try congruence;cbn in *.
+    destruct mdecl_e as [| mib |]eqn:Hgd;try congruence;cbn in *.
     unfold dearg_mib.
     rewrite Hmasks;cbn.
     rewrite nth_error_mapi.
-    destruct (nth_error _ _) as [|o]eqn:nth;tryfalse;cbn in *.
+    destruct (nth_error _ _) as [|o]eqn:nth;try congruence;cbn in *.
     rewrite nth_error_mapi.
-    destruct (nth_error _ c);tryfalse;cbn.
+    destruct (nth_error _ c);try congruence;cbn.
     now inversion Hlook;subst.
   Qed.
 
@@ -2945,8 +2944,8 @@ Section dearg.
         nth_error (EAst.ind_bodies m) (inductive_ind ind) = Some i.
   Proof.
     intros m i ctr Σ0 ind0 c0 Hc0.  unfold EGlobalEnv.lookup_constructor in *;cbn in Hc0.
-    destruct (EGlobalEnv.lookup_env Σ0 _);tryfalse. destruct g;tryfalse.
-    destruct (nth_error _ _) eqn:Hi;tryfalse.  destruct (nth_error _ c0);tryfalse.
+    destruct (EGlobalEnv.lookup_env Σ0 _);try congruence. destruct g;try congruence.
+    destruct (nth_error _ _) eqn:Hi;try congruence.  destruct (nth_error _ c0);try congruence.
     easy.
   Qed.
 
@@ -2974,7 +2973,7 @@ Section dearg.
       trans_env (dearg_env Σ) e⊢ tApp (dearg hd) (dearg arg) ▷ dearg v.
   Proof with auto with dearg.
     intros ? clos_hd valid_hd exp_hd clos_arg valid_arg exp_arg ev ev_len.
-    depind ev; cbn in *;tryfalse.
+    depind ev; cbn in *;try congruence.
     - apply eval_box with (dearg t').
       + now unshelve eapply (IH _ _ _ _ _ ev1).
       + now unshelve eapply (IH _ _ _ _ _ ev2).
@@ -3129,7 +3128,7 @@ Section dearg.
             by now destruct hd.
           rewrite map_length.
           destruct with_guarded_fix;cbn;auto;
-            destruct args;cbn;auto;destruct hd;tryfalse;cbn;auto.
+            destruct args;cbn;auto;destruct hd;try congruence;cbn;auto.
       + now unshelve eapply (IH _ _ _ _ _ ev2 _).
   Qed.
 
@@ -3345,18 +3344,18 @@ Proof.
   intros ? Hc.
   unfold constructor_isprop_pars_decl,dearged_npars in *;cbn in *.
   rewrite !lookup_env_trans_env, lookup_env_dearg_env in *.
-  destruct lookup_env; cbn in *;tryfalse.
-  destruct g; tryfalse; cbn in *; auto.
+  destruct lookup_env; cbn in *;try congruence.
+  destruct g; cbn in *; try congruence; auto.
   rewrite !nth_error_map in *.
   unfold dearg_mib.
-  destruct get_mib_masks;tryfalse;auto.
+  destruct get_mib_masks;cbn in *;try congruence;auto.
   cbn in *.
   rewrite nth_error_mapi.
-  destruct nth_error;tryfalse;cbn in *;auto.
+  destruct nth_error;cbn in *;try congruence;auto.
   unfold trans_ctors in *.
   repeat rewrite nth_error_map in *.
   rewrite nth_error_mapi.
-  destruct nth_error;tryfalse;cbn;auto.
+  destruct nth_error;cbn in *;try congruence;auto.
   destruct p;cbn in *.
   destruct p;cbn in *.
   now inversion Hc.
@@ -3371,14 +3370,14 @@ Proof.
   intros Σ ind pars e.
   unfold inductive_isprop_and_pars in *;cbn in *.
   rewrite !lookup_env_trans_env, lookup_env_dearg_env in *;cbn in *.
-  destruct lookup_env; cbn in *;tryfalse.
-  destruct g; tryfalse; cbn in *; auto.
+  destruct lookup_env; cbn in *;try congruence.
+  destruct g; cbn in *; try congruence; auto.
   rewrite !nth_error_map in *.
   unfold dearg_mib.
-  destruct get_mib_masks;tryfalse;auto.
+  destruct get_mib_masks;cbn in *;try congruence;auto.
   cbn in *.
   rewrite nth_error_mapi.
-  now destruct nth_error;tryfalse;cbn in *;auto.
+  now destruct nth_error;cbn in *;try congruence;auto.
 Qed.
 
 (* NOTE: there is a similar lemma in MetaCoq, but it's missing
@@ -3498,8 +3497,8 @@ Lemma mask_last : forall {A} msk b (l : list A) (a : A),
     masked (msk ++ [b]) (l ++ [a]) = masked msk l ++ if b then [] else [a].
 Proof.
   induction msk;intros ??? H;cbn in *.
-  - now destruct l;cbn;tryfalse.
-  - destruct l;cbn in *;tryfalse.
+  - now destruct l;cbn;try congruence.
+  - destruct l;cbn in *;try congruence.
     destruct a;cbn in *;auto.
     now f_equal.
 Qed.
@@ -3539,7 +3538,7 @@ Proof.
    * unfold complete_ctx_mask in Hv;cbn in Hv.
      rewrite app_assoc in Hv.
      apply valid_dearg_mask_branch_last_true in Hv as [??].
-     destruct ctx0;tryfalse;simpl in *.
+     destruct ctx0;simpl in *;try congruence.
      inversion Hctx as [Hctx0];clear Hctx.
      assert (Hmm : #|mm| <= #|args0|) by lia.
      clear Hlen.
@@ -3584,7 +3583,7 @@ Proof.
    * unfold complete_ctx_mask in Hv;cbn in Hv.
      rewrite app_assoc in Hv.
      apply valid_dearg_mask_branch_last_false in Hv.
-     destruct ctx0;tryfalse;simpl in *.
+     destruct ctx0;simpl in *;try congruence.
      assert (Hmm : #|mm| <= #|args0|) by lia.
      clear Hlen.
      unfold complete_ctx_mask;cbn.
@@ -3726,7 +3725,7 @@ Proof.
     apply valid_cases_mkApps_inv in valid_t as (? & valid_apps).
     cbn in *.
     (* NOTE: we use validity of cases to ensure that the block constructor argument is an empty list *)
-    destruct args0;tryfalse.
+    destruct args0;try congruence.
     eapply eval_mkApps_Construct_inv' in ev as ev_c;eauto.
     destruct ev_c as (argsv' & mdecl & idecl & cdecl & [ctor_look  Heq ev_args' a]).
     assert (argsv' = argsv) by now eapply eval_deterministic_all.
@@ -3799,7 +3798,7 @@ Proof.
     destruct exp_hd as (exp_discr & exp_brs).
     unfold dearg_case.
     (* We need induction as casing on a cofix involves casing on whatever it evaluates to *)
-    depind ev; cbn in *;tryfalse.
+    depind ev; cbn in *;try congruence.
     + (* Normal pattern match *)
       clear IHev1 IHev2.
       facts.
@@ -3809,12 +3808,12 @@ Proof.
       pose proof e0 as ee.
       unfold constructor_isprop_pars_decl in e0;cbn in e0.
       rewrite lookup_env_trans_env in e0.
-      destruct (lookup_env _ _) as [g|]eqn:Hg;tryfalse;cbn in *.
-      destruct g as [ | mib |] eqn:Hmib;tryfalse;cbn in *.
+      destruct (lookup_env _ _) as [g|]eqn:Hg;cbn in *;try congruence.
+      destruct g as [ | mib |] eqn:Hmib;cbn in *;try congruence.
       rewrite nth_error_map in e0.
-      destruct nth_error as [oib|] eqn:Hoib;tryfalse.
+      destruct nth_error as [oib|] eqn:Hoib;cbn in *;try congruence.
       cbn in *.
-      destruct (nth_error _ c);tryfalse.
+      destruct (nth_error _ c);cbn in *;try congruence.
       inversion e0;subst.
       assert (decl_ind :declared_inductive (trans_env Σ) ind (trans_mib mib) (trans_oib oib)).
         { unfold declared_inductive,declared_minductive.
@@ -4127,10 +4126,10 @@ Proof.
         unfold dearged_ctor_arity.
         unfold constructor_isprop_pars_decl in e0;cbn in e0.
         rewrite lookup_env_trans_env in e0.
-        destruct (lookup_env _ _) as [g|]eqn:Hg;tryfalse;cbn in *.
-        destruct g as [ | mib |] eqn:Hmib;tryfalse;cbn in *.
+        destruct (lookup_env _ _) as [g|]eqn:Hg;cbn in *;try congruence.
+        destruct g as [ | mib |] eqn:Hmib;cbn in *;try congruence.
         rewrite nth_error_map in e0.
-        destruct nth_error as [oib|] eqn:Hoib;tryfalse.
+        destruct nth_error as [oib|] eqn:Hoib;cbn in *;try congruence.
         assert (decl_ind :declared_inductive (trans_env Σ) ind (trans_mib mib) (trans_oib oib)).
         { unfold declared_inductive,declared_minductive.
           split. rewrite lookup_env_trans_env. now rewrite Hg.
@@ -4150,10 +4149,10 @@ Proof.
         lia.
       * unfold constructor_isprop_pars_decl in e0;cbn in e0.
         rewrite lookup_env_trans_env in e0.
-        destruct (lookup_env _ _) as [g|]eqn:Hg;tryfalse;cbn in *.
-        destruct g as [ | mib |] eqn:Hmib;tryfalse;cbn in *.
+        destruct (lookup_env _ _) as [g|]eqn:Hg;cbn in *;try congruence.
+        destruct g as [ | mib |] eqn:Hmib;cbn in *;try congruence.
         rewrite nth_error_map in e0.
-        destruct nth_error as [oib|] eqn:Hoib;tryfalse.
+        destruct nth_error as [oib|] eqn:Hoib;cbn in *;try congruence.
         assert (decl_ind :declared_inductive (trans_env Σ) ind (trans_mib mib) (trans_oib oib)).
         { unfold declared_inductive,declared_minductive.
           split. rewrite lookup_env_trans_env. now rewrite Hg.
@@ -4249,12 +4248,12 @@ Proof.
   intros Σ ind pars c r.
   unfold constructor_isprop_pars_decl in *;cbn in *.
   rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
-  destruct lookup_env; cbn in *;tryfalse.
-  destruct g; cbn in *;tryfalse.
-  rewrite !nth_error_map in *. destruct nth_error;cbn in *;tryfalse.
+  destruct lookup_env; cbn in *;try congruence.
+  destruct g; cbn in *;try congruence.
+  rewrite !nth_error_map in *. destruct nth_error;cbn in *;try congruence.
   unfold trans_ctors in *;cbn in *.
   repeat rewrite nth_error_map in *.
-  destruct nth_error;cbn in *;tryfalse.
+  destruct nth_error;cbn in *;try congruence.
   destruct p as [p0].
   now destruct p0.
 Qed.
@@ -4267,10 +4266,10 @@ Proof.
   intros Σ ind r H.
   unfold inductive_isprop_and_pars in *;cbn in *.
   rewrite !lookup_env_trans_env, lookup_env_debox_env_types in *.
-  destruct lookup_env; cbn in *;tryfalse.
-  destruct g; cbn in *;tryfalse.
+  destruct lookup_env; cbn in *;try congruence.
+  destruct g; cbn in *;try congruence.
   rewrite !nth_error_map in *.
-  now destruct nth_error;cbn in *;tryfalse.
+  now destruct nth_error;cbn in *;try congruence.
 Qed.
 
 Lemma lookup_constructor_debox_types:
@@ -4283,12 +4282,12 @@ Proof.
   unfold lookup_constructor_full in *;cbn in *.
   unfold lookup_constructor_full,lookup_minductive in *.
   rewrite lookup_env_debox_env_types.
-  destruct (lookup_env _ _) as [mdecl_e|] eqn:Henv;tryfalse;cbn in *.
-  destruct mdecl_e as [| mib |]eqn:Hgd;tryfalse;cbn in *.
+  destruct (lookup_env _ _) as [mdecl_e|] eqn:Henv;try congruence;cbn in *.
+  destruct mdecl_e as [| mib |]eqn:Hgd;try congruence;cbn in *.
   rewrite nth_error_map.
-  destruct (nth_error _ _) as [|o1]eqn:nth;tryfalse;cbn in *.
+  destruct (nth_error _ _) as [|o1]eqn:nth;try congruence;cbn in *.
   rewrite nth_error_map.
-  destruct (nth_error _ c);tryfalse;cbn.
+  destruct (nth_error _ c);try congruence;cbn.
   destruct p as [p0]. destruct p0;cbn.
   now inversion H;subst.
 Qed.
@@ -4299,7 +4298,7 @@ Lemma eval_debox_env_types {wfl:WcbvFlags} Σ t v :
   trans_env (debox_env_types Σ) e⊢ t ▷ v.
 Proof.
   intros wcab.
-  induction 1; eauto;tryfalse.
+  induction 1; eauto;try congruence.
   - eapply eval_iota; eauto.
     now apply constructor_isprop_pars_decl_trans_env_debox_types.
   - eapply eval_iota_sing; eauto.
@@ -4326,10 +4325,9 @@ Proof.
     all : eauto.
   - eapply eval_atom.
     depelim t;auto.
-    destruct l;tryfalse.
-    simpl in *.
+    destruct l;simpl in *;try congruence.
     propify.
-    destruct (EGlobalEnv.lookup_constructor (trans_env Σ) _ _) as [p | ] eqn:He;tryfalse.
+    destruct (EGlobalEnv.lookup_constructor (trans_env Σ) _ _) as [p | ] eqn:He;simpl in *;try congruence.
     destruct p as [[??]?].
     apply lookup_ctor_trans_env in He as ee.
     destruct ee as (mib & oib & ctor & Hc & Hmib & Hoib & Hctor).

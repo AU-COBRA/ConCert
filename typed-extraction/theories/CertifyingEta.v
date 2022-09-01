@@ -10,12 +10,12 @@ From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
-From ConCert.Extraction Require Import Erasure.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import Certifying.
+From MetaCoq.TypedExtraction Require Import Erasure.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Certifying.
 
 Open Scope nat.
 Import MCMonadNotation.
@@ -264,10 +264,13 @@ Module Examples.
                  Ex2.partial_app2).
 
   (** [partial_app2_expanded] is defined in terms of [partial_app1_expanded] *)
-  Print ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app2_expanded.
-  (* ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app2_expanded =
-  let f := fun A B : Type => ConCert_Extraction_CertifyingEta_Examples_Ex2_partial_app1_expanded A B in f bool true
-     : bool -> true -> MyInd bool true bool
+  (* FIXME: it's a bit fragile to refer to unquoted definitions, because their names depend on a module/path they are in *)
+  Print MetaCoq_TypedExtraction_CertifyingEta_Examples_Ex2_partial_app2_expanded.
+  (* MetaCoq_TypedExtraction_CertifyingEta_Examples_Ex2_partial_app2_expanded =
+  let f :=
+    fun A B : Type => MetaCoq_TypedExtraction_CertifyingEta_Examples_Ex2_partial_app1_expanded A B in
+  f bool true
+       : bool -> true -> MyInd bool true bool
    *)
 
   Inductive MyInd1 (A B C : Type) :=

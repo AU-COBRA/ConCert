@@ -1,18 +1,28 @@
 (** * Term and proof generation for the certifying transforms *)
 From Coq Require Import List.
 From Coq Require Import Ascii.
+From Coq Require Import String.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Template Require Import Checker.
-From ConCert.Utils Require StringExtra.
 
 Open Scope bs.
 Import MCMonadNotation.
 
 (* TODO: at some point we should provide StringExtra for byte strings *)
+Definition replace_char (orig : ascii) (new : ascii) : String.string -> String.string :=
+  fix f s :=
+    match s with
+    | EmptyString => EmptyString
+    | String c s => if (c =? orig)%char then
+                      String new (f s)
+                    else
+                      String c (f s)
+    end.
+
 Definition get_def_name (name : kername) : string :=
   let s_name := bytestring.String.to_string (string_of_kername name) in
-  bytestring.String.of_string (StringExtra.replace_char "." "_" s_name).
+  bytestring.String.of_string (replace_char "." "_" s_name).
 
 Definition change_modpath (mpath : modpath) (suffix : string) (to_rename : kername -> bool)
   : term -> term :=
