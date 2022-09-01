@@ -15,6 +15,10 @@ The dependencies can be installed through `opam`.
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
 
 ```bash
+git clone https://github.com/AU-COBRA/ConCert.git
+cd ConCert
+git submodule init
+git submodule update
 opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released --deps-only
 eval $(opam env)
 ```
@@ -22,6 +26,10 @@ eval $(opam env)
 If Coq 8.15 is already installed, run
 
 ```bash
+git clone https://github.com/AU-COBRA/ConCert.git
+cd ConCert
+git submodule init
+git submodule update
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install ./coq-concert.opam --deps-only
 ```
