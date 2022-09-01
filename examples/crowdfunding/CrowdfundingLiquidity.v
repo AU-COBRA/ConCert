@@ -6,12 +6,12 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LPretty.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ResultMonad.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
 From MetaCoq.Template Require Import All.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
 
 Import AcornBlockchain.
 Import MCMonadNotation.

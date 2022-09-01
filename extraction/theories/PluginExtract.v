@@ -1,11 +1,11 @@
 (** * Definitions below are used in the extracted plugin *)
 
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import Utils.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Extraction Require Import Printing.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import RustExtract.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import monad_utils.
@@ -127,6 +127,7 @@ program_preamble := [
 "  self.__alloc.alloc(F)";
 "}" ] |}.
 
+#[local]
 Instance RustConfig : RustPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";

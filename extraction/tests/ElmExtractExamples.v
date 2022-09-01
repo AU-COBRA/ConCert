@@ -6,11 +6,11 @@
     We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import CertifyingEta.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import CertifyingEta.
 From ConCert.Extraction.Tests Require Import ElmExtractTests.
 From ConCert.Extraction.Tests Require Import Ack.
 From MetaCoq.Template Require Import Ast.
@@ -22,6 +22,7 @@ From Coq Require Import String.
 Import MCMonadNotation.
 Local Open Scope string.
 
+#[local]
 Instance ElmBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()"; (* the inhabitant of the unit type *)
      type_box_symbol := "()"; (* unit type *)

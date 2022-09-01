@@ -4,42 +4,23 @@
 
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
+-R ../typed-extraction/theories MetaCoq.TypedExtraction
 
 -Q theories ConCert.Extraction
-theories/Annotations.v
 theories/CameLIGOExtract.v
 theories/CameLIGOPretty.v
-theories/Certifying.v
-theories/CertifyingBeta.v
-theories/CertifyingEta.v
-theories/CertifyingInlining.v
-theories/ClosedAux.v
 theories/Common.v
 theories/ConcordiumExtract.v
 theories/ElmExtract.v
-theories/Erasure.v
-theories/ErasureCorrectness.v
-theories/ExAst.v
 theories/ExtractExtraction.v
-theories/Extraction.v
-theories/ExtractionCorrectness.v
-theories/LPretty.v
 theories/LiquidityExtract.v
-theories/NumLiteralTests.v
-theories/Optimize.v
-theories/OptimizeCorrectness.v
-theories/OptimizePropDiscr.v
+theories/LPretty.v
 theories/PluginExtract.v
 theories/PrettyPrinterMonad.v
 theories/Printing.v
-theories/ResultMonad.v
 theories/RustExtract.v
 theories/SpecializeChainBase.v
 theories/TopLevelFixes.v
-theories/Transform.v
-theories/TypeAnnotations.v
-theories/Utils.v
-theories/WcbvEvalAux.v
 
 -Q tests ConCert.Extraction.Tests
 tests/Ack.v
@@ -47,7 +28,6 @@ tests/CameLIGOExtractionTests.v
 tests/ElmExtractExamples.v
 tests/ElmExtractTests.v
 tests/ElmForms.v
-tests/ErasureTests.v
 tests/RecordExtractionLiquidityTests.v
 tests/RustExtractTests.v
-tests/TypeAnnotationTests.v
+tests/NumLiteralTests.v

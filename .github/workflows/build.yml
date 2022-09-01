@@ -27,6 +27,8 @@ jobs:
     steps:
     - name: Checkout branch ${{ github.ref_name }}
       uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Setup environment
       run: |
         echo "HOME=/home/coq" >> $GITHUB_ENV
@@ -54,7 +56,7 @@ jobs:
         echo "::endgroup::"
 
         echo "::group::Build extraction layer"
-        make -j2 extraction
+        make -j2 typed-extraction extraction
         echo "::endgroup::"
     - name: Build examples
       run: |

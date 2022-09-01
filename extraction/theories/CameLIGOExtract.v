@@ -4,17 +4,17 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require ResultMonad.
-From ConCert.Extraction Require Import ResultMonad.
-From ConCert.Extraction Require Import CertifyingInlining.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ExAst.
-From ConCert.Extraction Require Import Optimize.
-From ConCert.Extraction Require Import Extraction.
-From ConCert.Extraction Require Import TypeAnnotations.
-From ConCert.Extraction Require Import Annotations.
-From ConCert.Extraction Require Import Utils.
 From ConCert.Extraction Require Import SpecializeChainBase.
+From MetaCoq.TypedExtraction Require Import CertifyingInlining.
+From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.TypedExtraction Require Import Optimize.
+From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.TypedExtraction Require Import TypeAnnotations.
+From MetaCoq.TypedExtraction Require Import Annotations.
+From MetaCoq.TypedExtraction Require Import Utils.
 From ConCert.Utils Require Import Env.
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require monad_utils.
@@ -75,6 +75,10 @@ Proof.
     * exact (Ok (t; X)).
     * exact (Err e).
 Defined.
+
+Definition blah : Monad (fun A => result A string) := _.
+
+Print Instances Monad.
 
 Program Definition annot_extract_template_env_specalize
            (e : Ast.Env.global_env)
