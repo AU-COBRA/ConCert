@@ -84,6 +84,7 @@ Module CameLIGOExtractionSetup.
   Import CameLIGOPretty CameLIGOExtract.
 
   (** Exposing a printing configuration for CameLIGO *)
+  #[local]
   Existing Instance PrintConfAddModuleNames.PrintWithModuleNames.
 
 

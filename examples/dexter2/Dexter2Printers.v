@@ -2,7 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Printers.
+From ConCert.Examples.FA2 Require Export FA2Printers.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 
@@ -25,6 +25,7 @@ Module NullAddressLocalBlockcain <: NullAddress.
 End NullAddressLocalBlockcain.
 Module DEX2 := Dexter2 DSInstances NullAddressLocalBlockcain.
 
+#[export]
 Instance showAddLiqduidityParam : Show add_liquidity_param :=
 {|
   show p := "params{" ++
@@ -34,6 +35,7 @@ Instance showAddLiqduidityParam : Show add_liquidity_param :=
     "deadline: " ++ show p.(add_deadline) ++ "}"
 |}.
 
+#[export]
 Instance showRemoveLiqduidityParam : Show remove_liquidity_param :=
 {|
   show p := "params{" ++
@@ -44,6 +46,7 @@ Instance showRemoveLiqduidityParam : Show remove_liquidity_param :=
     "deadline: " ++ show p.(remove_deadline) ++ "}"
 |}.
 
+#[export]
 Instance showXtzToTokenParam : Show xtz_to_token_param :=
 {|
   show p := "params{" ++
@@ -52,6 +55,7 @@ Instance showXtzToTokenParam : Show xtz_to_token_param :=
     "deadline: " ++ show p.(xtt_deadline) ++ "}"
 |}.
 
+#[export]
 Instance showTokenToXtzParam : Show token_to_xtz_param :=
 {|
   show p := "params{" ++
@@ -61,6 +65,7 @@ Instance showTokenToXtzParam : Show token_to_xtz_param :=
     "deadline: " ++ show p.(ttx_deadline) ++ "}"
 |}.
 
+#[export]
 Instance showSetBakerParam : Show set_baker_param :=
 {|
   show p := "params{" ++
@@ -68,6 +73,7 @@ Instance showSetBakerParam : Show set_baker_param :=
     "freeze: " ++ show p.(freezeBaker_) ++ "}"
 |}.
 
+#[export]
 Instance showTokenToTokenParam : Show token_to_token_param :=
 {|
   show p := "params{" ++
@@ -78,6 +84,7 @@ Instance showTokenToTokenParam : Show token_to_token_param :=
     "deadline: " ++ show p.(ttt_deadline) ++ "}"
 |}.
 
+#[export]
 Instance showCPMMDexterMsg : Show DexterMsg :=
 {|
   show m :=
@@ -94,11 +101,13 @@ Instance showCPMMDexterMsg : Show DexterMsg :=
     end
 |}.
 
+#[export]
 Instance showCPMMMsg : Show Dexter2CPMM.Msg :=
 {|
   show m := show m
 |}.
 
+#[export]
 Instance showCPMMSetup : Show Dexter2CPMM.Setup :=
 {|
   show p := "Setup{" ++
@@ -108,6 +117,7 @@ Instance showCPMMSetup : Show Dexter2CPMM.Setup :=
     "token Id: " ++ show p.(tokenId_) ++ "}"
 |}.
 
+#[export]
 Instance showCPMMState : Show Dexter2CPMM.State :=
 {|
   show p := "State{" ++
@@ -123,6 +133,7 @@ Instance showCPMMState : Show Dexter2CPMM.State :=
 |}.
 
 (** * Dexter2 Lqt Token printers *)
+#[export]
 Instance showLqtSetup : Show Dexter2FA12.Setup :=
 {|
   show p := "Setup{" ++
@@ -131,6 +142,7 @@ Instance showLqtSetup : Show Dexter2FA12.Setup :=
     "initial pool: " ++ show p.(initial_pool) ++ "}"
 |}.
 
+#[export]
 Instance showLqtState : Show Dexter2FA12.State :=
 {|
   show p := "State{" ++
@@ -140,6 +152,7 @@ Instance showLqtState : Show Dexter2FA12.State :=
     "admin: " ++ show p.(admin) ++ "}"
 |}.
 
+#[export]
 Instance showTransferParam : Show transfer_param :=
 {|
   show p := "params{" ++
@@ -148,6 +161,7 @@ Instance showTransferParam : Show transfer_param :=
     "value: " ++ show p.(value) ++ "}"
 |}.
 
+#[export]
 Instance showApproveParam : Show approve_param :=
 {|
   show p := "params{" ++
@@ -155,6 +169,7 @@ Instance showApproveParam : Show approve_param :=
     "value: " ++ show p.(value_) ++ "}"
 |}.
 
+#[export]
 Instance showMintOrBurnParam : Show mintOrBurn_param :=
 {|
   show p := "params{" ++
@@ -162,6 +177,7 @@ Instance showMintOrBurnParam : Show mintOrBurn_param :=
     "target: " ++ show p.(target) ++ "}"
 |}.
 
+#[export]
 Instance showGetAllowanceParam : Show getAllowance_param :=
 {|
   show p := "params{" ++
@@ -169,6 +185,7 @@ Instance showGetAllowanceParam : Show getAllowance_param :=
     "callback addr: " ++ show p.(allowance_callback).(return_addr) ++ "}"
 |}.
 
+#[export]
 Instance showGetBalanceParam : Show getBalance_param :=
 {|
   show p := "params{" ++
@@ -176,12 +193,14 @@ Instance showGetBalanceParam : Show getBalance_param :=
     "callback addr: " ++ show p.(balance_callback).(return_addr) ++ "}"
 |}.
 
+#[export]
 Instance showGetTotalSupplyParam : Show getTotalSupply_param :=
 {|
   show p := "params{" ++
     "callback addr: " ++ show p.(supply_callback).(return_addr) ++ "}"
 |}.
 
+#[export]
 Instance showLqtMsg : Show Dexter2FA12.Msg :=
 {|
   show m :=
@@ -196,6 +215,7 @@ Instance showLqtMsg : Show Dexter2FA12.Msg :=
 |}.
 
 (** * Combined message printer *)
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,

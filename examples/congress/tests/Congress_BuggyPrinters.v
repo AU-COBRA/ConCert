@@ -5,6 +5,7 @@ From ConCert.Examples.Congress Require Import Congress_Buggy.
 From Coq Require Import List.
 Open Scope string_scope.
 
+#[export]
 Instance showRules : Show Rules :=
 {|
   show r :=
@@ -25,6 +26,7 @@ match ca with
     end ++ ")"
 end.
 
+#[export]
 Instance showSetup : Show Setup :=
 {|
   show v := show (setup_rules v)
@@ -50,6 +52,7 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   | finish_proposal_remove proposalId => "finish_proposal " ++ show proposalId
   end.
 
+#[export]
 Instance showMsg : Show Msg :=
 {|
   show := string_of_Msg 20
@@ -57,11 +60,13 @@ Instance showMsg : Show Msg :=
 
 (* TODO: fix printing for msg of type SerializedValue such that
    it works whenever it is serialized from type Msg *)
+#[export]
 Instance showCongressBuggyAction : Show CongressAction :=
 {|
   show := string_of_ca (string_of_Msg 20)
 |}.
 
+#[export]
 Instance showProposal : Show Proposal :=
 {|
   show p :=
@@ -73,6 +78,7 @@ Instance showProposal : Show Proposal :=
     ++ "}" ++ newline
 |}.
 
+#[export]
 Instance showState : Show Congress_Buggy.State :=
 {|
   show s := "State{"
@@ -83,5 +89,6 @@ Instance showState : Show Congress_Buggy.State :=
             ++ "members: " ++ show (members s) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

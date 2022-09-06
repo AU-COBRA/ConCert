@@ -46,8 +46,10 @@ Module RemoveProperties.
     + subst. destruct (eq_dec y x);subst;cbn;auto;try congruence.
     + destruct (eq_dec y a);cbn;auto.
   Qed.
-
+  
+  #[local]
   Hint Constructors NoDup : hints.
+  #[local]
   Hint Resolve In_remove remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
 
   Fixpoint remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :=
@@ -87,8 +89,9 @@ Module RemoveProperties.
     inversion H0; destruct (eq_dec x a);subst;intuition;simpl in *;eauto with hints.
   Qed.
 
+  #[local]
   Hint Resolve NoDup_remove : hints.
-
+  #[local]
   Hint Resolve In_remove : hints.
 
   Lemma remove_extensional {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l1 l2 : list A) (y : A) :

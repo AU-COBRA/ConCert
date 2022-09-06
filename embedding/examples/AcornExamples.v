@@ -200,6 +200,7 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
     now f_equal.
   Qed.
 
+  #[local]
   Hint Rewrite acorn_foldr_coq_fold_right concat_app from_to_acorn : hints.
 
   Lemma concat_assoc :
@@ -366,15 +367,20 @@ Module Recursion.
   Lemma Nat_nat_right n : Nat_nat (nat_Nat n) = n.
   Proof. induction n;simpl;f_equal;auto. Qed.
 
+  #[local]
   Hint Resolve Nat_nat_left Nat_nat_right : hints.
-
-  Local Coercion Nat_nat : Nat >-> nat.
-  Local Coercion nat_Nat : nat >-> Nat.
+  
+  #[local]
+  Set Warnings "-ambiguous-paths".
+  
+  #[local]
+  Coercion Nat_nat : Nat >-> nat.
+  #[local]
+  Coercion nat_Nat : nat >-> Nat.
 
   Lemma add_correct (n m : Nat) :
   add n m = n + m.
   Proof. induction n;simpl;f_equal;auto with hints. Qed.
-
 
 End Recursion.
 

@@ -166,6 +166,7 @@ Definition deserialize_to_string {ty : Type}
   | None => "?"
   end.
 
+#[export]
 Instance showFMap {A B : Type}
                  `{countable.Countable A}
                  `{base.EqDecision A}
@@ -260,8 +261,9 @@ Section AddressGenerators.
   Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) := {|
       arbitrary := gBoundedN
     |}.
-
-  Global Instance genAddress : Gen (@Address LocalChainBase) := {|
+  
+  #[export]
+  Instance genAddress : Gen (@Address LocalChainBase) := {|
       (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
       arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
     |}.
@@ -323,6 +325,7 @@ Fixpoint gFMapSized {A B : Type}
     returnGen (FMap.add a b m)
   end.
 
+#[export]
 Instance genFMapSized {A B : Type}
                      `{Gen A}
                      `{Gen B}
@@ -424,7 +427,7 @@ Definition forEachMapEntry {A B prop : Type}
   conjoin_map pf_ (FMap.elements m).
 
 (* Repeats a generator for each element in the given list *)
-Fixpoint repeatWith {A prop : Type}
+Definition repeatWith {A prop : Type}
                    `{Checkable prop}
                     (l : list A)
                     (c : A -> prop)

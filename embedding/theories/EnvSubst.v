@@ -43,7 +43,7 @@ Module NamelessSubst.
       end.
 
 
-   (** NOTE: assumes, that expression in [ρ] are closed! *)
+  (** NOTE: assumes, that expression in [ρ] are closed! *)
   Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
     match e with
     | eRel i => if Nat.leb k i then
@@ -225,6 +225,7 @@ Module Equivalence.
    Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
    Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
 
+   #[export]
    Instance val_equiv_reflexive : Reflexive val_equiv.
    Proof.
      intros v. induction v using val_ind_full.
@@ -239,7 +240,9 @@ Module Equivalence.
    Axiom val_equiv_symmetric : Symmetric val_equiv.
    Axiom val_equiv_transitive : Transitive val_equiv.
 
+   #[export]
    Existing Instance val_equiv_symmetric.
+   #[export]
    Existing Instance val_equiv_transitive.
 
    (* TODO:  Define these  *)
@@ -247,8 +250,11 @@ Module Equivalence.
    Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
    Axiom list_val_equiv_transitive : Transitive list_val_equiv.
 
+   #[export]
    Existing Instance list_val_equiv_reflexive.
+   #[export]
    Existing Instance list_val_equiv_symmetric.
+   #[export]
    Existing Instance list_val_equiv_transitive.
 
    Lemma list_val_compat v1 v2 vs1 vs2 :
@@ -258,6 +264,7 @@ Module Equivalence.
      constructor;easy.
    Qed.
 
+   #[export]
    Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
    Proof.
       cbv;intros;apply list_val_compat;assumption.
@@ -273,6 +280,7 @@ Module Equivalence.
       + constructor; assumption.
     Defined.
 
+    #[export]
     Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
     Proof.
       cbv;intros;apply constr_cons_compat;assumption.

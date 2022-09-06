@@ -7,7 +7,7 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATAltFix.
 From ConCert.Examples.BAT Require Import BATGens.
-From ConCert.Examples.BAT Require Import BATPrinters.
+From ConCert.Examples.BAT Require Export BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.

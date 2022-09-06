@@ -10,6 +10,7 @@ From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggy.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggyGens.
+From ConCert.Examples.ExchangeBuggy Require Export ExchangeBuggyPrinters.
 From ConCert.Utils Require Import Extras.
 From Coq Require Import ZArith.
 From Coq Require Import List.

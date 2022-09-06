@@ -1051,6 +1051,7 @@ Module Zp.
     destruct onediv as [div|div]; apply Z.mod_divide in div; lia.
   Qed.
 
+  #[local]
   Hint Resolve mul_mod_nonzero : core.
 
   Lemma mod_mod_nonzero a p :
@@ -1062,6 +1063,7 @@ Module Zp.
     auto.
   Qed.
 
+  #[local]
   Hint Resolve mod_mod_nonzero : core.
 
   Lemma mod_pow_pos_aux_nonzero a x p r :
@@ -1076,6 +1078,7 @@ Module Zp.
     induction x; intros a r ap0 rp0; cbn; auto.
   Qed.
 
+  #[local]
   Hint Resolve mod_pow_pos_aux_nonzero : core.
 
   Lemma mod_pow_pos_nonzero a x p :
@@ -1089,6 +1092,7 @@ Module Zp.
     now rewrite Z.mod_1_l by lia.
   Qed.
 
+  #[local]
   Hint Resolve mod_pow_pos_nonzero : core.
 
   Lemma mod_inv_nonzero a p :
@@ -1105,6 +1109,7 @@ Module Zp.
     rewrite Z.mul_0_r, Z.mod_0_l in iszero; easy.
   Qed.
 
+  #[local]
   Hint Resolve mod_inv_nonzero : core.
 
   Lemma mod_pow_nonzero a x p :
@@ -1120,6 +1125,7 @@ Module Zp.
       rewrite mod_pow_pos_mod; auto.
   Qed.
 
+  #[local]
   Hint Resolve mod_pow_nonzero : core.
 
   Lemma mod_pow_pos_mod_nonzero a x p :
@@ -1143,6 +1149,7 @@ Module Zp.
     now rewrite Z.mod_1_l by lia.
   Qed.
 
+  #[local]
   Hint Resolve mod_pow_pos_mod_nonzero mod_inv_mod_nonzero mod_pow_mod_nonzero one_nonzero : core.
 
   Lemma mod_inv_mod_idemp a p :
@@ -1599,7 +1606,9 @@ Module BigZp.
     | Zneg x => mod_inv (mod_pow_pos a x p) p
     end.
 
+  #[local]
   Hint Rewrite BigZ.square_spec BigZ.spec_pow_pos : zsimpl.
+  #[local]
   Hint Rewrite BigN.spec_of_pos : nsimpl.
 
   Lemma spec_mod_pow_pos_aux a x p r :
@@ -1613,11 +1622,15 @@ Module BigZp.
       now autorewrite with zsimpl.
     - now autorewrite with zsimpl.
   Qed.
+
+  #[local]
   Hint Rewrite spec_mod_pow_pos_aux : zsimpl.
 
   Lemma spec_mod_pow_pos a x p :
     [mod_pow_pos a x p] = Zp.mod_pow_pos [a] x [p].
   Proof. apply spec_mod_pow_pos_aux. Qed.
+
+  #[local]
   Hint Rewrite spec_mod_pow_pos : zsimpl.
 
   Lemma spec_egcd_aux n r0 a0 b0 r1 a1 b1 :
@@ -1638,7 +1651,9 @@ Module BigZp.
     apply IH.
   Qed.
 
+  #[local]
   Hint Rewrite BigZ.spec_abs : zsimpl.
+
   Lemma spec_egcd a b :
     let (x, y) := egcd a b in
     ([x], [y]) = Egcd.egcd [a] [b].
@@ -1673,6 +1688,8 @@ Module BigZp.
     inversion H.
     now autorewrite with zsimpl.
   Qed.
+
+  #[local]
   Hint Rewrite spec_mod_inv : zsimpl.
 
   Lemma spec_mod_pow a x p :
@@ -1681,9 +1698,19 @@ Module BigZp.
     unfold mod_pow, Zp.mod_pow.
     now destruct x; autorewrite with zsimpl.
   Qed.
-  Hint Rewrite spec_mod_pow : zsimpl.
 
+  #[local]
+  Hint Rewrite spec_mod_pow : zsimpl.
+  #[local]
   Hint Rewrite BigZ.spec_modulo : zsimpl.
+  #[local]
+  Hint Resolve Zp.mod_inv_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_pow_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_inv_mod_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_pow_mod_nonzero : core.
 
   Local Open Scope Z.
   Definition boardroom_axioms (p : Z) :
@@ -1808,6 +1835,17 @@ End BoardroomAxiomsZParams.
 Module BoardroomAxiomsZ (Params : BoardroomAxiomsZParams).
   Import Params.
   Local Open Scope Z_scope.
+
+  #[local]
+  Hint Resolve Zp.mod_inv_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_pow_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_inv_mod_nonzero : core.
+  #[local]
+  Hint Resolve Zp.mod_pow_mod_nonzero : core.
+
+  #[export]
   Instance boardroom_axioms_Z : BoardroomAxioms Z.
   Proof.
   (* pose proof (prime_ge_2). *)

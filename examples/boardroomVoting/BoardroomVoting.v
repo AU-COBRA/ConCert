@@ -29,10 +29,15 @@ End BoardroomParams.
 
 Module BoardroomVoting (Params : BoardroomParams).
   Import Params.
+  #[local]
   Existing Instance ser.
+  #[local]
   Existing Instance axioms.
+  #[local]
   Existing Instance gen.
+  #[local]
   Existing Instance discr_log.
+  #[local]
   Existing Instance Base.
 
   (* Allow us to automatically derive Serializable instances *)

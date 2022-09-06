@@ -186,16 +186,16 @@ Module FA12 (SI : FA12Serializable).
   Import SI.
 
   (* begin hide *)
-  Existing Instance callback_serializable.
-  Existing Instance transfer_param_serializable.
-  Existing Instance approve_param_serializable.
-  Existing Instance getAllowance_param_serializable.
-  Existing Instance getBalance_param_serializable.
-  Existing Instance getTotalSupply_param_serializable.
-  Existing Instance FA12ReceiverMsg_serializable.
-  Existing Instance msg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance setup_serializable.
+  #[export] Existing Instance callback_serializable.
+  #[export] Existing Instance transfer_param_serializable.
+  #[export] Existing Instance approve_param_serializable.
+  #[export] Existing Instance getAllowance_param_serializable.
+  #[export] Existing Instance getBalance_param_serializable.
+  #[export] Existing Instance getTotalSupply_param_serializable.
+  #[export] Existing Instance FA12ReceiverMsg_serializable.
+  #[export] Existing Instance msg_serializable.
+  #[export] Existing Instance state_serializable.
+  #[export] Existing Instance setup_serializable.
   (* end hide *)
 
   Section FA12Defs.

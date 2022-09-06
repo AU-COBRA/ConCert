@@ -44,6 +44,7 @@ Module ZAxiomParams <: BoardroomAxiomsZParams.
 End ZAxiomParams.
 Module BVZAxioms := BoardroomAxiomsZ ZAxiomParams. Import BVZAxioms.
 
+#[local]
 Existing Instance boardroom_axioms_Z.
 
 Lemma generator_nonzero : generator !== 0.
@@ -54,6 +55,7 @@ Axiom generator_is_generator :
     ~(z == 0) ->
     exists! (e : Z), (0 <= e < order - 1)%Z /\ pow generator e == z.
 
+#[local]
 Instance generator_instance : Generator boardroom_axioms_Z :=
   {| BoardroomMath.generator := generator;
      BoardroomMath.generator_nonzero := generator_nonzero;
@@ -91,7 +93,9 @@ Definition hash_func (l : list positive) : positive :=
 
 
 Definition AddrSize := (2^128)%N.
+#[local]
 Instance Base : ChainBase := LocalChainBase AddrSize.
+#[local]
 Instance ChainBuilder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
 Module Params <: BoardroomParams.
@@ -180,4 +184,4 @@ Definition boardroom_example : option nat :=
   do state <- contract_state (lcb_lc chain) caddr;
   BV.tally state.
 
-Check (@eq_refl (option nat) (Some votes_for)) <<: boardroom_example = Some votes_for.
+Check (@eq_refl (option nat) (Some votes_for)) <: boardroom_example = Some votes_for.

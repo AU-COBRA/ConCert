@@ -1,5 +1,3 @@
--arg -w -arg -undeclared-scope
-
 -R ../utils/theories ConCert.Utils
 
 -R theories ConCert.Execution

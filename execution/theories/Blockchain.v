@@ -92,6 +92,7 @@ Class ChainBase :=
 Global Opaque Address address_eqb address_eqb_spec
        address_eqdec address_countable address_serializable.
 
+Declare Scope address_scope.
 Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
 Infix "=?" := address_eqb (at level 70) : address_scope.

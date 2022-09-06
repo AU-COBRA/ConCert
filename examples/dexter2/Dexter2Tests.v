@@ -7,7 +7,7 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From ConCert.Examples.Dexter2 Require Import Dexter2Gens.
-From ConCert.Examples.Dexter2 Require Import Dexter2Printers.
+From ConCert.Examples.Dexter2 Require Export Dexter2Printers.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From Coq Require Import ZArith_base.

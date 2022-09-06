@@ -22,6 +22,7 @@ From Coq Require Import ZArith.
 Local Open Scope string_scope.
 Open Scope Z.
 
+#[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition PREFIX := "".

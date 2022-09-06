@@ -89,6 +89,7 @@ Module ReceiveHook (cis1_types : CIS1Types).
 
   Import cis1_types.
 
+  #[export]
   Existing Instance serializable_token_id.
 
   (** NOTE: there is no notion of the contract name in ConCert; [AdditionalData] is not
@@ -628,7 +629,6 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Qed.
 
   (* begin hide *)
-
   (** An auxiliary lemma. *)
   Lemma sum_of_balances_eq `{ChainBase} addrs prev_st next_st token_id :
     (forall addr, In addr addrs ->get_balance_default next_st token_id addr = get_balance_default prev_st token_id addr) ->
@@ -639,9 +639,10 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Qed.
   (* end hide *)
 
-
+  #[export]
   Hint Resolve remove_In not_in_remove_same not_in_remove remove_remove neq_not_removed : hints.
-  Hint Resolve remove_extensional : hints.
+  #[export]
+  Hint Resolve remove_extensional NoDup_remove In_remove : hints.
 
   (* begin hide *)
   (** A technical lemma: the sum of balances is the same for two lists of owners containing the
@@ -759,6 +760,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     easy.
   Qed.
 
+  #[export]
   Hint Resolve in_owners_or_zero_balance_default get_owners_no_dup : hints.
 
   Lemma get_balance_total_get_balance_default `{ChainBase} st token_id p owner:
@@ -768,6 +770,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     now destruct (get_balance_opt st token_id _).
   Qed.
 
+  #[export]
   Hint Constructors transfer_spec : hints.
 
   (** We can recover a statement for the whole "batch" of transfers from the transfers spec where

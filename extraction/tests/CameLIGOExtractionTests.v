@@ -17,6 +17,7 @@ Local Open Scope string_scope.
 
 Notation s_to_bs := bytestring.String.of_string.
 
+#[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=

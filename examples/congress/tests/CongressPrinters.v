@@ -9,6 +9,7 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
+#[export]
 Instance showRules : Show Rules :=
 {|
   show r :=
@@ -29,6 +30,7 @@ Definition string_of_ca (str_of_msg : Msg -> string) ca :=
       end ++ ")"
   end.
 
+#[export]
 Instance showSetup : Show Setup :=
 {|
   show v := show (setup_rules v)
@@ -53,17 +55,20 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   | finish_proposal proposalId => "finish_proposal " ++ show proposalId
   end.
 
+#[export]
 Instance showMsg : Show Msg :=
 {|
   show := string_of_Msg 20
 |}.
 
 (* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+#[export]
 Instance showCongressAction : Show CongressAction :=
 {|
   show := string_of_ca (string_of_Msg 20)
 |}.
 
+#[export]
 Instance showProposal : Show Proposal :=
 {|
   show p :=
@@ -75,6 +80,7 @@ Instance showProposal : Show Proposal :=
     ++ "}" ++ newline
 |}.
 
+#[export]
 Instance showState : Show Congress.State :=
 {|
   show s := "State{"
@@ -85,5 +91,6 @@ Instance showState : Show Congress.State :=
             ++ "members: " ++ show (members s) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

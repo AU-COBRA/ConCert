@@ -729,8 +729,8 @@ Qed.
 #[export] Hint Constructors val_ok Forall : hints.
 #[export] Hint Unfold snd env_ok AllEnv compose : hints.
 
-#[export] Hint Resolve 1 subst_env_iclosed_n_inv subst_env_iclosed_0_inv: hints.
-#[export] Hint Resolve 1 subst_env_iclosed_n subst_env_iclosed_0 : hints.
+#[export] Hint Resolve subst_env_iclosed_n_inv subst_env_iclosed_0_inv: hints.
+#[export] Hint Resolve subst_env_iclosed_n subst_env_iclosed_0 : hints.
 
 Lemma option_to_res_ok {A} (o : option A) s v:
   option_to_res o s = Ok v ->
@@ -1129,8 +1129,8 @@ Proof.
   symmetry. eapply subst_env_swap_app;eauto.
 Qed.
 
-Remove Hints iclosed_n_geq: hints.
-Remove Hints Bool.absurd_eq_true : core.
+#[local] Remove Hints iclosed_n_geq: hints.
+#[local] Remove Hints Bool.absurd_eq_true : core.
 
 Open Scope nat.
 
@@ -1166,9 +1166,9 @@ Qed.
 #[export] Hint Resolve ty_env_ok_app_rec : hints.
 #[export] Hint Resolve subst_env_compose_1 : hints.
 
-Hint Extern 2 (iclosed_n _ (snd _) = _) => simpl : hints.
-Hint Extern 2 (_ .[_] = _)=> simpl;eapply subst_env_compose_1 with (k:=0) : hints.
-Hint Extern 2 (iclosed_n ?n _ = _)=> (match n with
+#[export] Hint Extern 2 (iclosed_n _ (snd _) = _) => simpl : hints.
+#[export] Hint Extern 2 (_ .[_] = _)=> simpl;eapply subst_env_compose_1 with (k:=0) : hints.
+#[export] Hint Extern 2 (iclosed_n ?n _ = _)=> (match n with
                                     | O => fail
                                     | S _ => eapply iclosed_n_0
                                      end) : hints.
@@ -1895,10 +1895,10 @@ Proof.
   intros. now apply closed_exprs_len_iff.
 Qed.
 
-#[export] Hint Resolve 0 closed_exprs_len_r2l : hints.
+#[export] Hint Resolve closed_exprs_len_r2l : hints.
 
-Hint Extern 1 (iclosed_n (#|_|) _ = _) =>
-eapply closed_exprs_len_iff with (n:=0) : hints.
+#[export] Hint Extern 1 (iclosed_n (#|_|) _ = _) =>
+  eapply closed_exprs_len_iff with (n:=0) : hints.
 
 Definition not_stuck : term -> bool :=
   fun t => let (f, args) := decompose_app t in

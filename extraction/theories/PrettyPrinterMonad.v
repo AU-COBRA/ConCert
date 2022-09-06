@@ -27,6 +27,7 @@ Local Coercion bs_to_s : bytestring.string >-> string.
 
 Definition PrettyPrinter A := PrettyPrinterState -> result (A * PrettyPrinterState) string.
 
+#[export]
 Instance Monad_PrettyPrinter : Monad PrettyPrinter :=
   {| ret _ a pps := Ok (a, pps);
      bind _ _ m f pps :=

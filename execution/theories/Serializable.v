@@ -83,21 +83,25 @@ Proof.
   now rewrite eq.
 Qed.
 
+#[export]
 Program Instance unit_serializable : Serializable unit :=
   {| serialize u := build_ser_value ser_unit u;
      deserialize := extract_ser_value ser_unit; |}.
 Solve Obligations with reflexivity.
 
+#[export]
 Program Instance int_serializable : Serializable Z :=
   {| serialize i := build_ser_value ser_int i;
      deserialize := extract_ser_value ser_int; |}.
 Solve Obligations with reflexivity.
 
+#[export]
 Program Instance bool_serializable : Serializable bool :=
   {| serialize b := build_ser_value ser_bool b;
      deserialize := extract_ser_value ser_bool; |}.
 Solve Obligations with reflexivity.
 
+#[export]
 Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
      deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_nat z'); |}.
@@ -113,6 +117,7 @@ Next Obligation.
   reflexivity.
 Qed.
 
+#[export]
 Program Instance N_serializable : Serializable N :=
   {| serialize n := serialize (Z.of_N n);
      deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_N z'); |}.
@@ -128,16 +133,19 @@ Next Obligation.
   reflexivity.
 Qed.
 
+#[export]
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
      deserialize z := do z' <- deserialize z; if (0 <? z')%Z then Some (Z.to_pos z') else None; |}.
 Solve Obligations with auto.
 
+#[export]
 Program Instance ser_value_equivalence : Serializable SerializedValue :=
   {| serialize v := v;
      deserialize v := Some v; |}.
 Solve Obligations with reflexivity.
 
+#[export]
 Program Instance BoundedN_equivalence {bound : N} : Serializable (BoundedN bound) :=
   {| serialize bn := serialize (countable.encode bn);
     deserialize v :=
@@ -263,6 +271,7 @@ Section List.
        deserialize_serialize := deserialize_serialize_list; |}.
 End List.
 
+#[export]
 Program Instance map_serializable
         `{Serializable A}
         `{countable.Countable A}
@@ -281,6 +290,7 @@ Next Obligation.
   reflexivity.
 Qed.
 
+#[export]
 Program Instance set_serializable
         `{Serializable A}
         `{countable.Countable A}
@@ -298,6 +308,7 @@ Next Obligation.
   reflexivity.
 Qed.
 
+#[export]
 Program Instance option_serializable `{Serializable A} : Serializable (option A) :=
   {| serialize s := serialize
                       match s with
@@ -317,6 +328,7 @@ Next Obligation.
   destruct x; auto.
 Qed.
 
+#[export]
 Program Instance ascii_serializable : Serializable ascii :=
   {| serialize a := serialize (Ascii.N_of_ascii a);
      deserialize p := do p <- deserialize p;
@@ -333,6 +345,7 @@ Next Obligation.
   apply ascii_N_embedding.
 Qed.
 
+#[export]
 Program Instance string_serializable : Serializable string :=
   {| serialize s := serialize (list_ascii_of_string s);
      deserialize p := do la <- deserialize p;

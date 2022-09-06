@@ -18,6 +18,7 @@ Import Interpreter.
 Module CameLIGOInterp.
 
   Import CameLIGOExtract CameLIGOPretty.
+  #[local]
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   Definition init (setup : unit)

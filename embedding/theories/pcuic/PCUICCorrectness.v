@@ -30,9 +30,9 @@ Local Set Keyed Unification.
 Open Scope nat.
 
 #[local]
- Hint Resolve assumption_context_subst
-              assumption_context_map_vass
-              PCUICSigmaCalculus.context_assumptions_context : hints.
+Hint Resolve assumption_context_subst
+             assumption_context_map_vass
+             PCUICSigmaCalculus.context_assumptions_context : hints.
 
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2

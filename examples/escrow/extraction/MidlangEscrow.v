@@ -18,6 +18,7 @@ From Coq Require Import String.
 Import MCMonadNotation.
 Open Scope string.
 
+#[local]
 Instance EscrowMidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";
@@ -64,6 +65,7 @@ Definition extract_params :=
           extract_transforms := [Optimize.dearg_transform (fun _ => None) true true true true true] |} |}.
 
 Axiom extraction_chain_base : ChainBase.
+#[local]
 Existing Instance extraction_chain_base.
 
 MetaCoq Run (p <- tmQuoteRecTransp Escrow.receive false ;;

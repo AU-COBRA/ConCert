@@ -28,6 +28,7 @@ End BoardroomParams.
 
 Module BoardroomVoting (Params : BoardroomParams).
   Import Params.
+  #[export]
   Existing Instance Base.
 
   Definition A := Z.

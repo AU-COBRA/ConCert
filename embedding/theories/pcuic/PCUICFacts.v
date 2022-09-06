@@ -22,6 +22,7 @@ Open Scope string_scope.
 Import ListNotations.
 Import NamelessSubst.
 
+#[export]
 Hint Unfold expr_eval_n expr_eval_i : facts.
 
 (** An elimination principle that takes into account nested occurrences of expressions
@@ -416,7 +417,7 @@ Section Values.
     + simpl.
       inversion Hv. subst.
       eauto with facts.
-Qed.
+  Qed.
 
 
   Lemma subst_env_i_ty_empty k t : t = subst_env_i_ty k [] t.

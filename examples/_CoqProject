@@ -1,3 +1,6 @@
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
 -R ../execution/test ConCert.Execution.Test

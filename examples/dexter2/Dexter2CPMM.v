@@ -205,19 +205,19 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
   Export NAddr.
 
   (* begin hide *)
-  Existing Instance add_liquidity_param_serializable.
-  Existing Instance remove_liquidity_param_serializable.
-  Existing Instance xtz_to_token_param_serializable.
-  Existing Instance token_to_xtz_param_serializable.
-  Existing Instance set_baker_param_serializable.
-  Existing Instance token_to_token_param_serializable.
-  Existing Instance DexterMsg_serializable.
-  Existing Instance Dexter2FA12_Msg_serialize.
-  Existing Instance setup_serializable.
-  Existing Instance ClientMsg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance FA2Token_Msg_serializable.
-  Existing Instance BaseTypes.
+  #[export] Existing Instance add_liquidity_param_serializable.
+  #[export] Existing Instance remove_liquidity_param_serializable.
+  #[export] Existing Instance xtz_to_token_param_serializable.
+  #[export] Existing Instance token_to_xtz_param_serializable.
+  #[export] Existing Instance set_baker_param_serializable.
+  #[export] Existing Instance token_to_token_param_serializable.
+  #[export] Existing Instance DexterMsg_serializable.
+  #[export] Existing Instance Dexter2FA12_Msg_serialize.
+  #[export] Existing Instance setup_serializable.
+  #[export] Existing Instance ClientMsg_serializable.
+  #[export] Existing Instance state_serializable.
+  #[export] Existing Instance FA2Token_Msg_serializable.
+  #[export] Existing Instance BaseTypes.
   (* end hide *)
 
   Section DexterDefs.

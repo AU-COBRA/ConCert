@@ -5,8 +5,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
-From ConCert.Examples.Congress Require Import Congress_BuggyGens.
-From ConCert.Examples.Congress Require Import Congress_BuggyPrinters.
+From ConCert.Examples.Congress Require Export Congress_BuggyGens.
+From ConCert.Examples.Congress Require Export Congress_BuggyPrinters.
 From ConCert.Utils Require Import Extras.
 
 From Coq Require Import ZArith.

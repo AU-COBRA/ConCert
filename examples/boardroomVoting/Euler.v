@@ -87,6 +87,7 @@ Fixpoint prod (l : list Z) : Z :=
   | x :: xs => x * prod xs
   end.
 
+#[local]
 Instance prod_perm_proper : Proper (@Permutation Z ==> eq) prod.
 Proof.
   intros l l' perm.

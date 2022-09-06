@@ -19,6 +19,7 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
@@ -396,6 +397,7 @@ Proof.
 Qed.
 
 Local Open Scope Z.
+#[local]
 Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
 (** ** The actual contract balance is consistent with the local state *)
 Theorem cf_backed bstate cf_addr lstate:

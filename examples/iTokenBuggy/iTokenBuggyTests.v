@@ -78,6 +78,7 @@ Definition sum_balances_eq_init_supply (state : iTokenBuggy.State) : bool :=
                                        |> fold_right N.add 0 in
   balances_sum =? state.(total_supply).
 
+#[export]
 Instance genBuggyTokenChainSized : GenSized ChainBuilder := {
   arbitrarySized n := gChain_ token_cb n
 }.

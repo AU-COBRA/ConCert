@@ -1,4 +1,3 @@
--arg -w -arg -undeclared-scope
 -arg -w -arg -notation-overridden
 -arg -w -arg -non-reversible-notation
 

@@ -10,7 +10,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowCorrect.
-From ConCert.Examples.Escrow Require Import EscrowPrinters.
+From ConCert.Examples.Escrow Require Export EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
 From Coq Require Import ZArith.
 From Coq Require Import List.

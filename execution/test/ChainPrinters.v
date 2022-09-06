@@ -26,6 +26,7 @@ Derive Show for SerializedType.
 
 Derive Show for result.
 
+#[export]
 Instance showActionEvaluationError
     `{Show (@Address Base)}
     `{Show SerializedValue}
@@ -45,6 +46,7 @@ Instance showActionEvaluationError
     end
 |}.
 
+#[export]
 Instance showContract
           {Setup Msg State Error: Type}
           `{Serializable Setup}
@@ -56,6 +58,7 @@ Instance showContract
   show c := "Contract{...}"
 |}.
 
+#[export]
 Instance showEnvironment
           (BaseTypes : ChainBase)
           `{Show Chain}
@@ -90,6 +93,7 @@ Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
+#[export]
 Instance showBlockHeader
           (BaseTypes : ChainBase)
           `{Show (@Address BaseTypes)}
@@ -103,8 +107,9 @@ Instance showBlockHeader
                      ++ "bcreator: "    ++ show (block_creator bh)          ++ "}"
   |}.
 
-  (* We dont show the bound because it may be a very large number which,
-     when converted to nat and then to string, gives a memory overflow. *)
+(* We dont show the bound because it may be a very large number which,
+    when converted to nat and then to string, gives a memory overflow. *)
+#[export]
 Instance showBoundedN
           {bound : N}
           `{Show N}
@@ -116,16 +121,19 @@ Instance showBoundedN
     end
 |}.
 
+#[export]
 Instance showBoundedNAddrSize : Show (BoundedN.BoundedN AddrSize) :=
 {|
   show := @show (BoundedN.BoundedN AddrSize) showBoundedN
 |}.
 
+#[export]
 Instance showAddress : Show (@Address Base) :=
 {|
   show := @show (BoundedN.BoundedN AddrSize) showBoundedNAddrSize
 |}.
 
+#[export]
 Instance showLocalChain : Show (@LocalChain AddrSize) :=
 {|
   show lc := "LocalChain{"
@@ -135,6 +143,7 @@ Instance showLocalChain : Show (@LocalChain AddrSize) :=
               ++ sep ++ "... }"
 |}.
 
+#[export]
 Instance showLocalContractCallContext : Show (@ContractCallContext Base) :=
 {|
 show cctx := "ContractCallContext{"
@@ -144,6 +153,7 @@ show cctx := "ContractCallContext{"
              ++ "ctx_amount: " ++ show (@ctx_amount Base cctx) ++ "}"
 |}.
 
+#[export]
 Instance showActionBody
           `{Show SerializedValue}
           : Show ActionBody :=
@@ -158,6 +168,7 @@ Instance showActionBody
     end
 |}.
 
+#[export]
 Instance showLocalAction
           `{Show ActionBody}
           : Show (@Action Base) :=
@@ -167,22 +178,27 @@ Instance showLocalAction
             ++ "act_body: " ++ show (act_body a) ++ "}"
 |}.
 
+#[export]
 Instance showLocalActionList
           `{Show (@Action Base)}
           : Show (list (@Action Base)) :=
 {|
   show a := String.concat (";" ++ nl) (map show a)
 |}.
+#[export]
 Existing Instance showLocalActionList | 0.
 
+#[export]
 Instance showOptLocalActionList
           `{Show (option (@Action Base))}
           : Show (list (option (@Action Base))) :=
 {|
   show a := String.concat (";" ++ nl) (map show a)
 |}.
+#[export]
 Existing Instance showOptLocalActionList | 0.
 
+#[export]
 Instance showChainState
           `{Show Environment}
           `{Show (@Action Base)}
@@ -193,6 +209,7 @@ Instance showChainState
             ++ "queue: " ++ show a.(chain_state_queue) ++ "}"
 |}.
 
+#[export]
 Instance showContractCallInfo
           {Msg : Type}
           `{Show Msg}
@@ -206,6 +223,7 @@ Instance showContractCallInfo
 
 (* Show instanced related to ChainedLists and ChainTraces *)
 
+#[export]
 Instance showAddBlockError
           `{Show (@Action Base)}
           `{Show SerializedValue}
@@ -221,6 +239,7 @@ Instance showAddBlockError
               end
 |}.
 
+#[export]
 Instance showChainTraceI
           `{Show (@Action Base)}
           {from to : ChainState}
@@ -244,6 +263,7 @@ Instance showChainTraceI
     showChainTrace
 |}.
 
+#[export]
 Instance showLCB
           `{Show (@Action Base)}
           : Show ChainBuilder :=
@@ -253,11 +273,13 @@ Instance showLCB
              ++ "|}" ++ nl
 |}.
 
+#[export]
 Instance showChainBuilderType
           {BaseTypes : ChainBase}
           : Show (@ChainBuilderType BaseTypes) :=
   {| show a := "ChainBuilderType{...}" |}.
 
+#[export]
 Instance showChain (BaseTypes : ChainBase) : Show Chain :=
 {|
   show c :=
@@ -300,6 +322,7 @@ Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
      end))
     (at level 0, c0, cn at level 9, only parsing).
 
+#[export]
 Instance showChainTraceSigT `{Show SerializedValue} : Show {to : ChainState & ChainTrace empty_state to} :=
 {|
   show a := show (projT2 a)

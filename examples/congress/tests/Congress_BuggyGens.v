@@ -19,11 +19,13 @@ Definition gRulesSized (n : nat) : G Rules :=
   margin <- choose(1%Z, 1000%Z) ;;
   liftM (build_rules vote_count margin) arbitrary.
 
+#[export]
 Instance genRulesSized : GenSized Rules :=
 {|
   arbitrarySized := gRulesSized
 |}.
 
+#[export]
 Instance genSetupSized : GenSized Setup :=
 {|
   arbitrarySized n := liftM build_setup (arbitrarySized n)
@@ -53,7 +55,7 @@ Definition gCongressMember_without_caller (state : Congress_Buggy.State)
   | m::ms => liftM Some (elems_ m members_without_caller)
   end.
 
-Fixpoint try_newCongressMember_fix (members : list Address)
+Definition try_newCongressMember_fix (members : list Address)
                                    nr_attempts curr_nr
                                    : option Address  :=
   let fix aux nr_attempts curr_nr :=
@@ -92,7 +94,7 @@ Definition try_gNewOwner state calling_addr contract_addr : GOpt Address :=
   bindCallerIsOwnerOpt state calling_addr contract_addr
     (gCongressMember_without_caller state calling_addr contract_addr).
 
-Fixpoint validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
+Definition validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
   match (Bool.bool_dec (address_is_contract a) true ) with
   | left _ => ret None
   | right p => ret (Some (Bool.not_true_is_false _ p))

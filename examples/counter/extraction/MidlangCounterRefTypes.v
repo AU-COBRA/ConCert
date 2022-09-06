@@ -18,6 +18,7 @@ From Coq Require Import ZArith.
 Import MCMonadNotation.
 Open Scope string.
 
+#[local]
 Instance MidlangBoxes : ElmPrintConfig :=
   {| term_box_symbol := "()";
      type_box_symbol := "()";

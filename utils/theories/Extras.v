@@ -57,6 +57,7 @@ Lemma sumnat_permutation
   sumnat f xs = sumnat f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
+#[export]
 Instance sumnat_perm_proper {A : Type} :
   Proper (eq ==> Permutation (A:=A) ==> eq) sumnat.
 Proof. repeat intro. subst. now apply sumnat_permutation. Qed.
@@ -76,6 +77,7 @@ Lemma sumZ_permutation
   sumZ f xs = sumZ f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
+#[export]
 Instance sumZ_perm_proper {A : Type} :
   Proper (eq ==> Permutation (A:=A) ==> eq) sumZ.
 Proof. repeat intro. subst. now apply sumZ_permutation. Qed.
@@ -194,6 +196,7 @@ Proof.
   apply Permutation_in with ys; symmetry in perm; auto.
 Qed.
 
+#[export]
 Instance Forall_Permutation_proper {A} :
   Proper (eq ==> @Permutation A ==> iff) (@Forall A).
 Proof.
@@ -202,6 +205,7 @@ Proof.
   split; apply forall_respects_permutation; auto; symmetry; auto.
 Qed.
 
+#[export]
 Instance forallb_Permutation_proper {A} :
   Proper (eq ==> @Permutation A ==> eq) (@forallb A).
 Proof.
@@ -754,6 +758,7 @@ Proof.
   induction perm_eq; perm_simplify; lia.
 Qed.
 
+#[export]
 Instance sumN_perm_proper {A : Type} :
   Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
 Proof.

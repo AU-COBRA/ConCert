@@ -242,17 +242,17 @@ Module Dexter2Lqt (SI : Dexter2LqtSerializable).
   Import SI.
 
   (* begin hide *)
-  Existing Instance callback_serializable.
-  Existing Instance transfer_param_serializable.
-  Existing Instance approve_param_serializable.
-  Existing Instance mintOrBurn_param_serializable.
-  Existing Instance getAllowance_param_serializable.
-  Existing Instance getBalance_param_serializable.
-  Existing Instance getTotalSupply_param_serializable.
-  Existing Instance FA12ReceiverMsg_serializable.
-  Existing Instance msg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance setup_serializable.
+  #[global] Existing Instance callback_serializable.
+  #[global] Existing Instance transfer_param_serializable.
+  #[global] Existing Instance approve_param_serializable.
+  #[global] Existing Instance mintOrBurn_param_serializable.
+  #[global] Existing Instance getAllowance_param_serializable.
+  #[global] Existing Instance getBalance_param_serializable.
+  #[global] Existing Instance getTotalSupply_param_serializable.
+  #[global] Existing Instance FA12ReceiverMsg_serializable.
+  #[global] Existing Instance msg_serializable.
+  #[global] Existing Instance state_serializable.
+  #[global] Existing Instance setup_serializable.
   (* end hide *)
 
   Section DexterLqtDefs.

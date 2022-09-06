@@ -7,7 +7,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
-From ConCert.Examples.Dexter Require Import DexterPrinters.
+From ConCert.Examples.Dexter Require Export DexterPrinters.
 From ConCert.Examples.Dexter Require Import DexterGens.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 From Coq Require Import ZArith_base.
