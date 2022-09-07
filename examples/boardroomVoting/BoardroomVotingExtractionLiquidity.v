@@ -3,7 +3,7 @@
 (** NOTE: Currently does not compile due to some restrictions on closures in Liquidity. Moreover, the printing of literals might need adjustments. *)
 
 From MetaCoq.Template Require Import All.
-From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Blockchain.

@@ -5,7 +5,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require ResultMonad.
-From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
 From MetaCoq.TypedExtraction Require Import Optimize.
 From MetaCoq.TypedExtraction Require Import Extraction.

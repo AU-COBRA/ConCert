@@ -13,7 +13,7 @@ theories/ConcordiumExtract.v
 theories/ElmExtract.v
 theories/ExtractExtraction.v
 theories/LiquidityExtract.v
-theories/LPretty.v
+theories/LiquidityPretty.v
 theories/PluginExtract.v
 theories/PrettyPrinterMonad.v
 theories/Printing.v

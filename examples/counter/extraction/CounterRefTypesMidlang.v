@@ -168,4 +168,5 @@ Definition midlang_counter :=
   | Err s => tmFail (String.of_string s)
   end.
 
-Redirect "../extraction/tests/extracted-code/midlang-extract/MidlangCounterRefTypes.midlang" MetaCoq Run midlang_counter.
+Redirect "../extraction/tests/extracted-code/midlang-extract/CounterRefTypesMidlang.midlang"
+  MetaCoq Run midlang_counter.

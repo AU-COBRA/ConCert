@@ -3,7 +3,7 @@ From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
 From ConCert.Utils Require Import Env.
@@ -18,7 +18,7 @@ Module LiquidityInterp.
 
   Definition PREFIX := "".
 
-  Import LiquidityExtract LPretty.
+  Import LiquidityExtract LiquidityPretty.
 
   (** A translation table for various constants we want to rename *)
   Definition TT_remap : list (kername * string) :=

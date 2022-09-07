@@ -4,7 +4,7 @@ From Coq Require Import ZArith.
 From Coq Require Import String.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import LiquidityExtract.
-From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.

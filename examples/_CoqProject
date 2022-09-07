@@ -59,8 +59,8 @@ dexter2/Dexter2CPMM.v
 dexter2/Dexter2FA12Correct.v
 dexter2/Dexter2CPMMCorrect.v
 dexter2/Dexter2CommonExtract.v
-dexter2/Dexter2FA12Extract.v
-dexter2/Dexter2CPMMExtract.v
+dexter2/Dexter2FA12ExtractLIGO.v
+dexter2/Dexter2CPMMExtractLIGO.v
 dexter2/Dexter2Printers.v
 dexter2/Dexter2Gens.v
 dexter2/Dexter2Tests.v
@@ -84,7 +84,7 @@ cis1/Cis1wccd.v
 
 -Q stackInterpreter ConCert.Examples.StackInterpreter
 stackInterpreter/StackInterpreter.v
-stackInterpreter/RustInterpExtract.v
+stackInterpreter/StackInterpreterRustExtract.v
 stackInterpreter/StackInterpreterExtract.v
 stackInterpreter/StackInterpreterLiquidityExtract.v
 stackInterpreter/StackInterpreterLIGOExtract.v
@@ -107,10 +107,10 @@ escrow/EscrowCorrect.v
 escrow/tests/EscrowGens.v
 escrow/tests/EscrowPrinters.v
 escrow/tests/EscrowTests.v
-escrow/extraction/EscrowExtractLIGO.v
-escrow/extraction/EscrowExtractLiquidity.v
-escrow/extraction/MidlangEscrow.v
-escrow/extraction/RustEscrow.v
+escrow/extraction/EscrowLIGO.v
+escrow/extraction/EscrowLiquidity.v
+escrow/extraction/EscrowMidlang.v
+escrow/extraction/EscrowRust.v
 
 -Q boardroomVoting ConCert.Examples.BoardroomVoting
 boardroomVoting/Egcd.v
@@ -125,13 +125,13 @@ boardroomVoting/BoardroomVotingExtractionLiquidity.v
 -Q counter ConCert.Examples.Counter
 counter/Counter.v
 counter/embedding/CounterEmbed.v
-counter/extraction/CounterCertifiedExtraction.v
-counter/extraction/CounterDepCertifiedExtraction.v
+counter/extraction/CounterCertifiedLiquidity.v
+counter/extraction/CounterDepCertifiedLiquidity.v
 counter/extraction/CounterSubsetTypesLIGO.v
 counter/extraction/CounterSubsetTypesLiquidity.v
-counter/extraction/MidlangCounterRefTypes.v
-counter/extraction/RustCounter.v
-counter/extraction/CameLIGOCounter.v
+counter/extraction/CounterRefTypesMidlang.v
+counter/extraction/CounterRust.v
+counter/extraction/CounterLIGO.v
 
 -Q crowdfunding ConCert.Examples.Crowdfunding
 crowdfunding/CrowdfundingData.v

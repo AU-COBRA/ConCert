@@ -707,7 +707,7 @@ Definition print_decl (prefix : string)
                | None => ""
                end in
   "let" ++ modif ++ " " ++ decl ++ " = "
-        ++ wrap (LPretty.print_term Σ projs prefix [] TT ctx true false lam_body).
+        ++ wrap (LiquidityPretty.print_term Σ projs prefix [] TT ctx true false lam_body).
 
 Definition print_init (prefix : string)
            (TT : env string) (* tranlation table *)
@@ -729,7 +729,7 @@ Definition print_init (prefix : string)
   let wrap t := "match " ++ t ++ " with Ok v -> v | Err e -> failwith e" in
   let let_inner :=
       "let " ++ decl_inner ++ " = "
-             ++ LPretty.print_term Σ projs prefix [] TT ctx true false lam_body
+             ++ LiquidityPretty.print_term Σ projs prefix [] TT ctx true false lam_body
              ++ " in" in
   (* ignore the first argument because it's a call context *)
   let printed_targs_outer := tl printed_targs_inner in

@@ -96,6 +96,7 @@ Module Counter.
     |}.
 
 End Counter.
+
 Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
@@ -138,7 +139,7 @@ Section CounterExtraction.
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertified.mligo"
   MetaCoq Run (tmMsg (String.of_string cameLIGO_counter_1)).
 
 End CounterExtraction.

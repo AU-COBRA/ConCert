@@ -8,7 +8,7 @@ From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From Coq Require Import String.
 From Coq Require Import ZArith_base.
@@ -33,7 +33,7 @@ Definition escrow_receive (c : Chain)
 Module EscrowLiquidityExtraction.
   Definition PREFIX := "".
 
-  Import LPretty.
+  Import LiquidityPretty.
   Import LiquidityExtract.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 

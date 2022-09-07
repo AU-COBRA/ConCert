@@ -5,7 +5,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
@@ -79,7 +79,7 @@ Import CounterRefinementTypes.
 
 Section LiquidityExtractionSetup.
 
-  Import LPretty.
+  Import LiquidityPretty.
   Import LiquidityExtract.
 
   Definition PREFIX := "coq_".
