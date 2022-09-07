@@ -739,12 +739,27 @@ Section PPLigo.
   Proof. reflexivity. Qed.
 
   Import bytestring.String.
-  Compute 
-          (let (args,_) :=Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a")) (tLambda (BasicAst.nNamed (bytestring.String.of_string "b")) (tRel 0))) in
-          fresh_string_names [{|
-           Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
+  Example print_ex1 :
+    (let (args,_) :=Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a"))
+                                  (tLambda (BasicAst.nNamed (bytestring.String.of_string "b")) (tRel 0))) in
+    fresh_string_names [{|
+      Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
+      Extract.E.decl_body := None
+    |}] args) =
+    ([{|
+           Extract.E.decl_name :=
+             BasicAst.nNamed (String "b" (String "0" EmptyString));
            Extract.E.decl_body := None
-         |}] args).
+         |};
+        {|
+          Extract.E.decl_name := BasicAst.nNamed (String "a" EmptyString);
+          Extract.E.decl_body := None
+        |};
+        {|
+          Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
+          Extract.E.decl_body := None
+        |}], ["a"; "b0"]).
+  Proof. reflexivity. Qed.
   
   Definition print_decl
              (TT : env string) (* translation table *)

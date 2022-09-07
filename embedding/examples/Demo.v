@@ -34,7 +34,7 @@ Section MCDemo.
 
   (* Quote *)
   MetaCoq Quote Definition id_nat_syn := (fun x : nat => x).
-  Print id_nat_syn.
+  (* Print id_nat_syn. *)
   (* Ast.tLambda (nNamed "x")
      (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
         []) (Ast.tRel 0) : Ast.term *)
@@ -63,14 +63,14 @@ Definition negb_app_true :=
      |].
 
 
-Unset Printing Notations.
-
-Set Printing Notations.
-
 (* Execute the program using the interpreter *)
-Compute (expr_eval_n Σ 3 nil negb_app_true).
+Example eval_negb_app_true :
+  expr_eval_n Σ 3 nil negb_app_true = Ok (vConstr Bool "false" nil).
+Proof. reflexivity. Qed.
 
-Compute (expr_eval_i Σ 3 nil (indexify nil negb_app_true)).
+Example eval_negb_app_true' :
+  expr_eval_i Σ 3 nil (indexify nil negb_app_true) = Ok (vConstr Bool "false" nil).
+Proof. reflexivity. Qed.
 
 (* Make a Coq function from the AST of the program *)
 MetaCoq Unquote Definition coq_negb_app_true :=
@@ -89,7 +89,17 @@ Lemma my_negb_coq_negb b :
   my_negb b = negb b.
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_n Σ 3 nil my_negb_syn).
+Example eval_my_negb_syn :
+  expr_eval_n Σ 3 nil my_negb_syn = Ok
+         (vClos [] "x" cmLam [!Bool!]
+            [!Bool!]
+            (eCase (Bool, [])
+               [!Bool!] [|"x"|]
+               [({| pName := "true"; pVars := [] |},
+                [|$ "false" $ Bool|]);
+               ({| pName := "false"; pVars := [] |},
+               [|$ "true" $ Bool|])])).
+Proof. reflexivity. Qed.
 
 Example eval_my_negb_true :
   expr_eval_i Σ 4 nil (indexify nil [| {my_negb_syn} True |]) = Ok (vConstr Bool "false" nil).
@@ -152,7 +162,13 @@ Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
 
 Definition prog3 := [| Bar (Bar Baz Baz) Baz |].
 
-Compute (expr_eval_n Σ' 5 [] prog3).
+Example eval_prog3 :
+  expr_eval_n Σ' 5 [] prog3 = Ok
+         (vConstr "blah" "Bar"
+            [vConstr "blah" "Bar"
+               [vConstr "blah" "Baz" []; vConstr "blah" "Baz" []];
+            vConstr "blah" "Baz" []]).
+Proof. reflexivity. Qed.
 
 (* Examples of a fixpoint *)
 
@@ -190,8 +206,10 @@ Definition two :=
 Definition one_plus_one :=
   [| {plus_syn} 1 1 |].
 
-Compute (expr_eval_n Σ 10 [] [| {plus_syn} 1 1 |]).
-(* = Ok (vConstr "nat" "Suc" [vConstr "nat" "Suc" [vConstr "nat" "Z" []]])*)
+Example eval_one_plus_one :
+  expr_eval_n Σ 10 [] one_plus_one =
+  Ok (vConstr Nat "Suc" [vConstr Nat "Suc" [vConstr Nat "Z" []]]).
+Proof. reflexivity. Qed.
 
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
@@ -202,10 +220,12 @@ Parameter bbb: bool.
 
 MetaCoq Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
 
-Example one_plus_one_two : expr_eval_n Σ 10 [] one_plus_one = Ok two.
+Example one_plus_one_two :
+  expr_eval_n Σ 10 [] one_plus_one = Ok two.
 Proof.  reflexivity. Qed.
 
-Example one_plus_one_two_i : expr_eval_i Σ 10 [] (indexify [] one_plus_one) = Ok two.
+Example one_plus_one_two_i :
+  expr_eval_i Σ 10 [] (indexify [] one_plus_one) = Ok two.
 Proof.  reflexivity. Qed.
 
 
@@ -252,8 +272,24 @@ Definition id_rec :=
            | Suc z -> Suc ("plus" z))
    |].
 
-Compute (expr_eval_n Σ 20 [] [| {id_rec} (Suc (Suc (Suc 1))) |]).
-Compute (expr_eval_i Σ 20 [] (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |])).
+Example eval_id_rec :
+  expr_eval_n Σ 20 [] [| {id_rec} (Suc (Suc (Suc 1))) |] =
+  Ok (vConstr Nat "Suc"
+      [vConstr Nat "Suc"
+        [vConstr Nat "Suc"
+          [vConstr Nat "Suc"
+            [vConstr Nat "Z" []]]]]).
+Proof. reflexivity. Qed.
+
+Example eval_id_rec' :
+  expr_eval_i Σ 20 [] (indexify [] [| {id_rec} (Suc (Suc (Suc 1))) |]) =
+  Ok (vConstr Nat "Suc"
+      [vConstr Nat "Suc"
+        [vConstr Nat "Suc"
+          [vConstr Nat "Suc"
+            [vConstr Nat "Z" []]]]]).
+Proof. reflexivity. Qed.
+
 
 Example id_rec_named_and_indexed :
   let arg := [| Suc (Suc (Suc 1)) |] in
@@ -268,14 +304,77 @@ Example plus_named_and_indexed :
   expr_eval_i Σ 20 [] (indexify [] [| ({plus_syn} {two}) {three} |]).
 Proof. reflexivity. Qed.
 
-Compute (expr_eval_i Σ 10 [] (indexify [] [| {plus_syn} 1 |])).
+Example eval_plus_syn_one :
+  expr_eval_i Σ 10 [] (indexify [] [| {plus_syn} 1 |]) =
+  Ok (vClos
+      [("x",
+        vConstr Nat "Suc"
+          [vConstr Nat "Z" []]);
+      ("plus",
+      vClos [] "x" (cmFix "plus") [!Nat!]
+        (tyArr [!Nat!]
+            [!Nat!])
+        [|\ "y" : Nat =>
+          {eCase (Nat, [])
+              [!Nat!] (eRel 1)
+              [({| pName := "Z"; pVars := [] |}, eRel 0);
+              ({| pName := "Suc"; pVars := ["z"] |},
+              eApp [|$ "Suc" $ Nat|]
+                (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]}|])] "y"
+      cmLam [!Nat!] [!Nat!]
+      (eCase (Nat, [])
+          [!Nat!] (eRel 1)
+          [({| pName := "Z"; pVars := [] |}, eRel 0);
+          ({| pName := "Suc"; pVars := ["z"] |},
+          eApp [|$ "Suc" $ Nat|]
+            (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))])).
+Proof. reflexivity. Qed.
 
-Compute (indexify [] [| {plus_syn}|]).
-Compute (expr_eval_n Σ 10 [] [| {plus_syn} 0 |]).
+Example eval_plus_syn :
+  indexify [] [| {plus_syn}|] =
+  [|fix "plus" ("x" : Nat)
+    : Nat -> Nat
+    := \ "y" : Nat =>
+      {eCase (Nat, [])
+          [!Nat!] (eRel 1)
+          [({| pName := "Z"; pVars := [] |}, eRel 0);
+          ({| pName := "Suc"; pVars := ["z"] |},
+          eApp [|$ "Suc" $ Nat|]
+            (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]}|].
+Proof. reflexivity. Qed.
+
+Example eval_plus_syn_zero :
+  expr_eval_n Σ 10 [] [| {plus_syn} 0 |] =
+  Ok (vClos
+      [("x", vConstr Nat "Z" []);
+      ("plus",
+      vClos [] "x" (cmFix "plus") [!Nat!]
+        (tyArr [!Nat!]
+            [!Nat!])
+        [|\ "y" : Nat =>
+          {eCase (Nat, [])
+              [!Nat!] [|"x"|]
+              [({| pName := "Z"; pVars := [] |}, [|"y"|]);
+              ({| pName := "Suc"; pVars := ["z"] |},
+              eApp [|$ "Suc" $ Nat|]
+                (eApp (eApp [|"plus"|] [|"z"|]) [|"y"|]))]}|])] "y"
+      cmLam [!Nat!] [!Nat!]
+      (eCase (Nat, [])
+          [!Nat!] [|"x"|]
+          [({| pName := "Z"; pVars := [] |}, [|"y"|]);
+          ({| pName := "Suc"; pVars := ["z"] |},
+          eApp [|$ "Suc" $ Nat|]
+            (eApp (eApp [|"plus"|] [|"z"|]) [|"y"|]))])).
+Proof. reflexivity. Qed.
 
 Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Zero |].
 
-Compute (expr_eval_n Σ' 10 [] fun_app).
+Example eval_fun_app :
+  expr_eval_n Σ' 10 [] fun_app = 
+  Ok (vClos [("x", vConstr Nat "Z" [])] "y" cmLam
+      [!Nat!] [!Nat!]
+      (eApp (eApp (eConst "Coq/Init/Nat@add") [|"y"|]) [|"x"|])).
+Proof. reflexivity. Qed.
 
 
 Inductive mybool :=
@@ -335,4 +434,4 @@ Definition State_syn :=
 
 MetaCoq Unquote Inductive (global_to_tc State_syn).
 
-Print State.
+(* Print State. *)

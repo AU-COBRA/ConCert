@@ -20,20 +20,24 @@ Definition x := "x".
 Definition y := "y".
 Definition z := "z".
 
-Check [| ^0 |].
-
-Check [| \x : Nat => y |].
+Example ex1 :
+  [| ^0 |] = eRel 0.
+Proof. reflexivity. Qed.
 
 Definition id_f_syn :=  [| (\x : Nat => ^0) 1 |].
 
 MetaCoq Unquote Definition id_f_one := (expr_to_tc Σ id_f_syn).
-Example id_f_eq : id_f_one = 1. Proof. reflexivity. Qed.
+Example id_f_eq :
+  id_f_one = 1.
+Proof. reflexivity. Qed.
 
 (* The same as [id_f_syn], but with named vars *)
 Definition id_f_with_vars := [| (\x : Nat => x) 1 |].
 
 MetaCoq Unquote Definition id_f_one' := (expr_to_tc Σ (indexify [] id_f_with_vars)).
-Example id_f_eq' : id_f_one' = 1. Proof. reflexivity. Qed.
+Example id_f_eq' :
+  id_f_one' = 1.
+Proof. reflexivity. Qed.
 
 Definition simple_let_syn :=
   [|
@@ -42,7 +46,9 @@ Definition simple_let_syn :=
    |].
 
 MetaCoq Unquote Definition simple_let := (expr_to_tc Σ simple_let_syn).
-Example simple_let_eq : simple_let 1 = 1. Proof. reflexivity. Qed.
+Example simple_let_eq :
+  simple_let 1 = 1.
+Proof. reflexivity. Qed.
 
 Definition simple_let_with_vars_syn :=
   [|
@@ -51,7 +57,9 @@ Definition simple_let_with_vars_syn :=
    |].
 
 MetaCoq Unquote Definition simple_let' := (expr_to_tc Σ (indexify [] simple_let_with_vars_syn)).
-Example simple_let_eq' : simple_let' 0 = 1. Proof. reflexivity. Qed.
+Example simple_let_eq' :
+  simple_let' 0 = 1.
+Proof. reflexivity. Qed.
 
 
 Definition negb_syn :=
@@ -91,9 +99,17 @@ Definition case_ex :=
          | Nil -> x
          | Cons "hd" "tl" -> x |].
 
-Compute (expr_to_tc Σ (indexify [] case_ex)).
+(* Compute (expr_to_tc Σ (indexify [] case_ex)). *)
 
 MetaCoq Unquote Definition case_ex_def :=  (expr_to_tc Σ (indexify [] case_ex)).
+
+Example case_ex_def_unquote :
+  case_ex_def = 
+    fun (y : Set) (x : y) (z : list y) =>
+      match z with
+      | [] | _ => x
+      end.
+Proof. reflexivity. Qed.
 
 Definition case_ex1 :=
   [| \\y  => \"w" : 'y => \x : 'y =>  \z : List 'y =>
@@ -101,7 +117,7 @@ Definition case_ex1 :=
          | Nil -> {eConstr Prod "pair"} {eTy (tyVar y)} {eTy (tyVar y)} x x
          | Cons "hd" "tl" -> {eConstr Prod "pair"} {eTy (tyVar y)} {eTy (tyVar y)} "hd" x |].
 
-Compute (expr_to_tc Σ (indexify [] case_ex1)).
+(* Compute (expr_to_tc Σ (indexify [] case_ex1)). *)
 
 MetaCoq Unquote Definition case_ex_def1 :=  (expr_to_tc Σ (indexify [] case_ex1)).
 
@@ -110,8 +126,8 @@ Definition case_ex2 :=
             | Nil -> {eConstr List "nil"} "y"
             | Cons "hd" "tl" -> {eConstr List "nil"} "y" |].
 
-Compute indexify [] case_ex2.
-Compute (expr_to_tc Σ (indexify [] case_ex2)).
+(* Compute indexify [] case_ex2. *)
+(* Compute (expr_to_tc Σ (indexify [] case_ex2)). *)
 
 MetaCoq Unquote Definition case_ex_def2 :=  (expr_to_tc Σ (indexify [] case_ex2)).
 

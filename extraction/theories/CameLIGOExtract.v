@@ -78,8 +78,6 @@ Defined.
 
 Definition blah : Monad (fun A => result A string) := _.
 
-Print Instances Monad.
-
 Program Definition annot_extract_template_env_specalize
            (e : Ast.Env.global_env)
            (seeds : KernameSet.t)

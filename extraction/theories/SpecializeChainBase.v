@@ -58,8 +58,6 @@ Section ChainBaseSpecialization.
     | false, _ => specialize_term Γ t
     end.
 
-  Compute (rev (List.fold_right (fun e '(l,y) => ((l ++ [(e, y)] ), 0 :: y ))%list ([],[]) ([1;2;3])).1).
-
   Definition specialize_term
             (specialized : list kername) : list VarInfo -> term -> result_string term :=
     fix f Γ t :=

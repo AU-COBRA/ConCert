@@ -80,9 +80,9 @@ Module ElmExamples.
   (* In fully applied case the last argument of [safe_pred] is removed*)
   Redirect "tests/extracted-code/elm-extract/SafePredFull.elm"
   Compute general_wrapped safe_pred_full_syn
-  (Preambule "SafePredFull" ++ Common.nl ++ elm_false_rec)
-  (main_and_test "Expect.equal safe_pred_full (Exist O)")
-  [] [].
+    (Preambule "SafePredFull" ++ Common.nl ++ elm_false_rec)
+    (main_and_test "Expect.equal safe_pred_full (Exist O)")
+    [] [].
 
   MetaCoq Run (t <- tmQuoteRecTransp safe_pred_partial false ;;
                mpath <- tmCurrentModPath tt;;

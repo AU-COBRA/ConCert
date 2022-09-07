@@ -128,5 +128,5 @@ Extract Inlined Constant Z.add => "addTez".
 
 (** It seems there are some syntactic and semantic differences from OCaml. E.g. it's not possible to pattern-match on tuples in Liquidity, a special form of [let] or projections must be used instead. That's why our "prelude" features the [fst] and [snd] functions. We use them explicitly instead of destructing pairs. *)
 
-Extraction Counter._update_balance.
-Extraction Counter.counter.
+(* Extraction Counter._update_balance. *)
+(* Extraction Counter.counter. *)

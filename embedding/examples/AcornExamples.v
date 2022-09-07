@@ -41,7 +41,6 @@ Module AcornMaybe.
   Definition Functions := [("isJust", eTyLam "A" (eLambda "x" ((tyApp (tyInd "Maybe") (tyRel 0))) (eCase ("Maybe",[tyRel 0]) ((tyInd "Bool")) (eRel 0) [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq");(pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
 
   MetaCoq Run (translateData [] Data).
-Compute AcornBool.exported.
   MetaCoq Run (translateDefs AcornBool.exported (Data ++ AcornBool.Data) Functions).
 
 End AcornMaybe.
@@ -147,10 +146,6 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
   Definition dependencies := AcornBool.exported ++ AcornProd.exported.
 
   MetaCoq Run (translateDefs dependencies gEnv Functions).
-
-  Print List.
-  Print foldr.
-  Print zipWith.
 
   Definition AcornList := List.
 
@@ -346,8 +341,6 @@ Module Recursion.
 
   MetaCoq Run (translateDefs [] (StdLib.Σ ++ R_data)%list R_functions).
 
-  Print add.
-
   Fixpoint Nat_nat (n : Nat) : nat :=
     match n with
     | Zero_coq => O
@@ -391,17 +384,15 @@ Definition id := fun (A : Set) (a : A) => a.
 
 Definition id_id_syn := eApp (eApp (eConst "id") (eTy (tyForall "A" (tyArr (tyRel 0) (tyRel 0))))) (eConst "id").
 
-Compute (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)).
-
-Eval compute in (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)).
+(* Eval compute in (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)). *)
 
 Definition id_forall := eLambda "x" (tyForall "A" (tyArr (tyRel 0) (tyRel 0))) (eRel 0).
 
-Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)).
+(* Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)). *)
 
 (** Application [id id] fails, since [A] must be [Set], but type of
  [id] is [forall A, A -> A], which lives in [Type]  *)
-Compute (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)).
+(* Compute (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)). *)
 Fail MetaCoq Run (translateDefs [] [] [("id_id", id_id_syn)]).
 (* Illegal application:
 The term "id" of type "forall A : Set, A -> A"

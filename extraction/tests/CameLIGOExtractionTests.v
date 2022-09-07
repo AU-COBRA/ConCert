@@ -33,9 +33,8 @@ Module BoolRect.
       shadowing in the resulting code  *)
 
   (** One can see the variable names by quoting and printing the AST, as below *)
-  MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect.
-
-  Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>.
+  (* MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect. *)
+  (* Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>. *)
 
   (** This is, of course meaningless in eager languages, so usually we
       inline such definitions, but here we keep is as it is for the
@@ -94,7 +93,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/FoldL.mligo"
-    MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
+      MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
       fixpoint, and not binded by lambdas. Therefore, the type parameters are not
@@ -120,7 +119,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/FoldLAlt.mligo"
-    MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
+      MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
 
 End FoldLeft.
 
@@ -174,6 +173,6 @@ Module SafeHead.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo"
-    MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
+      MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
 
 End SafeHead.
