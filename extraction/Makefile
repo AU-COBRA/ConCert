@@ -50,6 +50,7 @@ LIGOFILES=$(wildcard $(LIGO_SRC_DIR)/*.mligo)
 LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
 
 CONCORDIUM_DIR=./tests/extracted-code/concordium-extract
+MIDLANG_DIR=./tests/extracted-code/midlang-extract
 
 RUST_DIR=./tests/extracted-code/rust-extract
 
@@ -72,7 +73,6 @@ test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
 
 $(LIQUIDITY_SRC_DIR)/%.tz:
 	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@ 2>> $(LIQUIDITY_DIR)/liquidity.log
-
 
 test-ligo: clean-comiped-ligo $(LIGO_DIST)
 
@@ -110,6 +110,7 @@ clean-extraction-out-files:
 	rm -f $(LIQUIDITY_DIR)/*.liq.out
 	rm -f $(LIGO_DIR)/*.mligo.out
 	rm -f $(CONCORDIUM_DIR)/*.rs.out
+	rm -f $(MIDLANG_DIR)/*.midlang.out
 	rm -f $(RUST_DIR)/*.rs.out
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/*.rs.out;)
 
