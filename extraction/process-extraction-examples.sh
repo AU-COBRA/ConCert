@@ -16,6 +16,7 @@ MID_TESTS=$MID_PATH/tests
 echo "Processing Elm extraction"
 for f in $ELM_PATH/*.elm.out;
 do
+    if [[ ! -e "$f" ]]; then continue; fi
     echo $f "--->" $ELM_TESTS/$(basename ${f%.out}) ;
     sed -n 's/ *"//;/module/,/suite/p' $f > $ELM_TESTS/$(basename ${f%.out})
 done
@@ -30,6 +31,7 @@ cat $ELM_WEB_PATH/$WEB_APP_OUT $ELM_WEB_SRC/views.elm > $ELM_WEB_SRC/Main.elm
 echo "Processing Liquidity extraction"
 for f in $LIQ_PATH/*.liq.out;
 do
+    if [[ ! -e "$f" ]]; then continue; fi 
     echo $f "--->" $LIQ_TESTS/$(basename ${f%.out}) ;
     sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIQ_TESTS/$(basename ${f%.out})
 done
@@ -37,6 +39,7 @@ done
 echo "Processing LIGO extraction"
 for f in $LIGO_PATH/*.mligo.out;
 do
+    if [[ ! -e "$f" ]]; then continue; fi
     echo $f "--->" $LIGO_TESTS/$(basename ${f%.out}) ;
     cp ${f} $LIGO_TESTS/$(basename ${f%.out})
 done
@@ -45,6 +48,7 @@ done
 echo "Processing Midlang extraction"
 for f in $MID_PATH/*.midlang.out;
 do
+    if [[ ! -e "$f" ]]; then continue; fi
     echo $f "--->" $MID_TESTS/$(basename ${f%.out}) ;
     cp $f $MID_TESTS/$(basename ${f%.out})
 done
@@ -57,6 +61,7 @@ CONCORDIUM_TESTS=extracted/src/tests.rs
 
 for f in ${concordium_contracts}
 do
+    if [[ ! -e "$CONCORDIUM_PATH/${f}.rs.out" ]]; then continue; fi
     fname=$CONCORDIUM_PATH/${f}-${CONCORDIUM_SUFFIX}
     echo "removing previous extraction: " ${fname}
     rm -f ${fname}
@@ -70,6 +75,7 @@ rust_examples="BernsteinYangTermination Ack Even"
 echo "Processing Rust extraction"
 for f in ${rust_examples}
 do
+    if [[ ! -e "$CONCORDIUM_PATH/${f}.rs.out" ]]; then continue; fi
     src_rust_fname=$RUST_PATH/${f}.rs.out
     tgt_rust_fname=$RUST_PATH/${f}-${RUST_SUFFIX}
     main_rust_name=$RUST_PATH/${f}.main
