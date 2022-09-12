@@ -114,6 +114,10 @@ jobs:
       with:
         name: Liquidity logs
         path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
+    - name: Prepare extraction results
+      run: |
+        cp LICENSE extraction/tests/extracted-code/LICENSE
+        cp extra/extraction-results.md extraction/tests/extracted-code/README.md
     - name: Push to the extraction results repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
