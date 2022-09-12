@@ -66,6 +66,7 @@ test-rust: clean-compiled-rust
 	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), cd $(dir) && cargo run && cd ../../../..;)
 
 test-elm:
+	mkdir -p $(ELM_DIR)/src
 	cd $(ELM_DIR); elm-test
 	cd $(ELM_WEB_APP_DIR); elm make src/Main.elm
 
