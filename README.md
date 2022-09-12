@@ -8,8 +8,8 @@ ConCert is able to find real world attacks as explained [here](https://medium.co
 ## How to build
 
 
-Our development works with Coq 8.15 and depends on MetaCoq, std++ and coq-equations. 
-The tests depend on QuickChick. 
+Our development works with Coq 8.15 and depends on MetaCoq, std++ and coq-equations.
+The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
 To set up a switch with the necessary dependencies run the following commands from the root of the project:
@@ -72,7 +72,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 - ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995). Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Journal of Functional Programming (JFP), Volume 32, 2022, e11. [DOI: 10.1017/S0956796822000077](https://doi.org/10.1017/S0956796822000077)
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016). Eske Hoy Nielsen, Danil Annenkov and Bas Spitters. Preprint
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
-- ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
+- ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021. Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
 - ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138) Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. CPP'21.
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
@@ -82,7 +82,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
    Jakob Botsch Nielsen, Bas Spitters. 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
 
 ## Videos
-A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLtiwJZcxuZ0-Hj64hganyt-WnaHSyA7Pn).
+A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
 
 ### Citing the papers
 ```
@@ -93,7 +93,7 @@ A video collection, presenting various parts of ConCert can be found on [Youtube
    DOI={10.1017/S0956796822000077},
    journal={Journal of Functional Programming},
    publisher={Cambridge University Press},
-   year={2022}, 
+   year={2022},
    pages={e11}
    }
 
