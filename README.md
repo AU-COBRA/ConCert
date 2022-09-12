@@ -5,15 +5,15 @@
 A framework for smart contract verification in Coq.
 
 See the [Papers](#papers) for details on the development.
-ConCert is able to find real world attacks as explained
+ConCert can find real-world attacks as explained
 [here](https://medium.com/blockchain-academy-network/finding-real-world-bugs-in-smart-contract-interactions-with-property-based-testing-9eb59b117785),
-[here](https://medium.com/blockchain-academy-network/preventing-an-8m-attack-on-ethereums-bzx-defi-platform-with-property-based-testing-12234d9479b7) and
+[here](https://medium.com/blockchain-academy-network/preventing-an-8m-attack-on-ethereums-bzx-defi-platform-with-property-based-testing-12234d9479b7), and
 [here](https://medium.com/@bawspitters/using-formal-methods-to-prevent-creating-money-out-of-thin-air-5f30057fe3d3).
 
 ## How to build
 
 
-Our development works with Coq 8.15 and depends on MetaCoq, std++ and coq-equations.
+Our development works with Coq 8.15 and depends on MetaCoq, std++, and coq-equations.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
@@ -55,12 +55,12 @@ contract execution layer, which allows reasoning about, and property-based testi
 The [typed-extraction](https://github.com/AU-COBRA/typed-extraction) submodule contains an implementation of the extraction pipeline based on MetaCoq's **verified erasure** extended with an erasure procedure for types.
 It also features *certifying*(proof-generating) pre-processing steps and verified dead argument elimination.
 
-The [extraction](extraction/) folder contains extraction pipeline for smart contract languages.
+The [extraction](extraction/) folder contains an extraction pipeline for smart contract languages.
 Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose languages Elm and Rust as targets.
 Pretty-printers to these languages are implemented directly in Coq.
 One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard extraction of Coq (currently, it is possible for extraction to Rust).
 
-The [examples](examples/) folder contains examples of smart-contract implementations, embedding, extraction and tests. Extracted smart-contracts can be found [here](https://github.com/AU-COBRA/extraction-resutls).
+The [examples](examples/) folder contains examples of smart contract implementations, embedding, extraction, and tests. Extracted smart contracts can be found [here](https://github.com/AU-COBRA/extraction-resutls).
 
 ## Notes for developers
 
@@ -218,7 +218,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   </details>
 
 ## Videos
-A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
+A video collection, presenting various parts of ConCert can be found on [YouTube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
 
 ### Citing the papers
 
