@@ -44,7 +44,7 @@ Section EIP20Token.
       owner : Address;
       init_amount : TokenValue;
     }.
-  
+
   Definition Error : Type := nat.
   Definition default_error : Error := 1%nat.
 

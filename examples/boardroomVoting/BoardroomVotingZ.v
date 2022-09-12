@@ -251,7 +251,7 @@ Module BoardroomVoting (Params : BoardroomParams).
     do assert_some (AddressMap.find caller (eligible_voters (setup state)));
     do assert_none (AddressMap.find caller (registered_voters state));
     do amt <- lift call_amount;
-    do assert_true (amount_eqb amt  (registration_deposit (setup state)))%Z;
+    do assert_true (amount_eqb amt (registration_deposit (setup state)))%Z;
     do assert_true (Z.of_nat (length (public_keys state)) <? order - 2);
     let index := length (public_keys state) in
     do assert_true (verify_secret_key_proof pk index prf);
@@ -311,7 +311,7 @@ Module BoardroomVoting (Params : BoardroomParams).
                   (fun vi => if elmeqb (public_vote vi) 0 then true else false)
                   voters);
     let votes := map public_vote voters in
-    do res <- @lift _ (fun T => result T Error) _ _  (bruteforce_tally votes);
+    do res <- @lift _ (fun T => result T Error) _ _ (bruteforce_tally votes);
     accept_call (state<|tally := Some res|>).
 
   Definition receive : ContractReceiverStateMsgState :=
@@ -347,7 +347,7 @@ Module BoardroomVoting (Params : BoardroomParams).
         (* Chosen random d for vote proof *)
         svi_sv_d : Z;
       }.
-    
+
     (* begin hide *)
     MetaCoq Run (make_setters SecretVoterInfo).
     (* end hide *)

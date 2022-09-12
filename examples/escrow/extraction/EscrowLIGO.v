@@ -63,7 +63,7 @@ Module EscrowCameLIGOExtraction.
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
-  Definition TT_rename_ligo : list (string * string):=
+  Definition TT_rename_ligo : list (string * string) :=
     [ ("true", "true")
     ; ("false", "false")
     ; ("tt", "()")

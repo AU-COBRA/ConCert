@@ -196,7 +196,7 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
     (* Funding start block and end block should be constants *)
     let funding_start_check := Nat.eqb old_state.(fundingStart) new_state.(fundingStart) in
     let funding_end_check := Nat.eqb old_state.(fundingEnd) new_state.(fundingEnd) in
-    (* Token exchange rate  and initSupply should be constants *)
+    (* Token exchange rate and initSupply should be constants *)
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
     let init_supply_check := N.eqb old_state.(initSupply) new_state.(initSupply) in
     (* Minimum and maximum token limits should be constants *)
@@ -507,9 +507,9 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
                                 else (from_balance_before =? from_balance_after + tokens) in
     (* Transfer must add the transfered tokens from the "to" address
         if the "from <> to" otherwise the balance should remain the same *)
-    let to_balance_correct :=   if from_to_same
-                                then (to_balance_before =? to_balance_after)
-                                else (to_balance_before + tokens =? to_balance_after) in
+    let to_balance_correct := if from_to_same
+                              then (to_balance_before =? to_balance_after)
+                              else (to_balance_before + tokens =? to_balance_after) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (from_balance_correct &&
               to_balance_correct))
@@ -598,9 +598,9 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
                                 else (from_balance_before =? from_balance_after + tokens) in
     (* Transfer_from must add the transfered tokens to the "to" address
         if the "from <> to" otherwise the balance should remain the same *)
-    let to_balance_correct :=   if from_to_same
-                                then (to_balance_before =? to_balance_after)
-                                else (to_balance_before + tokens =? to_balance_after) in
+    let to_balance_correct := if from_to_same
+                              then (to_balance_before =? to_balance_after)
+                              else (to_balance_before + tokens =? to_balance_after) in
     (* Transfer_from must subtract the number of transfered tokens from the delegates allowance *)
     let delefate_allowance_correct := delegate_allowance_before =?
                                       delegate_allowance_after + tokens in
@@ -819,7 +819,7 @@ Action{act_from: 11%256, act_body: (act_call 128%256, 3, create_tokens)};
 Action{act_from: 12%256, act_body: (act_call 128%256, 2, create_tokens)}];
 Block 6 [
 Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}]; |}
 
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 13 tests and 0 shrinks. (0 discards)
@@ -881,7 +881,7 @@ Block 5 [
 Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)};
 Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 16%256 17%256 0)}];
 Block 6 [
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}];|}
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}]; |}
 
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
@@ -907,9 +907,9 @@ Definition can_always_finalize check_setup :=
     always possible to successfully fund the token for any
     setup used when deploying the token *)
 (*
-Extract Constant defNumTests    => "100".
+Extract Constant defNumTests => "100".
 QuickChick (expectFailure (can_always_finalize (fun _ _ => true))).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 
 Definition final_is_final :=

@@ -46,15 +46,15 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
     | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
     end.
 
-  (** ** Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii) ) *)
+  (** ** Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii)) *)
 
   (** [ρ] is well-formed wrt. an expression [e] when for any type variables mentioned in [e], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
 
-  Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool:=
+  Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool :=
     fix rec n e :=
       match e with
       | eRel i => true
-      | eVar nm  => false
+      | eVar nm => false
       | eLambda nm ty b => ty_env_ok n ρ ty && rec (1+n) b
       | eTyLam nm b => rec (1+n) b
       | eLetIn nm e1 ty e2 => rec n e1 && ty_env_ok n ρ ty && rec (1+n) e2
@@ -84,7 +84,7 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
       ty_val ty2 ->
       ty_val (tyArr ty1 ty2).
 
- (** Well-formed value (In the paper: (WF.iii) ) *)
+ (** Well-formed value (In the paper: (WF.iii)) *)
  Inductive val_ok Σ : val -> Type :=
   | vokClosLam : forall e nm ρ ty1 ty2,
       AllEnv (val_ok Σ) ρ ->

@@ -10,7 +10,7 @@ Import ListNotations.
 Local Open Scope string_scope.
 
 Definition PREFIX := "".
-Definition TT_defs := 
+Definition TT_defs :=
   [
     remap <%% nat %%> "nat"
   ].
@@ -30,8 +30,8 @@ Module RecordsWithoutPrimitiveProjections.
 
   MetaCoq Quote Recursively Definition proj_A_quoted := proj_A.
   (* Print proj_A_quoted. *)
-  
-  Definition proj_A_printed := 
+
+  Definition proj_A_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" proj_A_quoted).
 
   Example A_printed_as_type_alias :
@@ -44,15 +44,15 @@ Module RecordsWithoutPrimitiveProjections.
     "";
     "" $>.
   Proof. reflexivity. Qed.
-  
-  Definition constructA : A := 
-    let a1 := {| x:= 0 |} in
+
+  Definition constructA : A :=
+    let a1 := {| x := 0 |} in
     let a2 := build_A 0 in
     a1.
 
   MetaCoq Quote Recursively Definition constructA_quoted := constructA.
 
-  Definition constructA_printed := 
+  Definition constructA_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructA_quoted).
 
   Example constructA_omits_constructor :
@@ -95,15 +95,15 @@ Module RecordsWithoutPrimitiveProjections.
     "";
     "" $>.
   Proof. reflexivity. Qed.
-    
-  Definition constructB : B := 
-    let B1 := {| y:= 0; z:=0 |} in
+
+  Definition constructB : B :=
+    let B1 := {| y := 0; z := 0 |} in
     let B2 := build_B 0 0 in
     B1.
 
   MetaCoq Quote Recursively Definition constructB_quoted := constructB.
 
-  Definition constructB_printed := 
+  Definition constructB_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructB_quoted).
 
   Example constructB_uses_record_syntax :
@@ -136,7 +136,7 @@ Module RecordWithPrimitiveProjections.
   MetaCoq Quote Recursively Definition proj_A_quoted := proj_A.
   (* Print proj_A_quoted. *)
 
-  Definition proj_A_printed := 
+  Definition proj_A_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" proj_A_quoted).
 
   Example A_printed_as_type_alias :
@@ -150,14 +150,14 @@ Module RecordWithPrimitiveProjections.
     "" $>.
   Proof. reflexivity. Qed.
 
-  Definition constructA : A := 
-    let a1 := {| x:= 0 |} in
+  Definition constructA : A :=
+    let a1 := {| x := 0 |} in
     let a2 := build_A 0 in
     a1.
 
   MetaCoq Quote Recursively Definition constructA_quoted := constructA.
 
-  Definition constructA_printed := 
+  Definition constructA_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructA_quoted).
 
   Example constructA_omits_constructor :
@@ -198,16 +198,16 @@ Module RecordWithPrimitiveProjections.
     "";
     "" $>.
   Proof. reflexivity. Qed.
-  
 
-  Definition constructB : B := 
-    let B1 := {| y:= 0; z:=0 |} in
+
+  Definition constructB : B :=
+    let B1 := {| y := 0; z := 0 |} in
     let B2 := build_B 0 0 in
     B1.
 
   MetaCoq Quote Recursively Definition constructB_quoted := constructB.
 
-  Definition constructB_printed := 
+  Definition constructB_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructB_quoted).
 
   Example constructB_uses_record_syntax :

@@ -86,8 +86,8 @@ Definition receive_wrapper (c : Chain)
 
 Definition storage_alias := "type storage = state".
 Definition bruteforce_tally_def :=
- "(fun (votes :  (a) list) ->
-  let rec bruteforce_tally_aux  (n, votes_product : nat * a) : (nat, nat) result =
+ "(fun (votes : (a) list) ->
+  let rec bruteforce_tally_aux (n, votes_product : nat * a) : (nat, nat) result =
     if elmeqb (pow_p generator (int n)) votes_product then
         Ok (n)
     else if n = 0n then
@@ -103,12 +103,12 @@ Definition extra_ops :=
   let mod_pow (a : int) (e : int) (p : int) : int = failwith (""unimplemented"")
   let egcd (a : int) (p : int) : int * int = failwith (""unimplemented"")
 
-  let nth  = let rec nth  (n, l, default : nat * int list * int) : int =
+  let nth = let rec nth (n, l, default : nat * int list * int) : int =
   if n = 0n then (match l with
-  []  -> default
+  [] -> default
    | x :: r -> x)
   else let m = predN n in (match l with
-  []  -> default
+  [] -> default
    | x :: t -> (nth (m, t, default)))
    in fun (n:nat) (l:int list) (default:int) -> nth (n, l, default)
 
@@ -122,22 +122,22 @@ Definition extra_ops :=
         else (predN n, b :: a)) (n,([] : int list)) l in
    r
 
-  let skipn  = let rec skipn  (n, l : nat * int list) : int list =
+  let skipn = let rec skipn (n, l : nat * int list) : int list =
    if n = 0n then l
     else let n0 = predN n in (match l with
-    | []  -> ([]:int list)
+    | [] -> ([]:int list)
     | a :: l0 -> (skipn (n0, l0 : nat * int list)))
     in fun (n : nat) (l : int list) -> skipn (n, l : nat * int list)".
 
 
 Definition existsb_def :=
-  "(let existsb (f : voterInfo -> bool) = let rec existsb  (l: voterInfo list) : bool =
+  "(let existsb (f : voterInfo -> bool) = let rec existsb (l: voterInfo list) : bool =
   match l with
-  []  -> false
+  [] -> false
   | a :: l0 -> (if (f a) then true else (existsb (l0)))
   in fun (l: voterInfo list) -> existsb (l) in existsb)".
 
-Definition hash_func_def := "let hash_func (l :  (nat) list) = addN 1n (List.fold_left (fun (a, p : nat * nat) -> Bitwise.xor p a) 1n l)".
+Definition hash_func_def := "let hash_func (l : (nat) list) = addN 1n (List.fold_left (fun (a, p : nat * nat) -> Bitwise.xor p a) 1n l)".
 
 Definition callctx := "(Tezos.sender,(Tezos.self_address,(Tezos.amount,Tezos.balance)))".
 
@@ -302,7 +302,7 @@ Definition TT_rename : list (string * string) :=
   ; ("true", "true")
   ; ("false", "false")
   ; ("hash", "hash_")
-  ; (String.to_string (string_of_kername <%% BV.State %%>), "state")  (* we add [storage] so it is printed without the prefix *)
+  ; (String.to_string (string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 

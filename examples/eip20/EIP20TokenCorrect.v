@@ -43,7 +43,7 @@ Section Theories.
   Lemma receive_not_payable : forall prev_state new_state chain ctx msg new_acts,
     receive chain ctx prev_state (Some msg) = Ok (new_state, new_acts) ->
       match msg with
-      | transfer to amount =>  (try_transfer (ctx_from ctx) to amount prev_state) >>= (fun new_state : State => Ok (new_state, []))
+      | transfer to amount => (try_transfer (ctx_from ctx) to amount prev_state) >>= (fun new_state : State => Ok (new_state, []))
       | transfer_from from to amount =>
           (try_transfer_from (ctx_from ctx) from to amount prev_state) >>= (fun new_state : State => Ok (new_state, []))
       | approve delegate amount =>
@@ -135,7 +135,7 @@ Section Theories.
   Ltac address_map_convert :=
     match goal with
     | H : context [ AddressMap.find _ _ ] |- _ => rewrite AddressMap_find_convertible in H
-    | H : context [ AddressMap.add _ _ _ ] |- _ =>  rewrite AddressMap_add_convertible in H
+    | H : context [ AddressMap.add _ _ _ ] |- _ => rewrite AddressMap_add_convertible in H
     | H : context [ increment_balance _ _ _ ] |- _ => rewrite increment_balanace_is_partial_alter_plus in H
     | |- context [ AddressMap.find _ _ ] => rewrite AddressMap_find_convertible
     | |- context [ AddressMap.add _ _ _ ] => rewrite AddressMap_add_convertible
@@ -162,10 +162,10 @@ Section Theories.
       | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne; auto
       | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne
       | H : context [ AddressMap.find _ _ ] |- _ => rewrite AddressMap_find_convertible in H
-      | H : context [ AddressMap.add _ _ _ ] |- _ =>  rewrite AddressMap_add_convertible in H
+      | H : context [ AddressMap.add _ _ _ ] |- _ => rewrite AddressMap_add_convertible in H
       | H : context [ increment_balance _ _ _ ] |- _ => rewrite increment_balanace_is_partial_alter_plus in H
       | |- context [ AddressMap.find _ _ ] => rewrite AddressMap_find_convertible
-      | |- context [ AddressMap.add _ _ _ ] =>  rewrite AddressMap_add_convertible
+      | |- context [ AddressMap.add _ _ _ ] => rewrite AddressMap_add_convertible
       | |- context [ increment_balance _ _ _ ] => rewrite increment_balanace_is_partial_alter_plus
     end.
 
@@ -212,7 +212,7 @@ Section Theories.
       | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
       | |- context [ _ + 0 ] => rewrite N.add_0_r
       | |- context [ 0 + _ ] => rewrite N.add_0_l
-      | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x:= (t, n)) (y := (_, m)) by lia
+      | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x := (t, n)) (y := (_, m)) by lia
       | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => erewrite <- sumN_split with (z := (_, n + m - n)) by lia
     end.
     Unshelve. eauto.
@@ -264,17 +264,17 @@ Section Theories.
     destruct_address_eq; destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_prev;
       try congruence; subst; try (rewrite from_prev || setoid_rewrite from_prev);
       clear from_prev new_acts chain; cbn in *.
-      - (* case: from =  to && find from = Some n && amount <= n *)
+      - (* case: from = to && find from = Some n && amount <= n *)
         FMap_simpl.
         now rewrite N.sub_add, N.eqb_refl.
-      - (* case: from =  to && find from = None   && amount = 0 *)
+      - (* case: from = to && find from = None && amount = 0 *)
         apply N.lt_eq_cases in sender_enough_balance as []; [lia | subst].
         now FMap_simpl.
       - (* case: from <> to && find from = Some n && amount <= n *)
         FMap_simpl.
         rewrite N.sub_add; auto.
         now rewrite !N.eqb_refl.
-      - (* case: from <> to && find from = None   && amount = 0 *)
+      - (* case: from <> to && find from = None && amount = 0 *)
         apply N.lt_eq_cases in sender_enough_balance as []; [lia | subst].
         FMap_simpl.
         apply N.eqb_refl.
@@ -361,17 +361,17 @@ Section Theories.
       destruct_address_eq;
         destruct (FMap.find from (balances prev_state)) eqn:from_bal_prev;
         subst; try (rewrite from_bal_prev || setoid_rewrite from_bal_prev); cbn in *.
-        * (* case: from =  to && find from = Some n && amount <= n *)
+        * (* case: from = to && find from = Some n && amount <= n *)
           FMap_simpl.
           now rewrite N.sub_add, N.eqb_refl.
-        * (* case: from =  to && find from = None   && amount = 0 *)
+        * (* case: from = to && find from = None && amount = 0 *)
           apply N.lt_eq_cases in from_enough_balance as []; [lia | subst].
           now FMap_simpl.
         * (* case: from <> to && find from = Some n && amount <= n *)
           FMap_simpl.
           rewrite N.sub_add by auto.
           now rewrite ?N.eqb_refl.
-        * (* case: from <> to && find from = None   && amount = 0 *)
+        * (* case: from <> to && find from = None && amount = 0 *)
           apply N.lt_eq_cases in from_enough_balance as []; [lia | subst].
           FMap_simpl.
           apply N.eqb_refl.

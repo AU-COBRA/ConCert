@@ -72,7 +72,7 @@ Proof.
   + apply Hlam. apply ind.
   + apply HtyLam. apply ind.
   + apply Hletin; apply ind.
-  + apply Happ;apply ind.
+  + apply Happ; apply ind.
   + apply Hconstr.
   + apply Hconst.
   + apply Hcase. apply ind.
@@ -108,7 +108,7 @@ Fixpoint iclosed_n (n : nat) (e : expr) : bool :=
     let bs'' := List.forallb
                   (fun x => iclosed_n (length ((fst x).(pVars)) + n) (snd x)) bs in
     forallb (iclosed_ty n) (snd ii) && iclosed_ty n ty && iclosed_n n e && bs''
-  | eFix fixname nm ty1 ty2 e =>  iclosed_ty n ty1 &&  iclosed_ty n ty2 && iclosed_n (2+n) e
+  | eFix fixname nm ty1 ty2 e => iclosed_ty n ty1 && iclosed_ty n ty2 && iclosed_n (2+n) e
   | eTy ty => iclosed_ty n ty
   end.
 
@@ -152,7 +152,7 @@ Definition remove_proj (c : constr) := map snd (snd c).
 
 (** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor's arity *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ename)
-  : option (nat * nat * list type)  :=
+  : option (nat * nat * list type) :=
   match (resolve_inductive Σ ind_name) with
   | Some n_cs =>
     match lookup_with_ind (map (fun c => (fst c, remove_proj c)) (snd n_cs)) constr_name with
@@ -209,8 +209,8 @@ Fixpoint indexify (l : list (ename * nat)) (e : expr) : expr :=
     | Some v => eRel v
     end
   | eLambda nm ty b =>
-    eLambda nm (indexify_type l ty) (indexify ((nm,0 ):: bump_indices l 1) b)
-  | eTyLam nm b => eTyLam nm (indexify ((nm,0 ):: bump_indices l 1) b)
+    eLambda nm (indexify_type l ty) (indexify ((nm,0 ) :: bump_indices l 1) b)
+  | eTyLam nm b => eTyLam nm (indexify ((nm,0 ) :: bump_indices l 1) b)
   | eLetIn nm e1 ty e2 =>
     eLetIn nm (indexify l e1) (indexify_type l ty) (indexify ((nm, 0) :: bump_indices l 1) e2)
   | eApp e1 e2 => eApp (indexify l e1) (indexify l e2)

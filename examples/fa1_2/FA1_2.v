@@ -82,7 +82,7 @@ Section FA12Types.
     should have this type as its Msg type. The contract may have other endpoints,
     as composed in the 'other_msg' constructor. *)
   Inductive FA12ReceiverMsg {Msg' : Type} :=
-  | receive_allowance : N ->  FA12ReceiverMsg
+  | receive_allowance : N -> FA12ReceiverMsg
   | receive_balance_of : N -> FA12ReceiverMsg
   | receive_total_supply : N -> FA12ReceiverMsg
   | other_msg : Msg' -> FA12ReceiverMsg.

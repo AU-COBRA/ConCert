@@ -74,7 +74,7 @@ Section Congress.
       next_proposal_id : ProposalId;
       members : FMap Address unit;
     }.
-  
+
   (* begin hide *)
   MetaCoq Run (make_setters State).
   (* end hide *)

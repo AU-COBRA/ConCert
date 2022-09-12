@@ -1,4 +1,4 @@
-(** * Simple examples on how to use our framework  **)
+(** * Simple examples on how to use our framework **)
 From Coq Require Import String.
 From Coq Require Import Basics.
 From Coq Require Import List.
@@ -20,7 +20,7 @@ Import MCMonadNotation.
 Import BaseTypes.
 Import StdLib.
 
-Module MC:=MetaCoq.Template.Ast.
+Module MC := MetaCoq.Template.Ast.
 Import BasicAst.
 
 
@@ -80,7 +80,7 @@ MetaCoq Unquote Definition coq_negb_app_true :=
 Definition my_negb_syn :=
   [| \x : Bool => case x : Bool return Bool of
                    | True -> False
-                   | False -> True  |].
+                   | False -> True |].
 
 MetaCoq Unquote Definition my_negb :=
   (expr_to_tc Σ (indexify nil my_negb_syn)).
@@ -155,7 +155,7 @@ Inductive blah :=
 
 Definition Σ' : global_env :=
   [gdInd "blah" 0 [("Bar", [(None,tyInd "blah"); (None,tyInd "blah")]); ("Baz", [])] false;
-     gdInd Nat  0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false].
+      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false].
 
 Notation "'Bar'" := (eConstr "blah" "Bar") (in custom expr).
 Notation "'Baz'" := (eConstr "blah" "Baz") (in custom expr).
@@ -196,7 +196,7 @@ MetaCoq Unquote Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
 
 Lemma my_plus_correct n m :
   my_plus n m = n + m.
-Proof. induction n;simpl;auto. Qed.
+Proof. induction n; simpl; auto. Qed.
 
 
 Definition two :=
@@ -222,11 +222,11 @@ MetaCoq Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x
 
 Example one_plus_one_two :
   expr_eval_n Σ 10 [] one_plus_one = Ok two.
-Proof.  reflexivity. Qed.
+Proof. reflexivity. Qed.
 
 Example one_plus_one_two_i :
   expr_eval_i Σ 10 [] (indexify [] one_plus_one) = Ok two.
-Proof.  reflexivity. Qed.
+Proof. reflexivity. Qed.
 
 
 Definition plus_syn' :=
@@ -242,17 +242,17 @@ MetaCoq Unquote Definition my_plus' :=
 
 Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
 Proof.
-  induction n;simpl;easy.
+  induction n; simpl; easy.
 Qed.
 
 Lemma my_plus'_Sn : forall n m, my_plus' (S n) m = S (my_plus' n m).
 Proof.
-  induction m;simpl;easy.
+  induction m; simpl; easy.
 Qed.
 
 Lemma my_plus'_comm : forall n m, my_plus' n m = my_plus' m n.
 Proof.
-  induction n; intros m;simpl.
+  induction n; intros m; simpl.
   + rewrite my_plus'_0. reflexivity.
   + rewrite my_plus'_Sn. easy.
 Qed.
@@ -261,7 +261,7 @@ Qed.
 Lemma my_plus'_correct : forall n m, my_plus' n m = n + m.
 Proof.
   intros n m.
-  induction m;simpl;easy.
+  induction m; simpl; easy.
 Qed.
 
 
@@ -333,8 +333,8 @@ Proof. reflexivity. Qed.
 Example eval_plus_syn :
   indexify [] [| {plus_syn}|] =
   [|fix "plus" ("x" : Nat)
-    : Nat -> Nat
-    := \ "y" : Nat =>
+    : Nat -> Nat :=
+      \ "y" : Nat =>
       {eCase (Nat, [])
           [!Nat!] (eRel 1)
           [({| pName := "Z"; pVars := [] |}, eRel 0);
@@ -370,7 +370,7 @@ Proof. reflexivity. Qed.
 Definition fun_app := [| (\x : Nat => \y : Nat => y + x) Zero |].
 
 Example eval_fun_app :
-  expr_eval_n Σ' 10 [] fun_app = 
+  expr_eval_n Σ' 10 [] fun_app =
   Ok (vClos [("x", vConstr Nat "Z" [])] "y" cmLam
       [!Nat!] [!Nat!]
       (eApp (eApp (eConst "Coq/Init/Nat@add") [|"y"|]) [|"x"|])).
@@ -430,7 +430,7 @@ Import Template.Ast.
 Unset Primitive Projections.
 
 Definition State_syn :=
-  [\ record "State" := "mkState" { "balance" : Nat ; "day" : Nat }  \].
+  [\ record "State" := "mkState" { "balance" : Nat ; "day" : Nat } \].
 
 MetaCoq Unquote Inductive (global_to_tc State_syn).
 

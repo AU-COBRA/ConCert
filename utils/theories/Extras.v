@@ -59,7 +59,7 @@ Proof. induction perm_eq; perm_simplify; lia. Qed.
 
 #[export]
 Instance sumnat_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumnat.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumnat.
 Proof. repeat intro. subst. now apply sumnat_permutation. Qed.
 
 Lemma sumnat_map {A B : Type} (f : A -> B) (g : B -> nat) (xs : list A) :
@@ -79,7 +79,7 @@ Proof. induction perm_eq; perm_simplify; lia. Qed.
 
 #[export]
 Instance sumZ_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumZ.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumZ.
 Proof. repeat intro. subst. now apply sumZ_permutation. Qed.
 
 Local Open Scope Z.
@@ -603,7 +603,7 @@ Proof.
   intros * f_positive Hin.
   induction l.
   - inversion Hin.
-  - apply in_inv in Hin  as [Hin | Hin].
+  - apply in_inv in Hin as [Hin | Hin].
     + cbn. subst.
       rewrite <- (Z.add_0_r (f x)).
       apply Z.add_le_mono.
@@ -760,7 +760,7 @@ Qed.
 
 #[export]
 Instance sumN_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumN.
 Proof.
   repeat intro. subst. now apply sumN_permutation.
 Qed.
@@ -844,10 +844,10 @@ Proof.
   now destruct x.
 Qed.
 
-Lemma with_default_indep {A} (o : option A) d  d' v :
+Lemma with_default_indep {A} (o : option A) d d' v :
   o = Some v -> with_default d o = with_default d' o.
 Proof.
-  intros;subst;easy.
+  intros; subst; easy.
 Qed.
 
 Lemma isSome_some : forall {A : Type} (x : option A) (y : A),

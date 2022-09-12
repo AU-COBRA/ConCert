@@ -37,21 +37,21 @@ Module Counter.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)
                   : result storage Error :=
-    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx' := ctx in (* prevents optimisations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg :=
   | Inc (_ : Z)
   | Dec (_ : Z).
 
-  Definition inc_balance (st :  storage) (new_balance : Z)
+  Definition inc_balance (st : storage) (new_balance : Z)
                (p : (0 <=? new_balance) = true) : storage :=
     (st.1 + new_balance, st.2).
 
 
   Definition dec_balance (st : storage) (new_balance : Z)
              (p : (0 <=? new_balance) = true): storage :=
-    (st.1 -  new_balance, st.2).
+    (st.1 - new_balance, st.2).
 
   Definition my_bool_dec := Eval compute in bool_dec.
 
@@ -124,7 +124,7 @@ Definition TT_rename : list (string * string) :=
   ; ("Z0" ,"0")
   ; ("nil", "[]")
   ; ("true", "true")
-  ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
+  ; (String.to_string (string_of_kername <%% storage %%>), "storage") (* we add [storage] so it is printed without the prefix *) ].
 
 Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)

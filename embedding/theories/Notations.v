@@ -120,7 +120,7 @@ Notation "'data' ty_nm '=' c1 | c2" :=
 
 Notation "'data' ty_nm '=' c1 | c2 | c3" :=
   (let (nm, nparams) := ty_nm in
-   gdInd nm nparams (map unnamed_constr [c1;c2;c3]) false)
+   gdInd nm nparams (map unnamed_constr [c1; c2; c3]) false)
     (in custom global_dec at level 1,
         ty_nm custom data_name at level 2,
         c1 custom ctor at level 2,
@@ -129,7 +129,7 @@ Notation "'data' ty_nm '=' c1 | c2 | c3" :=
 
 Notation "'data' ty_nm '=' c1 | c2 | c3 | c4" :=
   (let (nm, nparams) := ty_nm in
-   gdInd nm nparams (map unnamed_constr [c1;c2;c3;c4]) false)
+   gdInd nm nparams (map unnamed_constr [c1; c2; c3; c4]) false)
     (in custom global_dec at level 1,
         ty_nm custom data_name at level 2,
         c1 custom ctor at level 2,
@@ -139,7 +139,7 @@ Notation "'data' ty_nm '=' c1 | c2 | c3 | c4" :=
 
 Notation "'data' ty_nm '=' c1 | c2 | c3 | c4 | c5" :=
   (let (nm, nparams) := ty_nm in
-   gdInd nm 0 (map unnamed_constr [c1;c2;c3;c4;c5]) false)
+   gdInd nm 0 (map unnamed_constr [c1; c2; c3; c4; c5]) false)
     (in custom global_dec at level 1,
         ty_nm custom data_name at level 2,
         c1 custom ctor at level 2,
@@ -164,7 +164,7 @@ Notation "'record' rec_nm := rec_ctor { pr1 : ty1 }" :=
         ty1 custom type at level 4).
 
 Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 }" :=
-  (gdInd rec_nm 0 [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2)]] true)
+  (gdInd rec_nm 0 [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
         rec_ctor constr at level 4,
@@ -175,7 +175,7 @@ Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 }" :=
 
 Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2);(Some pr3,ty3)]] true)
+         [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2); (Some pr3,ty3)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
         rec_ctor constr at level 4,
@@ -188,8 +188,8 @@ Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 }" :=
 
 Notation "'record' rec_nm # n := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
   (gdInd rec_nm n
-         [ rec_constr rec_ctor [(Some  pr1,ty1);(Some  pr2,ty2);
-                                (Some pr3,ty3);(Some pr4,ty4)]] true)
+         [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2);
+                                (Some pr3,ty3); (Some pr4,ty4)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
         rec_ctor constr at level 4,
@@ -206,8 +206,8 @@ Notation "'record' rec_nm # n := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; 
 
 Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_ctor [(Some  pr1,ty1);(Some  pr2,ty2);
-                                (Some pr3,ty3);(Some pr4,ty4)]] true)
+         [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2);
+                                (Some pr3,ty3); (Some pr4,ty4)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
         rec_ctor constr at level 4,
@@ -222,8 +222,8 @@ Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 
 
 Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2);
-                                (Some pr3,ty3);(Some pr4,ty4);
+         [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2);
+                                (Some pr3,ty3); (Some pr4,ty4);
                                   (Some pr5,ty5)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
@@ -241,9 +241,9 @@ Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 
 
 Notation "'record' rec_nm := rec_ctor { pr1 : ty1 ; pr2 : ty2 ; pr3 : ty3 ; pr4 : ty4 ; pr5 : ty5 ; pr6 : ty6 }" :=
   (gdInd rec_nm 0
-         [ rec_constr rec_ctor [(Some pr1,ty1);(Some pr2,ty2);
-                                (Some pr3,ty3);(Some pr4,ty4);
-                                  (Some pr5,ty5);(Some pr6,ty6)]] true)
+         [ rec_constr rec_ctor [(Some pr1,ty1); (Some pr2,ty2);
+                                (Some pr3,ty3); (Some pr4,ty4);
+                                  (Some pr5,ty5); (Some pr6,ty6)]] true)
     (in custom global_dec at level 1,
         rec_nm constr at level 4,
         rec_ctor constr at level 4,
@@ -296,7 +296,7 @@ Notation "C" := (pConstr C [])
                   (in custom pat at level 0,
                       C constr at level 4).
 
-(* Notation "'case' x : ty 'of'  b1 | .. | bn " := *)
+(* Notation "'case' x : ty 'of' b1 | .. | bn " := *)
 (*   (eCase (ty,0) (tyInd "") x (cons b1 .. (cons bn nil) ..)) *)
 (*     (in custom expr at level 1, *)
 (*         b1 custom expr at level 4, *)
@@ -316,7 +316,7 @@ Notation "ind ty" := (ciParamInd ind [ty]) (in custom case_info at level 1,
                                                ind constr at level 4,
                                                ty custom type at level 4).
 
-Notation "ind ty1 , ty2" := (ciParamInd ind [ty1;ty2]) (in custom case_info at level 1,
+Notation "ind ty1 , ty2" := (ciParamInd ind [ty1; ty2]) (in custom case_info at level 1,
                                                          ind constr at level 4,
                                                          ty1 custom type at level 4,
                                                          ty2 custom type at level 4).
@@ -327,8 +327,8 @@ Definition ci_to_types (ci : case_info ) :=
   | ciParamInd ind tys => (ind, tys)
   end.
 
-Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
-  (eCase (ci_to_types ci) ty2 x [(p1,b1);(p2,b2);(p3,b3)])
+Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3" :=
+  (eCase (ci_to_types ci) ty2 x [(p1,b1); (p2,b2); (p3,b3)])
     (in custom expr at level 2,
         p1 custom pat at level 4,
         p2 custom pat at level 4,
@@ -341,7 +341,7 @@ Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | p2 -> b2 | p3 -> b3"  :=
 
 
 Notation "'case' x : ci 'return' ty2 'of' | p1 -> b1 | pn -> bn" :=
-  (eCase (ci_to_types ci) ty2 x [(p1,b1);(pn,bn)])
+  (eCase (ci_to_types ci) ty2 x [(p1,b1); (pn,bn)])
     (in custom expr at level 2,
         p1 custom pat at level 4,
         pn custom pat at level 4,

@@ -27,8 +27,8 @@ Instance EscrowMidlangBoxes : ElmPrintConfig :=
      print_full_names := true; (* full names to avoid clashes*)|}.
 
 Definition TT_escrow : list (kername * string) :=
-  [    remap <%% bool %%> "Bool"
-     ; remap <%% @Address %%> "Int"].
+  [ remap <%% bool %%> "Bool"
+  ; remap <%% @Address %%> "Int"].
 
 Definition midlang_translation_map :=
   Eval compute in

@@ -108,7 +108,7 @@ Notation "'mkCallCtx' now sender sent_am bal " :=
 (** A simple representation of the call context *)
 
 (** current_time, sender_add, sent_amount, acc_balance *)
-Definition SimpleCallCtx : Set:= time_coq × (address_coq × (Amount × Amount)).
+Definition SimpleCallCtx : Set := time_coq × (address_coq × (Amount × Amount)).
 
 (** These projections correspond to the notations above *)
 Definition sc_current_time (ctx : SimpleCallCtx) : time_coq := ctx.1.
@@ -139,7 +139,7 @@ Definition decode_addr (addr: nat + nat) : address_coq :=
 Global Program Instance CB : ChainBase :=
   build_chain_base address_coq eqb_addr _ _ _ _ is_contract.
 Next Obligation.
-  intros a b. destruct a,b;simpl.
+  intros a b. destruct a,b; simpl.
   - destruct (n =? n0)%nat eqn:Heq.
     * constructor. now rewrite Nat.eqb_eq in *.
     * constructor. now rewrite NPeano.Nat.eqb_neq in *.
@@ -151,7 +151,7 @@ Next Obligation.
 Qed.
 Next Obligation.
   intros ??. unfold base.Decision.
-  decide equality;apply Nat.eq_dec.
+  decide equality; apply Nat.eq_dec.
 Qed.
 Next Obligation.
   assert (cnat : countable.Countable (nat + nat)) by typeclasses eauto.
@@ -166,7 +166,7 @@ Next Obligation.
        exact (Some (ContractAddr_coq n)).
        exact (Some (UserAddr_coq n)).
     ** exact None.
-  * cbn;intros addr.
+  * cbn; intros addr.
     destruct addr;
     now rewrite H.
 Defined.
@@ -183,7 +183,7 @@ Next Obligation.
        exact (Some (ContractAddr_coq n)).
        exact (Some (UserAddr_coq n)).
     ** exact None.
-  * cbn;intros addr.
+  * cbn; intros addr.
     destruct addr;
       now rewrite H.
 Defined.
@@ -240,13 +240,13 @@ Module Maps.
   Lemma lookup_map_add k v m : lookup_map (add_map k v m) k = Some v.
   Proof.
     induction m.
-    + simpl. destruct k;simpl; now rewrite PeanoNat.Nat.eqb_refl.
+    + simpl. destruct k; simpl; now rewrite PeanoNat.Nat.eqb_refl.
     + simpl. destruct (eqb_addr k a) eqn:Heq.
-      * destruct k;simpl;now rewrite PeanoNat.Nat.eqb_refl.
+      * destruct k; simpl; now rewrite PeanoNat.Nat.eqb_refl.
       * simpl. now rewrite Heq.
   Qed.
 
-  Fixpoint to_list (m : addr_map_coq) : list (address_coq * Z)%type:=
+  Fixpoint to_list (m : addr_map_coq) : list (address_coq * Z)%type :=
     match m with
     | mnil => nil
     | mcons k v tl => cons (k,v) (to_list tl)
@@ -259,13 +259,13 @@ Module Maps.
     end.
 
   Lemma of_list_to_list m: of_list (to_list m) = m.
-  Proof. induction m;simpl;congruence. Qed.
+  Proof. induction m; simpl; congruence. Qed.
 
   Lemma to_list_of_list l: to_list (of_list l) = l.
-  Proof. induction l as [ | x l'];simpl;auto.
-         destruct x. simpl;congruence. Qed.
+  Proof. induction l as [ | x l']; simpl; auto.
+         destruct x. simpl; congruence. Qed.
 
-  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool:=
+  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool :=
     match m with
     | mnil => true
     | mcons k v m' => p v && map_forallb p m'
@@ -277,9 +277,9 @@ Module Maps.
     p v = true.
   Proof.
     revert k v p.
-    induction m;intros;try discriminate;simpl in *.
-    propify. destruct (eqb_addr _ _);auto.
-    * now inversion H0;subst.
+    induction m; intros; try discriminate; simpl in *.
+    propify. destruct (eqb_addr _ _); auto.
+    * now inversion H0; subst.
     * easy.
   Qed.
 
@@ -289,18 +289,18 @@ Module Maps.
   Notation "'MNil'" := [| {eConstr Map "mnil"} |]
                          (in custom expr at level 0).
 
-  Notation "'mfind' a b" :=  [| {eConst (to_string_name <% lookup_map %>)} {a} {b} |]
+  Notation "'mfind' a b" := [| {eConst (to_string_name <% lookup_map %>)} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).
 
-  Notation "'madd' a b c" :=  [| {eConst (to_string_name <% add_map %>)} {a} {b} {c} |]
+  Notation "'madd' a b c" := [| {eConst (to_string_name <% add_map %>)} {a} {b} {c} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1,
               c custom expr at level 1).
 
-  Notation "'mem' a b" :=  [| {eConst (to_string_name <% inmap_map %>)} {a} {b} |]
+  Notation "'mem' a b" := [| {eConst (to_string_name <% inmap_map %>)} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).

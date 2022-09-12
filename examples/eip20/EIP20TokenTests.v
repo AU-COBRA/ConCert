@@ -332,7 +332,7 @@ Definition state_has_some_approve_act (cs : ChainState) :=
   | None => None
   end.
 
-Definition delegate_made_no_transferFroms (approve_act_p :  (Address * Address * EIP20Token.Msg))
+Definition delegate_made_no_transferFroms (approve_act_p : (Address * Address * EIP20Token.Msg))
                                           (cs : ChainState) :=
   let caddr := fst (fst approve_act_p) in
   let approver := snd (fst approve_act_p) in
@@ -379,7 +379,7 @@ Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20
 Definition allower_reapproves_delegate_step allower delegate (cs : ChainState) :=
   let acts := cs.(chain_state_queue) in
   match find isSome (map get_approve_act acts) with
-  | Some (Some (caddr, caller, (approve delegate' amount)) as act)  =>
+  | Some (Some (caddr, caller, (approve delegate' amount)) as act) =>
     if address_eqb caller allower && address_eqb delegate delegate'
     then Some amount
     else None
@@ -427,7 +427,7 @@ Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list 
           ++ show delegate_spent_incl_reapproval_act
           ++ " on behalf of " ++ show allower
           ++ " when they were only allowed to spend at most "
-          ++ show total_allowed  ++ nl)
+          ++ show total_allowed ++ nl)
         (delegate_spent_incl_reapproval_act <=? total_allowed)
       | None => checker false
       end) in
@@ -460,7 +460,7 @@ Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 32)};
 Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 11%256 23)}];
 Block 4 [
 Action{act_from: 12%256, act_body: (act_call 128%256, 0, transfer_from 10%256 10%256 25)};
-Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 8)}];|}
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 12%256 8)}]; |}
 
 12%256 spent 25 on behalf of 10%256 when they were only allowed to spend at most 8
 

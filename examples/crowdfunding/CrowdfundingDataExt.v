@@ -22,11 +22,11 @@ Open Scope list.
 Import AcornBlockchain.
 Import PreludeExt.Maps.
 
-(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
+(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
-(** Generating names for the data structures  *)
+(** Generating names for the data structures *)
 MetaCoq Run
         ( mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
@@ -51,7 +51,7 @@ Definition state_ty : type :=
   (* Contributions, Done *)
   [! Map × Bool !].
 
-(** The full type of contract's internal state  *)
+(** The full type of contract's internal state *)
 Definition full_state_ty :=
   [! {params_ty} × {state_ty} !].
 
@@ -166,14 +166,14 @@ End Notations.
 
 (** Generating string constants for variable names *)
 
-MetaCoq Run (mkNames "" ["c";"s";"e";"m";"v";"dl"; "g"; "chain"; "setup" ; "ctx" ;
+MetaCoq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain"; "setup" ; "ctx" ;
                      "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                      "accs"; "now";
                      "newstate"; "newmap"; "cond"] "").
-(** A shortcut for [if .. then .. else ..]  *)
+(** A shortcut for [if .. then .. else ..] *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
   (eCase (Bool,[]) ty cond
-         [(pConstr true_name [],b1);(pConstr false_name [],b2)])
+         [(pConstr true_name [],b1); (pConstr false_name [],b2)])
     (in custom expr at level 4,
         cond custom expr at level 4,
         ty custom type at level 4,

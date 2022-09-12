@@ -65,14 +65,14 @@ Section Counter.
                              (ctx : ContractCallContext)
                              (state : State)
                              (msg : option Msg)
-                             : result (State * list ActionBody) Error
-    := match msg with
-       | Some m => match counter state m with
-                   | Ok res => Ok (res, [])
-                   | Err e => Err e
-                  end
-       | None => Err default_error
-       end.
+                             : result (State * list ActionBody) Error :=
+    match msg with
+    | Some m => match counter state m with
+                | Ok res => Ok (res, [])
+                | Err e => Err e
+                end
+    | None => Err default_error
+    end.
 
   (** We initialize the contract state with [init_value] and set [owner] to the address from which the contract was deployed *)
   Definition counter_init (chain : Chain)
@@ -118,9 +118,9 @@ Section FunctionalProperties.
     end.
   Proof.
     intros H.
-    all : destruct msg;cbn in *;unfold increment,decrement in *.
-    all : destruct (0 <? i) eqn:Hz;inversion H;cbn in *.
-    all : rewrite Z.ltb_lt in *;split;auto;lia.
+    all : destruct msg; cbn in *; unfold increment,decrement in *.
+    all : destruct (0 <? i) eqn:Hz; inversion H; cbn in *.
+    all : rewrite Z.ltb_lt in *; split; auto; lia.
   Qed.
 
 End FunctionalProperties.
@@ -146,8 +146,8 @@ Section SafetyProperties.
     acts = [].
   Proof.
     intros receive_some.
-    destruct msg as [msg | ];try discriminate; cbn in *.
-    destruct (counter _ _) as [[? ?] | ] eqn:Hreceive;try inversion receive_some;subst; cbn in *;auto.
+    destruct msg as [msg | ]; try discriminate; cbn in *.
+    destruct (counter _ _) as [[? ?] | ] eqn:Hreceive; try inversion receive_some; subst; cbn in *; auto.
   Qed.
 
   (** The sum of all increment/decrement messages sent to the contract. *)
@@ -169,13 +169,13 @@ Section SafetyProperties.
   Proof.
     contract_induction; intros; cbn in *; auto.
     + (* deployment *)
-      inversion init_some;subst;clear init_some;cbn in *. lia.
+      inversion init_some; subst; clear init_some; cbn in *. lia.
     + (* contract call *)
-      destruct msg as [msg|];try discriminate;cbn in *.
-      destruct (counter _ _) as [cstate|] eqn:counter_some;inversion receive_some;subst.
+      destruct msg as [msg|]; try discriminate; cbn in *.
+      destruct (counter _ _) as [cstate|] eqn:counter_some; inversion receive_some; subst.
       (* NOTE: we use the functional correctness here *)
       specialize (counter_correct counter_some) as Cspec.
-      destruct msg;intuition;unfold sum_inc_dec in *;lia.
+      destruct msg; intuition; unfold sum_inc_dec in *; lia.
     + (* contract self-call *)
       (* NOTE: we know that the self-call is not possible because [counter_receive]
         always returns an empty list of actions. We instantiate the [CallFacts]
@@ -188,7 +188,7 @@ Section SafetyProperties.
       with a trivial proposition *)
       instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
       instantiate (DeployFacts := fun _ _ => True).
-      unset_all;subst;cbn in *.
+      unset_all; subst; cbn in *.
       destruct_chain_step; auto.
       destruct_action_eval; auto.
       cbn. intros cstate Hc Hstate.
@@ -196,9 +196,9 @@ Section SafetyProperties.
       assert ((outgoing_acts bstate_from to_addr) = []) as Hempty.
       { apply lift_outgoing_acts_nil with (contract := counter_contract); eauto.
         now constructor.
-        intros. eapply (receive_produces_no_calls (chain:=chain) (ctx:=ctx)); eauto. apply H. }
+        intros. eapply (receive_produces_no_calls (chain := chain) (ctx := ctx)); eauto. apply H. }
       unfold outgoing_acts in *. rewrite queue_prev in *.
-      subst act;cbn in Hempty.
+      subst act; cbn in Hempty.
       now destruct_address_eq.
   Qed.
 

@@ -80,7 +80,7 @@ Section BAT.
     do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) default_error;
     let new_token_state : EIP20Token.State := {|
       EIP20Token.total_supply := checkedSupply;
-      EIP20Token.balances := FMap.partial_alter (fun balance => 
+      EIP20Token.balances := FMap.partial_alter (fun balance =>
         Some (with_default 0 balance + tokens)) sender (balances state);
       EIP20Token.allowances := allowances state;
     |} in

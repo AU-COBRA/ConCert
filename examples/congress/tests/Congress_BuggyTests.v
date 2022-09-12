@@ -120,7 +120,7 @@ Action{act_from: 10%256, act_body: (act_call 128%256, 0, add_member 10%256)}];
 Block 4 [
 Action{act_from: 10%256, act_body: (act_call 128%256, 79, create_proposal (call: 128%256, 80, add_member 0%256))}];
 Block 5 [
-Action{act_from: 10%256, act_body: (act_call 128%256, 13, finish_proposal 1)}];|}
+Action{act_from: 10%256, act_body: (act_call 128%256, 13, finish_proposal 1)}]; |}
 
 *** Failed after 33 tests and 0 shrinks. (0 discards)
 *)

@@ -25,7 +25,7 @@ Section FA2Token.
   | receive_balance_of_param : list balance_of_response -> FA2ReceiverMsg
   | receive_total_supply_param : list total_supply_response -> FA2ReceiverMsg
   | receive_metadata_callback : list token_metadata -> FA2ReceiverMsg
-  | receive_is_operator : is_operator_response  -> FA2ReceiverMsg
+  | receive_is_operator : is_operator_response -> FA2ReceiverMsg
   | receive_permissions_descriptor : permissions_descriptor -> FA2ReceiverMsg
   | other_msg : Msg' -> FA2ReceiverMsg.
 
@@ -98,7 +98,7 @@ Section FA2Token.
                                                 `{Serializable Msg}
                                                 : Serializable (@FA2TransferHook Msg) :=
       Derive Serializable (@FA2TransferHook_rect Msg) <
-        (@transfer_hook  Msg),
+        (@transfer_hook Msg),
         (@hook_other_msg Msg)>.
 
     Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) :=
@@ -448,8 +448,8 @@ Section FA2Token.
                                    : result State Error :=
     (* only owner can set transfer hook *)
     do _ <- throwIf (negb (address_eqb caller state.(fa2_owner))) default_error;
-    Ok (state<| transfer_hook_addr :=  Some params.(hook_addr)|>
-              <| permission_policy  := params.(hook_permissions_descriptor) |>).
+    Ok (state<| transfer_hook_addr := Some params.(hook_addr)|>
+              <| permission_policy := params.(hook_permissions_descriptor) |>).
 
   Definition get_token_metadata_callback (param : token_metadata_param)
                                          (state : State)
@@ -479,7 +479,7 @@ Section FA2Token.
     let caller_bal := with_default 0 (FMap.find caller ledger.(balances)) in
     let new_balances := FMap.add caller (caller_bal + amount) ledger.(balances) in
     let new_ledger := ledger<| balances := new_balances |> in
-    Ok (state<| assets ::=  FMap.add tokenid new_ledger |>).
+    Ok (state<| assets ::= FMap.add tokenid new_ledger |>).
 
 
   Open Scope Z_scope.

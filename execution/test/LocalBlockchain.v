@@ -161,7 +161,7 @@ Section LocalBlockchain.
       | build_act origin from (act_deploy amount wc setup) =>
         deploy_contract origin from amount wc setup lc
       | build_act origin from (act_call to amount msg) =>
-        send_or_call origin  from to amount (Some msg) lc
+        send_or_call origin from to amount (Some msg) lc
       end.
 
     Fixpoint execute_actions
@@ -517,7 +517,7 @@ Section LocalBlockchain.
     destruct lcopt as [lc|e] eqn:exec; [|exact (Err e)].
     subst lcopt.
     destruct (validate_header _) eqn:validate; [|cbn in exec; congruence].
-    destruct (find_origin_neq_from _) eqn:no_origin_neq_from;[cbn in exec; congruence|].
+    destruct (find_origin_neq_from _) eqn:no_origin_neq_from; [cbn in exec; congruence|].
     destruct (find_invalid_root_action _) eqn:no_invalid_root_act; [cbn in exec; congruence|].
     destruct lcb as [prev_lc_end prev_lcb_trace].
     refine (Ok {| lcb_lc := lc; lcb_trace := _ |}).

@@ -17,7 +17,7 @@ Import NamelessSubst.
 Import BaseTypes.
 Import StdLib.
 
-Notation "'eval' ( Σ , n , e )"  := (expr_eval_i Σ n [] e) (at level 100).
+Notation "'eval' ( Σ , n , e )" := (expr_eval_i Σ n [] e) (at level 100).
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
@@ -46,14 +46,14 @@ Definition my_negb_syn :=
 (** We translate and unquote using the ConCert embedding feature *)
 MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-(** We prove that the running the interpreter with [my_negb_syn] applied to an expression originating from Coq' boolean value computes the same result as the unquoted function [my_negb]. As a result, we do not depend on correctness of [unquote]  *)
+(** We prove that the running the interpreter with [my_negb_syn] applied to an expression originating from Coq' boolean value computes the same result as the unquoted function [my_negb]. As a result, we do not depend on correctness of [unquote] *)
 Lemma my_negb_correct b :
   exists n v,
     eval(Σ, n,
-         indexify nil ([| {my_negb_syn} {of_val_i (of_bool b)} |]) ) = Ok v
+         indexify nil ([| {my_negb_syn} {of_val_i (of_bool b)} |])) = Ok v
       /\ v = of_bool (negb b).
 Proof.
-  destruct b; exists 3;eexists;simpl;eauto.
+  destruct b; exists 3; eexists; simpl; eauto.
 Qed.
 
 (** One can prove similar results any non-recursive definition. Proofs in this case would require just case analysis and computation. For recursive definitions proofs would require induction and some additional lemmas *)

@@ -151,7 +151,7 @@ Section Theories.
   Tactic Notation "math_convert" := repeat math_convert_step.
 
   Tactic Notation "contract_simpl" :=
-    repeat (unfold call_to_token,call_to_other_token;contract_simpl_step receive_cpmm init_cpmm).
+    repeat (unfold call_to_token,call_to_other_token; contract_simpl_step receive_cpmm init_cpmm).
 
   Ltac destruct_message :=
     repeat match goal with
@@ -420,7 +420,7 @@ Section Theories.
            end = Ok _ |- _] =>
         match type of rs with
         | list balance_of_response =>
-            destruct rs;inversion H;clear H
+            destruct rs; inversion H; clear H
         | _ => fail "No match on list of balance_of_response"
         end
     end.
@@ -489,7 +489,7 @@ Section Theories.
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
     receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (AddLiquidity param))) = Ok (new_state, new_acts) ->
-      prev_state<| lqtTotal := prev_state.(lqtTotal) +  lqt_minted |>
+      prev_state<| lqtTotal := prev_state.(lqtTotal) + lqt_minted |>
                 <| tokenPool := prev_state.(tokenPool) + tokens_deposited |>
                 <| xtzPool := prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount) |> = new_state.
   Proof.
@@ -538,7 +538,7 @@ Section Theories.
     let tokens_deposited := ceildiv_ (amount_to_N ctx.(ctx_amount) * prev_state.(tokenPool)) prev_state.(xtzPool) in
     prev_state.(selfIsUpdatingTokenPool) = false /\
     (current_slot chain < param.(add_deadline))%nat /\
-    tokens_deposited <= param.(maxTokensDeposited)  /\
+    tokens_deposited <= param.(maxTokensDeposited) /\
     param.(minLqtMinted) <= lqt_minted /\
     prev_state.(xtzPool) <> 0 /\
     prev_state.(lqtAddress) <> null_address
@@ -571,13 +571,13 @@ Section Theories.
   Proof.
     intros * receive_some.
     contract_simpl.
-    now math_convert;cbv.
+    now math_convert; cbv.
   Qed.
 
   Lemma remove_liquidity_correct : forall prev_state new_state chain ctx new_acts param,
     receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (RemoveLiquidity param))) = Ok (new_state, new_acts) ->
       new_state.(lqtTotal) = prev_state.(lqtTotal) - param.(lqtBurned) /\
-      new_state.(tokenPool) = prev_state.(tokenPool) -  (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) /\
+      new_state.(tokenPool) = prev_state.(tokenPool) - (param.(lqtBurned) * prev_state.(tokenPool)) / prev_state.(lqtTotal) /\
       new_state.(xtzPool) = prev_state.(xtzPool) - (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal).
   Proof.
     intros * receive_some.
@@ -664,8 +664,8 @@ Section Theories.
 
   Lemma xtz_to_token_correct : forall prev_state new_state chain ctx new_acts param,
     receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg (XtzToToken param))) = Ok (new_state, new_acts) ->
-      new_state.(tokenPool) = prev_state.(tokenPool) -  (((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
-                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997)) ) /\
+      new_state.(tokenPool) = prev_state.(tokenPool) - (((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
+                            (prev_state.(xtzPool) * 1000 + ((amount_to_N ctx.(ctx_amount)) * 997))) /\
       new_state.(xtzPool) = prev_state.(xtzPool) + amount_to_N ctx.(ctx_amount).
   Proof.
     intros * receive_some.

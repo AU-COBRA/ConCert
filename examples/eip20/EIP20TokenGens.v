@@ -70,7 +70,7 @@ Module EIP20Gens (Info : EIP20GensInfo).
         amount <- (if allower_balance =? 0
                   then returnGen 0
                   else choose (0, N.min allowance allower_balance)) ;;
-        returnGenSome (delegate, transfer_from allower receiver  amount)
+        returnGenSome (delegate, transfer_from allower receiver amount)
       )
     )).
 

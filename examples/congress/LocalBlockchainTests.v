@@ -150,7 +150,7 @@ Section LocalBlockchainTests.
   Definition chain6 : ChainBuilder :=
     unpack_result (add_block chain5 [build_act person_1 person_1 create_proposal_call]).
 
-  Goal (FMap.elements (congress_state chain6).(proposals)) = 
+  Goal (FMap.elements (congress_state chain6).(proposals)) =
     [(1, {|
         actions := [cact_transfer person_3 3];
         votes := FMap.empty;
@@ -166,7 +166,7 @@ Section LocalBlockchainTests.
     let acts := [build_act person_1 person_1 vote_proposal;
                  build_act person_2 person_2 vote_proposal] in
     unpack_result (add_block chain6 acts).
-  
+
   Goal (match FMap.find 1 (congress_state chain7).(proposals) with Some x => x.(vote_result) | None => 0%Z end) = 2%Z.
   Proof. vm_compute. reflexivity. Qed.
 

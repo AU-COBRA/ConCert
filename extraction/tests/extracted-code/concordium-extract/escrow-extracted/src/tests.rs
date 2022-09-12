@@ -77,7 +77,7 @@ mod tests {
         let arena = bumpalo::Bump::new();
         st.seek(SeekFrom::Start(0)).expect("Seek failed");
         let deserial_state : ConCert_Examples_Escrow_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
-        let res =  match deserial_state {
+        let res = match deserial_state {
             ConCert_Examples_Escrow_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
                 claim_eq!(last_action, slot_time.timestamp_millis(), "Wrong last_action:{:?}",last_action);
                 match next_step {
@@ -146,7 +146,7 @@ mod tests {
         let arena = bumpalo::Bump::new();
         st.seek(SeekFrom::Start(0)).expect("Seek failed");
         let deserial_state : ConCert_Examples_Escrow_Escrow_State = <_>::concert_deserial(&mut st, &arena).expect("Deserialisation failed");
-        let res =  match deserial_state {
+        let res = match deserial_state {
             ConCert_Examples_Escrow_Escrow_State::build_state(_, last_action, next_step, seller, buyer, seller_withdrawable, buyer_withdrawable) => {
                 claim_eq!(last_action, slot_time.timestamp_millis(), "Wrong last_action:{:?}",last_action);
                 match next_step {

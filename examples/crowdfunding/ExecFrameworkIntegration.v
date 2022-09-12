@@ -81,13 +81,12 @@ End Serialize.
 Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
-  Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq):
-    Chain -> ContractCallContext -> Setup -> result State_coq unit
-    := fun c cc setup => Ok (f (of_contract_call_context cc) (fst setup) (snd setup)).
+  Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq)
+                          : Chain -> ContractCallContext -> Setup -> result State_coq unit :=
+    fun c cc setup => Ok (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
-  Definition wrapped_init
-    : Chain -> ContractCallContext -> Setup -> result State_coq unit
-    := init_wrapper Init.init.
+  Definition wrapped_init : Chain -> ContractCallContext -> Setup -> result State_coq unit :=
+    init_wrapper Init.init.
 
   Definition receive_wrapper
              (f : SimpleChain_coq ->
@@ -105,8 +104,9 @@ Section Wrappers.
       end.
 
   Definition wrapped_receive
-    : Chain -> ContractCallContext -> State_coq -> option Msg_coq -> result (State_coq * list ActionBody) unit
-    := receive_wrapper Receive.receive.
+            : Chain -> ContractCallContext -> State_coq -> option Msg_coq
+             -> result (State_coq * list ActionBody) unit :=
+    receive_wrapper Receive.receive.
 
 End Wrappers.
 
@@ -142,8 +142,8 @@ Proof.
               consistent_balance_deadline (current_slot chain) new_state).
   {
     intros chain ctx prev_state msg new_state new_acts receive IH.
-    destruct msg as [msg | ];tryfalse; cbn in receive.
-    destruct (Receive.receive _ _ _ _) as [[? ?] | ] eqn:Hreceive;tryfalse; cbn in *.
+    destruct msg as [msg | ]; tryfalse; cbn in receive.
+    destruct (Receive.receive _ _ _ _) as [[? ?] | ] eqn:Hreceive; tryfalse; cbn in *.
     specialize (contract_backed (of_chain chain) (of_contract_call_context ctx) msg)
       as Hnew_consistent.
     rewrite Current_slot_of_chain_eq in *.
@@ -208,7 +208,7 @@ Proof.
       as [fin [out [Hrun Hcon]]].
     unfold run in Hrun.
     destruct (Receive.receive _ _ _ _)
-      as [[resp_state resp_acts]| ] eqn:Hreceive;tryfalse.
+      as [[resp_state resp_acts]| ] eqn:Hreceive; tryfalse.
     cbn in *.
     now replace new_state with fin by congruence.
   - destruct msg as [msg| ]; cbn in *; try congruence.
@@ -219,7 +219,7 @@ Proof.
       as [fin [out [Hrun Hcon]]].
     unfold run in Hrun.
     destruct (Receive.receive _ _ _ _)
-      as [[resp_state resp_acts]| ] eqn:Hreceive;tryfalse.
+      as [[resp_state resp_acts]| ] eqn:Hreceive; tryfalse.
     cbn in *.
     now replace new_state with fin by congruence.
   - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
@@ -253,8 +253,8 @@ Proof.
               Forall (fun a => ~~ is_deploy a && ~~ is_call a) acts).
   {
     intros ? ? ? ? ? ? receive_some.
-    destruct msg as [msg | ];tryfalse; cbn in *.
-    destruct (Receive.receive _ _ _ _) as [[? ?] | ] eqn:Hreceive;tryfalse; cbn in *.
+    destruct msg as [msg | ]; tryfalse; cbn in *.
+    destruct (Receive.receive _ _ _ _) as [[? ?] | ] eqn:Hreceive; tryfalse; cbn in *.
     replace acts with (map to_action_body l) by congruence.
     destruct msg.
     + (* donate *)
@@ -302,12 +302,12 @@ Lemma lookup_map_sum_map_leq m k z:
   (z <= sum_map m)%Z.
 Proof.
   revert k z.
-  induction m;intros k z0 Hsum Hlook;tryfalse.
-  simpl in *. unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+  induction m; intros k z0 Hsum Hlook; tryfalse.
+  simpl in *. unfold is_true in *; repeat rewrite Bool.andb_true_iff in *.
   destruct Hsum as [H1 H2].
   destruct (k =? n).
-  + simpl in *. inversion Hlook;subst.
-    unfold is_true in *;repeat rewrite Bool.andb_true_iff in *.
+  + simpl in *. inversion Hlook; subst.
+    unfold is_true in *; repeat rewrite Bool.andb_true_iff in *.
     rewrite <- Zle_is_le_bool in *.
     assert (sum_map m >=0)%Z by now eapply all_non_neg_sum_map. lia.
   + specialize_hypotheses.
@@ -379,21 +379,21 @@ Proof.
   intros Hpos Hbalance Hcall.
   destruct msg eqn:Hmsg.
   + simpl in *.
-    destruct (_ <=? _);tryfalse.
+    destruct (_ <=? _); tryfalse.
     destruct (lookup_map _);
       inversion Hcall; tauto.
   + simpl in *.
-    destruct (_ && _ && _);tryfalse.
+    destruct (_ && _ && _); tryfalse.
     inversion Hcall; tauto.
   + simpl in *.
-    destruct (_ && _ && _) eqn:Hcond;tryfalse.
-    destruct (lookup_map _) eqn:Hlook;tryfalse.
+    destruct (_ && _ && _) eqn:Hcond; tryfalse.
+    destruct (lookup_map _) eqn:Hlook; tryfalse.
     inversion Hcall. repeat rewrite Bool.andb_true_iff in *.
     destruct Hcond as [[? ?] Hdone].
     specialize (Hbalance Hdone).
     assert (z <= balance_coq init)%Z.
-    { rewrite <- Hbalance. eapply lookup_map_sum_map_leq;eauto. }
-    right. right. eexists;split;eauto.
+    { rewrite <- Hbalance. eapply lookup_map_sum_map_leq; eauto. }
+    right. right. eexists; split; eauto.
 Qed.
 
 Local Open Scope Z.
@@ -424,9 +424,9 @@ Proof.
       subst DeployFacts; cbn in *.
     lia.
   - lia.
-  - destruct msg as [msg| ];tryfalse.
+  - destruct msg as [msg| ]; tryfalse.
     cbn in receive_some.
-    destruct (Receive.receive _ _ _ _) as [[? ?]| ] eqn:Hreceive;tryfalse.
+    destruct (Receive.receive _ _ _ _) as [[? ?]| ] eqn:Hreceive; tryfalse.
     cbn in receive_some.
     replace s with new_state in * by congruence.
     replace new_acts with (map to_action_body l) in * by congruence.
@@ -450,9 +450,9 @@ Proof.
     + (* claim *)
       destruct H as [? [? [? ?]]]; subst; cbn in *.
       lia.
-  - destruct msg as [msg| ];tryfalse.
+  - destruct msg as [msg| ]; tryfalse.
     cbn in receive_some.
-    destruct (Receive.receive _ _ _ _) as [[? ?]| ] eqn:Hreceive;tryfalse.
+    destruct (Receive.receive _ _ _ _) as [[? ?]| ] eqn:Hreceive; tryfalse.
     cbn in receive_some.
     replace s with new_state in * by congruence.
     replace new_acts with (map to_action_body l) in * by congruence.
@@ -493,11 +493,11 @@ Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}
   (env_account_balances new cf_addr >= balance_coq lstate)%Z.
 Proof.
   intros Hnew Hcf Hst.
-  destruct ChainBuilder;cbn in *.
+  destruct ChainBuilder; cbn in *.
   pose (builder_trace new) as tr.
   cbn in *.
   assert (Hr : reachable {| chain_state_env := builder_env new; chain_state_queue := [] |}) by
-      (constructor;eauto).
+      (constructor; eauto).
   specialize (cf_backed _ _ _ Hr Hcf Hst) as Hbacked.
   cbn in *. lia.
 Qed.
@@ -512,11 +512,11 @@ Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
   (env_account_balances new cf_addr >= sum_map (lstate.(donations_coq)))%Z.
 Proof.
   intros Hnew Hcf Hst Hdone.
-  destruct ChainBuilder;cbn in *.
+  destruct ChainBuilder; cbn in *.
   pose (builder_trace new) as tr.
   cbn in *.
   assert (Hr : reachable {| chain_state_env := builder_env new; chain_state_queue := [] |}) by
-      (constructor;eauto).
+      (constructor; eauto).
   specialize (cf_balance_consistent _ _ _ Hr Hcf Hst Hdone) as Hconsistent.
   rewrite Hconsistent.
   specialize (cf_backed _ _ _ Hr Hcf Hst) as Hbacked.

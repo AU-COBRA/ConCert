@@ -767,7 +767,7 @@ Proof.
       try discriminate;
       destruct val;
       auto.
-    repeat match  goal with
+    repeat match goal with
     | H : match ?x with | Some _ => _ | None => _ end = _ |- _ => destruct x
     end;
     discriminate.

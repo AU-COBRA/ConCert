@@ -22,7 +22,7 @@ match ca with
 | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++
     match @deserialize Msg _ msg with
     | Some msg => str_of_msg msg
-    | None =>  "<FAILED DESERIALIZATION OF CONGRESS MSG>"
+    | None => "<FAILED DESERIALIZATION OF CONGRESS MSG>"
     end ++ ")"
 end.
 
@@ -45,7 +45,7 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   | add_member addr => "add_member " ++ show addr
   | remove_member addr => "remove_member " ++ show addr
   | create_proposal actions => "create_proposal " ++ show_acts actions
-  | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
+  | vote_for_proposal proposalId => "vote_for_proposal " ++ show proposalId
   | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
   | retract_vote proposalId => "retract_vote " ++ show proposalId
   | finish_proposal proposalId => "finish_proposal " ++ show proposalId
@@ -71,7 +71,7 @@ Instance showProposal : Show Proposal :=
 {|
   show p :=
     "Proposal{"
-    ++ "actions: " ++  show (actions p) ++ sep
+    ++ "actions: " ++ show (actions p) ++ sep
     ++ "votes: " ++ show (votes p) ++ sep
     ++ "vote_result: " ++ show (vote_result p) ++ sep
     ++ "proposed_in: " ++ show (proposed_in p) ++ sep

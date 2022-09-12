@@ -20,14 +20,14 @@ Module Counter.
 
   Open Scope list.
 
-  (** Generating names for the data structures  *)
+  (** Generating names for the data structures *)
   MetaCoq Run
           (mp_ <- tmCurrentModPath tt ;;
            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["state" ; "MkState" ; "owner" ; "msg" ] "_coq").
+            mkNames mp ["state"; "MkState"; "owner"; "msg" ] "_coq").
 
   (** Variable names and constructor names *)
-  MetaCoq Run (mkNames "" ["m" ;"n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_coq").
+  MetaCoq Run (mkNames "" ["m"; "n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_coq").
 
   (** ** Definitions of data structures for the contract *)
 
@@ -69,7 +69,7 @@ Module Counter.
   (** The main functionality *)
   Definition counter_syn :=
     [| \m : msg => \st : CounterState =>
-       case m : msg return Maybe ((List SimpleActionBody) ×  CounterState) of
+       case m : msg return Maybe ((List SimpleActionBody) × CounterState) of
          | Inc n -> $Just$Maybe [: List SimpleActionBody × CounterState]
                         (Pair (List SimpleActionBody) CounterState
                               (Nil SimpleActionBody)
@@ -80,8 +80,8 @@ Module Counter.
   Definition CounterModule : LiquidityModule :=
     {| datatypes := [msg_syn];
        storage := [! CounterState !];
-       init := [| \n : money => \addr : address => \"c" : CallCtx  =>
-                  $Just$Maybe [: money × address] Pair money address n addr  |];
+       init := [| \n : money => \addr : address => \"c" : CallCtx =>
+                  $Just$Maybe [: money × address] Pair money address n addr |];
        message := [! msg !];
        functions := [("_update_balance", update_balance_syn);
                        ("counter", counter_syn)];
@@ -103,7 +103,7 @@ Definition TTty :=
    (to_string_name <% nat %>, "nat")].
 
 (** A translation table for primitive binary operations *)
-Definition TT  :=
+Definition TT :=
   [(to_string_name <% Z.add %>, "addTez")].
 
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)
@@ -114,7 +114,7 @@ Definition TT  :=
 Extraction Language OCaml.
 
 Extract Inductive list => "list" [ "[]" "(::)" ].
-Extract Inductive prod => "(*)"  [ "(,)" ].
+Extract Inductive prod => "(*)" [ "(,)" ].
 Extract Inductive Z => "tez" ["0DUN" "id" "negate"].
 Extract Inlined Constant Z.add => "addTez".
 

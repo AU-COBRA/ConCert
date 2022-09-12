@@ -98,28 +98,28 @@ Definition passwordsDoNotMatchError := "Passwords do not match!".
 Definition passwordIsTooShortError := "Password is too short!".
 Definition userAlreadyExistsError := "User already exists!".
 
-Program Definition validateModel : Model -> list string
-  := fun model =>
-       let res :=
-           [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError)           ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
-           ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
-           ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)%nat] in
-       map snd (filter (fun x => ~~ x.1) res).
+Program Definition validateModel : Model -> list string :=
+  fun model =>
+    let res :=
+        [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError) ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
+        ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
+        ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)%nat] in
+    map snd (filter (fun x => ~~ x.1) res).
 
 
-(* Messages for updating the current entry and adding the current entry to the list of users  *)
+(* Messages for updating the current entry and adding the current entry to the list of users *)
 Inductive StorageMsg :=
-   Add
- | UpdateEntry (_ : Msg).
+| Add
+| UpdateEntry (_ : Msg).
 
 
 (** We translate the user input to the stored representation.
 Note that the transation only works for valid entries *)
-Program Definition toValidStoredEntry : ValidEntry -> ValidStoredEntry
-  := fun entry =>
-       {| seName := entry.(name); sePassword := entry.(password) |}.
+Program Definition toValidStoredEntry : ValidEntry -> ValidStoredEntry :=
+  fun entry =>
+    {| seName := entry.(name); sePassword := entry.(password) |}.
 Next Obligation.
-  destruct entry as [e He];destruct He as (? & ? & ?);cbn;auto.
+  destruct entry as [e He]; destruct He as (? & ? & ?); cbn; auto.
 Qed.
 
 Local Hint Resolve -> eqb_neq : core.
@@ -135,33 +135,33 @@ Tactic Notation "destruct_validation" :=
   destruct (password _ =? passwordAgain _)
            eqn: passwords_eq;
   destruct (8 <=? length (password _))%nat
-           eqn:password_long_enough;try discriminate.
+           eqn:password_long_enough; try discriminate.
 
-Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg
-  := fun msg model =>
-       match msg with
-       | Add =>
-         match validateModel model with
-         | [] =>
-           let validEntry : ValidEntry := model.(currentEntry) in
-           let newValidStoredEntry : ValidStoredEntry :=
-                    toValidStoredEntry validEntry in
-           let newList := newValidStoredEntry :: model.(users) in
-           (model<| users := newList |>, none)
-         | errs => (model<| errors := errs |>, none)
-         end
-       | UpdateEntry entryMsg =>
-         (model<|currentEntry := updateEntry entryMsg model.(currentEntry) |>, none)
-       end.
-Solve Obligations with (cbn;intros;destruct_validation;auto).
+Program Definition updateModel : StorageMsg -> Model -> Model * Cmd StorageMsg :=
+  fun msg model =>
+    match msg with
+    | Add =>
+      match validateModel model with
+      | [] =>
+        let validEntry : ValidEntry := model.(currentEntry) in
+        let newValidStoredEntry : ValidStoredEntry :=
+                toValidStoredEntry validEntry in
+        let newList := newValidStoredEntry :: model.(users) in
+        (model<| users := newList |>, none)
+      | errs => (model<| errors := errs |>, none)
+      end
+    | UpdateEntry entryMsg =>
+      (model<|currentEntry := updateEntry entryMsg model.(currentEntry) |>, none)
+    end.
+Solve Obligations with (cbn; intros; destruct_validation; auto).
 Next Obligation.
-  destruct_validation;auto.
+  destruct_validation; auto.
   constructor.
   + intro Hin.
     remember (fun nm : string => nm =? name (currentEntry model)) as f.
     remember (seNames (proj1_sig model.(users))) as l.
     assert (Hex_in : exists x, In x l /\ f x = true).
-    { exists model.(currentEntry).(name);subst;split. apply Hin. apply eqb_refl. }
+    { exists model.(currentEntry).(name); subst; split. apply Hin. apply eqb_refl. }
     now apply existsb_exists in Hex_in.
   + destruct (model.(users)) as (l, l_nodup). cbn. auto.
 Qed.
@@ -276,12 +276,12 @@ Definition TT :=
   ].
 
 Definition to_inline :=
-  [<%% setter_from_getter_Entry_name %%>
-  ;<%% setter_from_getter_Model_users %%>
-  ;<%% setter_from_getter_Model_errors %%>
-  ;<%% setter_from_getter_Model_currentEntry%%>
-  ;<%% setter_from_getter_Entry_password%%>
-  ;<%% setter_from_getter_Entry_passwordAgain%%>
+  [ <%% setter_from_getter_Entry_name %%>
+  ; <%% setter_from_getter_Model_users %%>
+  ; <%% setter_from_getter_Model_errors %%>
+  ; <%% setter_from_getter_Model_currentEntry%%>
+  ; <%% setter_from_getter_Entry_password%%>
+  ; <%% setter_from_getter_Entry_passwordAgain%%>
   ].
 
 Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : TemplateMonad _ :=

@@ -63,7 +63,7 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress.State)
                                                         : FMap Address (list ProposalId) :=
     let members : list Address := (map fst o FMap.elements) (members state) in
     let proposals_map : FMap nat Proposal :=
-      filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
+      filter_FMap (fun p => 0 =? (FMap.size (votes (snd p)))) (proposals state) in
     if (0 <? length members) && (0 =? (FMap.size proposals_map))
     then (
       let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in
@@ -84,12 +84,12 @@ Definition gCongressMember_without_caller (state : Congress.State)
   let members_without_caller := List.remove address_eqdec calling_addr members in
   match members_without_caller with
   | [] => returnGen None
-  | m::ms => liftM Some (elems_ m members_without_caller)
+  | m ::ms => liftM Some (elems_ m members_without_caller)
   end.
 
 Definition try_newCongressMember_fix (members : list Address)
                                    nr_attempts curr_nr
-                                   : option Address  :=
+                                   : option Address :=
   let fix aux nr_attempts curr_nr :=
   match nr_attempts with
   | 0 => None
@@ -198,7 +198,7 @@ Fixpoint GCongressAction (env : Environment)
       )
     ]
   | S fuel' => backtrack [
-    (3, GCongressAction env fuel'  caddr) ;
+    (3, GCongressAction env fuel' caddr) ;
     (* add_proposal *)
     (1,
       (* recurse. Msg is converted to a SerializedType using 'serialize' *)

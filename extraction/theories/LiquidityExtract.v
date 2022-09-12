@@ -51,7 +51,7 @@ Definition overridden_masks (kn : kername) : option bitmask :=
   if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
   else None.
 
-Definition result_string_err A := result A string. 
+Definition result_string_err A := result A string.
 
 (* Machinery for specializing chain base *)
 Definition extract_template_env_specialize
@@ -82,17 +82,17 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
        |}
   |}.
 
-Definition extract (to_inline :  kername -> bool)
+Definition extract (to_inline : kername -> bool)
            (seeds : KernameSet.t)
            (extract_ignore : kername -> bool)
-           (Σ : global_env) : TemplateMonad ExAst.global_env
-  := extract_template_env_certifying_passes Ok (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
+           (Σ : global_env) : TemplateMonad ExAst.global_env :=
+  extract_template_env_certifying_passes Ok (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
 
-Definition extract_specialize (to_inline :  kername -> bool)
+Definition extract_specialize (to_inline : kername -> bool)
            (seeds : KernameSet.t)
            (extract_ignore : kername -> bool)
-           (Σ : global_env) : TemplateMonad ExAst.global_env
-  := extract_template_env_certifying_passes specialize_ChainBase_env (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
+           (Σ : global_env) : TemplateMonad ExAst.global_env :=
+  extract_template_env_certifying_passes specialize_ChainBase_env (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
 
 
 Definition printLiquidityDefs_
@@ -244,7 +244,7 @@ Definition liquidity_extract_single
     let seeds := KernameSet.singleton kn in
     let TT :=
         (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
-    let ignore := if extract_deps then fun kn => existsb (eq_kername kn) (map fst TT_defs) else fun kn' => negb (eq_kername kn' kn)  in
+    let ignore := if extract_deps then fun kn => existsb (eq_kername kn) (map fst TT_defs) else fun kn' => negb (eq_kername kn' kn) in
     match extract_template_env liquidity_extract_args p.1 seeds ignore with
     | Ok eΣ =>
       (* filtering out empty type declarations *)
@@ -264,7 +264,7 @@ Definition liquidity_extract_single
   end.
 
 Definition wrap_in_delimiters (s : String.string) : String.string :=
-  Strings.String.concat Common.nl [bs_to_s "";bs_to_s "(*START*)"; s; bs_to_s"(*END*)"].
+  Strings.String.concat Common.nl [bs_to_s ""; bs_to_s "(*START*)"; s; bs_to_s"(*END*)"].
 
 (** A flag that controls whether info abou universes is preserved after quoting *)
 Definition WITH_UNIVERSES := false.
@@ -278,7 +278,7 @@ Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
                                  list kername ->
                                  String.string -> String.string -> kername -> kername -> TemplateMonad String.string)
            (prefix : String.string)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (inline : list kername)
            (m : LiquidityMod msg ctx params storage operation error) : TemplateMonad String.string :=
@@ -290,7 +290,7 @@ Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
   let TT :=
     (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
   Σ <- tmEval lazy (if WITH_UNIVERSES then
-                     Ast.Env.Build_global_env (Ast.Env.universes Σ) (Ast.Env.declarations Σ) 
+                     Ast.Env.Build_global_env (Ast.Env.universes Σ) (Ast.Env.declarations Σ)
                    else
                      Ast.Env.Build_global_env (ContextSet.empty) (Ast.Env.declarations Σ));;
   s <- printLiquidityDefs_ prefix Σ TT inline ignore
@@ -330,7 +330,7 @@ Definition quote_and_preprocess {Base : ChainBase}
      Σcert <- tmEval lazy (inline_globals to_inline decls) ;;
      mpath <- tmCurrentModPath tt;;
      Certifying.gen_defs_and_proofs decls Σcert mpath "_cert_pass"
-                                    (KernameSetProp.of_list [init_nm;receive_nm]);;
+                                    (KernameSetProp.of_list [init_nm; receive_nm]);;
      ret Σcert);;
   Σret <- tmEval lazy (if WITH_UNIVERSES then
                          Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
@@ -345,10 +345,10 @@ Definition quote_and_preprocess {Base : ChainBase}
     which is much faster than running the computations inside [TemplateMonad]. *)
 Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation error : Type}
            (prefix : String.string)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation error)  :=
+           (m : LiquidityMod msg ctx params storage operation error) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in

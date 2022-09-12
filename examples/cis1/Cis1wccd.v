@@ -56,8 +56,8 @@ Section WccdToken.
 
   (** The state tracked for each address.*)
   Record AddressState := {
-      wccd_balance:   TokenAmount;
-      wccd_operators: list Address
+      wccd_balance   : TokenAmount;
+      wccd_operators : list Address
     }.
 
   (* begin hide *)
@@ -102,7 +102,7 @@ Section WccdToken.
 
   Definition is_operator (addr owner : Address)(st : State) : bool :=
     match AddressMap.find owner st with
-    | Some v =>  existsb (fun x => (addr =? x)%address) v.(wccd_operators)
+    | Some v => existsb (fun x => (addr =? x)%address) v.(wccd_operators)
     | None => false
     end.
 
@@ -139,7 +139,7 @@ Section WccdToken.
 
   (** * updateOperator *)
 
-  Definition add_remove (operators : list Address) (param : OpUpdateKind * Address)  :=
+  Definition add_remove (operators : list Address) (param : OpUpdateKind * Address) :=
     let '(updateKind,addr) := param in
     match updateKind with
     | opAdd => addr :: operators
@@ -151,7 +151,7 @@ Section WccdToken.
   Definition wccd_updateOperator (owner : Address) (params : list (OpUpdateKind * Address)) (prev_st : State)
     : option State :=
     do owner_data <- AddressMap.find owner prev_st;
-    let updated_owner_data := owner_data<| wccd_operators := fold_left add_remove params owner_data.(wccd_operators)  |> in
+    let updated_owner_data := owner_data<| wccd_operators := fold_left add_remove params owner_data.(wccd_operators) |> in
     ret (AddressMap.add owner updated_owner_data prev_st).
 
   (** * wccd receive *)
@@ -210,7 +210,7 @@ Module WccdTypes <: CIS1Types.
 
   Definition token_id_eqb (id1 id2 : TokenID) := true.
 
-  Lemma  token_id_eqb_spec :
+  Lemma token_id_eqb_spec :
     forall (a b : TokenID), Bool.reflect (a = b) (token_id_eqb a b).
   Proof. intros. constructor. now destruct a,b. Qed.
 
@@ -234,11 +234,11 @@ Module WccdView <: CIS1View WccdTypes.
       end.
 
     Definition get_owners : Storage -> TokenID -> list Address :=
-      fun st token_id =>  FMap.keys st.
+      fun st token_id => FMap.keys st.
 
     Lemma get_owners_no_dup : forall st token_id, NoDup (get_owners st token_id).
     Proof.
-      intros. unfold get_owners;apply FMap.NoDup_keys.
+      intros. unfold get_owners; apply FMap.NoDup_keys.
     Qed.
 
     Lemma In_keys_In_elements_iff {K V : Type} `{countable.Countable K} (m : FMap K V) (k : K) :
@@ -258,8 +258,8 @@ Module WccdView <: CIS1View WccdTypes.
         + now destruct Hex.
         + destruct Hex as [v Hv].
           unfold FMap.keys.
-          rewrite FMap.elements_add in * by assumption;cbn in *.
-          destruct Hv as [HH | HH];try inversion HH;easy.
+          rewrite FMap.elements_add in * by assumption; cbn in *.
+          destruct Hv as [HH | HH]; try inversion HH; easy.
     Qed.
 
     Lemma get_owners_balances : forall st owner token_id,
@@ -279,7 +279,7 @@ Module WccdView <: CIS1View WccdTypes.
         destruct Hex as [b Hb].
         unfold get_owners, FMap.keys.
         unfold get_balance_opt,Cis1wccd.get_balance_opt in *.
-        destruct (AddressMap.find owner st) eqn:Heq;try congruence.
+        destruct (AddressMap.find owner st) eqn:Heq; try congruence.
         unfold AddressMap.find in *.
         apply FMap.In_elements in Heq.
         apply In_keys_In_elements_iff.
@@ -347,7 +347,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
 
     (** Converting _from_ the CIS1 standard parameters *)
 
-    Definition from_cis1_transfer_data (p : CIS1_transfer_data) : wccd_transfer_params  :=
+    Definition from_cis1_transfer_data (p : CIS1_transfer_data) : wccd_transfer_params :=
       let '(Build_CIS1_transfer_data _ token_id amt from_addr to_addr) := p in
       {| wccd_td_token_id := tt;
          wccd_td_amount := amt;
@@ -360,8 +360,7 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       | cis1_ou_add_operator => opAdd
       end.
 
-    Definition from_cis1_balanceOf_params (query : CIS1_balanceOf_params)
-      :  list Address :=
+    Definition from_cis1_balanceOf_params (query : CIS1_balanceOf_params) : list Address :=
       map cis1_bo_query_address query.(cis1_bo_query).
 
     Definition get_contract_msg : CIS1_entry_points -> Msg :=
@@ -379,19 +378,19 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
     Lemma left_inverse_get_CIS1_entry_point (entry_point : CIS1_entry_points) :
       get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
     Proof.
-      destruct entry_point;cbn.
+      destruct entry_point; cbn.
       + destruct params as [xs]. repeat f_equal.
-        induction xs;auto.
-        cbn. destruct a as [tid ? ?];cbn in *. destruct tid. repeat f_equal;auto.
+        induction xs; auto.
+        cbn. destruct a as [tid ? ?]; cbn in *. destruct tid. repeat f_equal; auto.
       + destruct params as [xs]. repeat f_equal.
         rewrite map_map.
-        induction xs;auto.
-        destruct a as [ok ?];cbn in *. destruct ok; repeat f_equal;auto.
-      + destruct params as [xs send_to p];cbn in *.
+        induction xs; auto.
+        destruct a as [ok ?]; cbn in *. destruct ok; repeat f_equal; auto.
+      + destruct params as [xs send_to p]; cbn in *.
         unfold to_cis1_balanceOf_params.
-        destruct (Bool.bool_dec (address_is_contract send_to) true) eqn:Heq;repeat f_equal.
-        * induction xs;cbn in *;auto.
-          destruct a as [tid ?];destruct tid;cbn;now repeat f_equal.
+        destruct (Bool.bool_dec (address_is_contract send_to) true) eqn:Heq; repeat f_equal.
+        * induction xs; cbn in *; auto.
+          destruct a as [tid ?]; destruct tid; cbn; now repeat f_equal.
         * apply UIP_dec. apply Bool.bool_dec.
         * congruence.
     Qed.
@@ -417,13 +416,13 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
     Proof.
       intros Haddr.
       cbn in *.
-      destruct (requireTrue (_ || _)) eqn:Hpermissions;try congruence.
-      destruct (AddressMap.find _ _) as [v |] eqn:Hv;try congruence.
-      destruct (requireTrue (_ <=? _)) eqn:Hbalance;try congruence.
-      inversion Haddr;subst;clear Haddr.
-      destruct (amt <=? wccd_balance v) eqn:Hamt;cbn in *;try congruence.
+      destruct (requireTrue (_ || _)) eqn:Hpermissions; try congruence.
+      destruct (AddressMap.find _ _) as [v |] eqn:Hv; try congruence.
+      destruct (requireTrue (_ <=? _)) eqn:Hbalance; try congruence.
+      inversion Haddr; subst; clear Haddr.
+      destruct (amt <=? wccd_balance v) eqn:Hamt; cbn in *; try congruence.
       apply leb_complete in Hamt.
-      repeat split;cbn.
+      repeat split; cbn.
       + intros.
         unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
         unfold WccdView.get_balance_opt, get_balance_opt.
@@ -431,14 +430,14 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         unfold AddressMap.find,AddressMap.add.
         now erewrite fin_maps.lookup_insert_ne.
       + intros. now destruct other_token_id,token_id.
-      + unfold requireTrue in *. destruct (orb _ _) eqn:Hp;try congruence.
+      + unfold requireTrue in *. destruct (orb _ _) eqn:Hp; try congruence.
         rewrite Bool.orb_true_iff in *.
         destruct Hp as [Hp | Hp].
         * now destruct (address_eqb_spec owner_addr from_addr).
         * right.
           unfold is_operator in *.
           unfold WccdView.get_operators.
-          destruct (AddressMap.find owner_addr prev_st) eqn:Hfind;try congruence.
+          destruct (AddressMap.find owner_addr prev_st) eqn:Hfind; try congruence.
           apply existsb_exists in Hp.
           destruct Hp as [addr0 [Hin Heq]].
           now destruct (address_eqb_spec from_addr addr0).
@@ -450,12 +449,12 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         destruct (AddressMap.find to_addr _) eqn:Haddr.
         * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
           rewrite Hv.
-          rewrite FMap.add_commute with (m:=prev_st) by auto.
-          rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
+          rewrite FMap.add_commute with (m := prev_st) by auto.
+          rewrite FMap.find_add with (m := (FMap.add _ _ prev_st)); cbn.
           lia.
         * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
-          rewrite FMap.add_commute with (m:=prev_st) by auto.
-          rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st)).
+          rewrite FMap.add_commute with (m := prev_st) by auto.
+          rewrite FMap.find_add with (m := (FMap.add _ _ prev_st)).
           cbn. rewrite Hv.
           lia.
       + repeat rewrite get_balance_total_get_balance_default.
@@ -465,13 +464,13 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         unfold setter_from_getter_AddressState_wccd_balance,set_AddressState_wccd_balance.
         destruct (AddressMap.find to_addr _) eqn:Haddr.
         * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
-          rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
-          rewrite FMap.find_add_ne with (m:=prev_st) in Haddr by auto.
+          rewrite FMap.find_add with (m := (FMap.add _ _ prev_st)); cbn.
+          rewrite FMap.find_add_ne with (m := prev_st) in Haddr by auto.
           unfold FMap.find in *.
           now rewrite Haddr.
         * unfold WccdView.get_balance_opt,get_balance_opt,AddressMap.find,AddressMap.add in *.
-          rewrite FMap.find_add with (m:=(FMap.add _ _ prev_st));cbn.
-          rewrite FMap.find_add_ne with (m:=prev_st) in Haddr by auto.
+          rewrite FMap.find_add with (m := (FMap.add _ _ prev_st)); cbn.
+          rewrite FMap.find_add_ne with (m := prev_st) in Haddr by auto.
           unfold FMap.find in *.
           now rewrite Haddr.
       + subst. repeat rewrite get_balance_total_get_balance_default.
@@ -488,8 +487,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         unfold WccdView.get_balance_opt,get_balance_opt.
         rewrite Hv.
         unfold AddressMap.find,AddressMap.add.
-        rewrite FMap.find_add with (m:=prev_st);cbn.
-        rewrite FMap.find_add with (m:=FMap.add _ _ prev_st);cbn.
+        rewrite FMap.find_add with (m := prev_st); cbn.
+        rewrite FMap.find_add with (m := FMap.add _ _ prev_st); cbn.
         lia.
     Qed.
 
@@ -502,14 +501,14 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       intros Hparams.
       unfold to_cis1_balanceOf_params in *.
       destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:Haddr;
-        inversion Hparams;subst;clear Hparams.
+        inversion Hparams; subst; clear Hparams.
       cbn.
       revert dependent next_st.
       revert dependent send_results_to.
       induction query.
-      - now intros ? ? ? Hparams;cbn in *.
+      - now intros ? ? ? Hparams; cbn in *.
       - intros. cbn.
-        erewrite IHquery;eauto.
+        erewrite IHquery; eauto.
         unfold WccdView.get_balance_opt.
         now destruct (get_balance_opt _ _).
     Qed.
@@ -531,10 +530,10 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       end.
     Proof.
       intros ? ? ? ? ? ? ? Hep Hreceive.
-      destruct msg;cbn;inversion Hep as [HH];subst;clear Hep;try easy.
+      destruct msg; cbn; inversion Hep as [HH]; subst; clear Hep; try easy.
       + simpl in *.
-        destruct (wccd_transfer _ _) eqn:Htr;try congruence.
-        inversion Hreceive;subst;clear Hreceive.
+        destruct (wccd_transfer _ _) eqn:Htr; try congruence.
+        inversion Hreceive; subst; clear Hreceive.
         constructor.
         * cbn.
           revert dependent next_st.
@@ -543,8 +542,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
           ** cbn in *. congruence.
           ** intros prev_st next_st Hreceive.
              cbn -[wccd_transfer_single] in *.
-             destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr;try congruence.
-             destruct a as [tid amt from_addr to_addr];cbn.
+             destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr; try congruence.
+             destruct a as [tid amt from_addr to_addr]; cbn.
              simpl in *.
              exists st, eq_refl, eq_refl.
              split.
@@ -554,12 +553,12 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
           revert dependent prev_st.
           revert dependent next_st.
           induction params.
-          ** intros;cbn;auto.
-          ** intros;cbn -[wccd_transfer_single] in *.
-             destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr;try congruence.
-             destruct a as [token_id amt addr];cbn.
+          ** intros; cbn; auto.
+          ** intros; cbn -[wccd_transfer_single] in *.
+             destruct (wccd_transfer_single _ _ _ _ _) as [st |] eqn:Haddr; try congruence.
+             destruct a as [token_id amt addr]; cbn.
              destruct (address_is_contract _).
-             *** constructor;simpl in *.
+             *** constructor; simpl in *.
                  eexists. split.
                  **** reflexivity.
                  **** destruct token_id.
@@ -567,43 +566,43 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
                       eexists. split.
                       apply deserialize_serialize.
                       reflexivity.
-                 **** eapply IHparams;eauto.
-             *** eapply IHparams;eauto.
+                 **** eapply IHparams; eauto.
+             *** eapply IHparams; eauto.
       + simpl in *.
         destruct (address_is_contract send_results_to) eqn:Haddr;
-          inversion Hreceive;subst;clear Hreceive;cbn in *.
-        destruct (to_cis1_balanceOf_params _ _) eqn:Hto_cis1;inversion HH;subst;clear HH.
-        constructor;subst;auto.
-        erewrite get_balances_wccd_balanceOf;eauto.
+          inversion Hreceive; subst; clear Hreceive; cbn in *.
+        destruct (to_cis1_balanceOf_params _ _) eqn:Hto_cis1; inversion HH; subst; clear HH.
+        constructor; subst; auto.
+        erewrite get_balances_wccd_balanceOf; eauto.
         cbn. repeat f_equal.
         unfold to_cis1_balanceOf_params in *.
         destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:HH;
           now inversion Hto_cis1.
       + cbn in *.
         unfold setter_from_getter_AddressState_wccd_operators,set_AddressState_wccd_operators in *.
-        constructor;intros;cbn in *;auto.
+        constructor; intros; cbn in *; auto.
         * unfold WccdView.get_balance_opt,get_balance_opt.
-          destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
+          destruct (AddressMap.find _ _) eqn:Haddr; inversion Hreceive; subst; clear Hreceive.
           destruct (address_eqb_spec addr ctx.(ctx_from)).
           ** subst.
              rewrite Haddr.
              unfold AddressMap.find,AddressMap.add.
-             now rewrite FMap.find_add with (m:=prev_st).
+             now rewrite FMap.find_add with (m := prev_st).
           ** unfold AddressMap.find,AddressMap.add.
              now rewrite fin_maps.lookup_insert_ne.
-        * destruct (AddressMap.find _ _) eqn:Haddr;inversion Hreceive;subst;clear Hreceive.
-          destruct a as [bal ops];cbn in *.
+        * destruct (AddressMap.find _ _) eqn:Haddr; inversion Hreceive; subst; clear Hreceive.
+          destruct a as [bal ops]; cbn in *.
           revert dependent ops.
           revert dependent prev_st.
-          induction params;intros prev_st ops Haddr.
+          induction params; intros prev_st ops Haddr.
           ** cbn.
              unfold AddressMap.add,AddressMap.find in *.
-             now symmetry;apply FMap.add_id.
+             now symmetry; apply FMap.add_id.
           ** cbn.
              unfold AddressMap.add,AddressMap.find in *.
-             destruct a as [ok oaddr];cbn in *.
-             unfold updateOperator_single_spec;cbn.
-             destruct ok;cbn in *.
+             destruct a as [ok oaddr]; cbn in *.
+             unfold updateOperator_single_spec; cbn.
+             destruct ok; cbn in *.
              *** set (st := FMap.add (ctx_from ctx)
                                      {| wccd_balance := bal;
                                        wccd_operators := oaddr :: ops |} prev_st).
@@ -611,16 +610,16 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
                  **** split.
                       ***** intros.
                       subst st. unfold WccdView.get_operators,AddressMap.find.
-                      rewrite Haddr. rewrite FMap.find_add with (m:=prev_st).
+                      rewrite Haddr. rewrite FMap.find_add with (m := prev_st).
                       cbn.
-                      split; intros;auto. destruct H1;subst;congruence.
+                      split; intros; auto. destruct H1; subst; congruence.
                       ***** subst st. unfold WccdView.get_operators,AddressMap.find.
-                      now rewrite FMap.find_add with (m:=prev_st);cbn.
-                 **** set (ops' :=  oaddr :: ops).
-                      specialize (IHparams st ops'). subst ops' st;cbn in *.
-                      repeat rewrite FMap.add_add with (m:=prev_st)in IHparams.
+                      now rewrite FMap.find_add with (m := prev_st); cbn.
+                 **** set (ops' := oaddr :: ops).
+                      specialize (IHparams st ops'). subst ops' st; cbn in *.
+                      repeat rewrite FMap.add_add with (m := prev_st)in IHparams.
                       apply IHparams.
-                      now rewrite FMap.find_add with (m:=prev_st).
+                      now rewrite FMap.find_add with (m := prev_st).
              *** set (st := FMap.add (ctx_from ctx)
                                      {| wccd_balance := bal;
                                         wccd_operators := remove address_eqdec oaddr ops |} prev_st).
@@ -630,16 +629,16 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
                          prove using the [hint] database *)
                       ***** intros.
                       subst st. unfold WccdView.get_operators,AddressMap.find.
-                      rewrite Haddr. rewrite FMap.find_add with (m:=prev_st).
+                      rewrite Haddr. rewrite FMap.find_add with (m := prev_st).
                       cbn.
-                      split; intros;eauto with hints.
+                      split; intros; eauto with hints.
                       ***** subst st. unfold WccdView.get_operators,AddressMap.find.
-                      rewrite FMap.find_add with (m:=prev_st);cbn;auto with hints.
-                 **** set (ops' :=  remove address_eqdec oaddr ops).
-                      specialize (IHparams st ops'). subst ops' st;cbn in *.
-                      repeat rewrite FMap.add_add with (m:=prev_st)in IHparams.
+                      rewrite FMap.find_add with (m := prev_st); cbn; auto with hints.
+                 **** set (ops' := remove address_eqdec oaddr ops).
+                      specialize (IHparams st ops'). subst ops' st; cbn in *.
+                      repeat rewrite FMap.add_add with (m := prev_st)in IHparams.
                       apply IHparams.
-                      now rewrite FMap.find_add with (m:=prev_st).
+                      now rewrite FMap.find_add with (m := prev_st).
     Qed.
   End WccdReceiveDefs.
 End WccdReceiveSpec.

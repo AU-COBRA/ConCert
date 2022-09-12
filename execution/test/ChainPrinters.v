@@ -66,10 +66,10 @@ Instance showEnvironment
 {|
   show env := "Environment{"
               ++ "chain: " ++ show (env_chain env) ++ sep
-              ++ "contract states:..."             ++ "}"
+              ++ "contract states:..." ++ "}"
 |}.
 
-Fixpoint string_of_interp_type (st : SerializedType) :  (interp_type st) -> string :=
+Fixpoint string_of_interp_type (st : SerializedType) : (interp_type st) -> string :=
 match st as st0 return interp_type st0 -> string with
   | ser_unit => fun _ => "()"
   | ser_int => fun t => show t
@@ -77,7 +77,7 @@ match st as st0 return interp_type st0 -> string with
   | ser_list a =>
     fun t : list (interp_type a) =>
       let t_str_list := map (string_of_interp_type a) t in
-      "[" ++ String.concat ";" t_str_list ++ "]"
+      "[" ++ String.concat "; " t_str_list ++ "]"
   | ser_pair a b =>
     fun t : (interp_type a * interp_type b) =>
       "("
@@ -89,7 +89,7 @@ match st as st0 return interp_type st0 -> string with
 Definition ex_serialized_type := ser_pair (ser_list (ser_list ser_bool)) ser_int.
 (* Compute (interp_type ex_serialized_type). *)
 
-Definition ex_val := ([[true;false];[true;true];[false];[]], 2%Z).
+Definition ex_val := ([[true; false]; [true; true]; [false]; []], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
 
 (* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
@@ -138,7 +138,7 @@ Instance showLocalChain : Show (@LocalChain AddrSize) :=
 {|
   show lc := "LocalChain{"
               ++ show (lc_height lc) ++ sep
-              ++ show (lc_slot lc)   ++ sep
+              ++ show (lc_slot lc) ++ sep
               ++ show (lc_fin_height lc)
               ++ sep ++ "... }"
 |}.
@@ -255,10 +255,10 @@ Instance showChainTraceI
           showChainTrace trace' ++ nl ++
           "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++
             show next_bstate.(chain_state_queue)
-          ++ "];"
+          ++ "]; "
         | _ => showChainTrace trace'
         end
-      | clnil  => ""
+      | clnil => ""
       end in
     showChainTrace
 |}.
@@ -286,7 +286,7 @@ Instance showChain (BaseTypes : ChainBase) : Show Chain :=
     let height := show (chain_height c) in
     let slot := show (current_slot c) in
     let fin_height := show (finalized_height c) in
-      "Chain{" ++ "height: "       ++ height     ++ sep
+      "Chain{" ++ "height: "        ++ height     ++ sep
                 ++ "current slot: " ++ slot       ++ sep
                 ++ "final height: " ++ fin_height ++ "}"
 |}.

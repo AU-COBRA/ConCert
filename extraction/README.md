@@ -1,7 +1,7 @@
 # Extraction
 
 Contains an implementation of extraction based on the certified erasure provided by MetaCoq. The
-`theories` folder contains the implementation and correctness theorems.  The [examples](../examples/) folder, as
+`theories` folder contains the implementation and correctness theorems. The [examples](../examples/) folder, as
 the name suggests, contains examples of smart contracts and programs extracted using our development. The [tests](tests/) folder contains tests for our extensions to the certified erasure.
 
 After building the project (running `make` from the project's root, or running `make` in this folder), the folders

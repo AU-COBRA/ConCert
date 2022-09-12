@@ -55,7 +55,7 @@ Module CounterRefinmentTypes.
     st + proj1_sig inc.
   Next Obligation.
     unfold is_true in *.
-    rewrite <- Zlt_is_lt_bool in *;lia.
+    rewrite <- Zlt_is_lt_bool in *; lia.
   Qed.
 
 
@@ -64,7 +64,7 @@ Module CounterRefinmentTypes.
     st - proj1_sig dec.
   Next Obligation.
     unfold is_true in *.
-    rewrite <- Zlt_is_lt_bool in *;lia.
+    rewrite <- Zlt_is_lt_bool in *; lia.
   Qed.
 
   Definition my_bool_dec := Eval compute in Bool.bool_dec.
@@ -145,7 +145,7 @@ Definition counter_result := Eval compute in
       ret lines).
 
 Definition wrap_in_delimiters s :=
-  concat Common.nl ["";"{-START-} "; s; "{-END-}"].
+  concat Common.nl [""; "{-START-} "; s; "{-END-}"].
 
 Definition midlang_prelude :=
    ["import Basics exposing (..)";

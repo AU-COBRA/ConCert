@@ -297,7 +297,7 @@ End ex5.
 Module SafeHead.
 
   Program Definition safe_head {A} (non_empty_list : {l : list A | List.length l > 0}) : A :=
-    match non_empty_list as l' return l' = non_empty_list -> A  with
+    match non_empty_list as l' return l' = non_empty_list -> A with
     | [] =>
       (* NOTE: we use [False_rect] to make the extracted code a bit nicer.
          It's totally possible to leave the whole branch as an obligation,
@@ -311,7 +311,7 @@ Module SafeHead.
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    cbn in *;subst.
+    cbn in *; subst.
     match goal with
     | H : 0 > 0 |- _ => inversion H
     end.

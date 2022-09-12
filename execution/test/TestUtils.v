@@ -101,7 +101,7 @@ Definition FMap_find_ {A B : Type}
                     `{base.EqDecision A}
                      (k : A)
                      (m : FMap A B)
-                     (default : B)  :=
+                     (default : B) :=
   match FMap.find k m with
   | Some v => v
   | None => default
@@ -128,7 +128,7 @@ Fixpoint pickDrop {T E}
   match xs with
     | nil => (0, returnGen (Err default), nil)
     | (k, x) :: xs =>
-      if (n <? k) then  (k, x, xs)
+      if (n <? k) then (k, x, xs)
       else let '(k', x', xs') := pickDrop default xs (n - k)
           in (k', x', (k,x)::xs')
   end.
@@ -261,7 +261,7 @@ Section AddressGenerators.
   Instance genBoundedN : Gen (BoundedN.BoundedN AddrSize) := {|
       arbitrary := gBoundedN
     |}.
-  
+
   #[export]
   Instance genAddress : Gen (@Address LocalChainBase) := {|
       (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
@@ -430,14 +430,15 @@ Definition forEachMapEntry {A B prop : Type}
 Definition repeatWith {A prop : Type}
                    `{Checkable prop}
                     (l : list A)
-                    (c : A -> prop)
-                    := conjoin (map (checker o c) l).
+                    (c : A -> prop) :=
+  conjoin (map (checker o c) l).
 
 (* Repeats a generator n times *)
-Definition repeatn (n : nat) (c : Checker) := repeatWith (seq 0 n) (fun _ => c).
+Definition repeatn (n : nat) (c : Checker) :=
+  repeatWith (seq 0 n) (fun _ => c).
 
 (* Converts a discarded test into a succesful test *)
-Definition discardToSuccess {prop} `{Checkable prop} (p : prop): Checker :=
+Definition discardToSuccess {prop} `{Checkable prop} (p : prop) : Checker :=
   mapTotalResult (fun res => match res.(ok) with
                              | None => updOk res (Some true)
                              | _ => res

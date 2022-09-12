@@ -260,7 +260,7 @@ Definition print_define_term
 Local Open Scope bool.
 
 (* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm *)
-Definition get_infix (s : string) : option string:=
+Definition get_infix (s : string) : option string :=
   let len := String.length s in
   let begins := substring_count 1 s in
   let ends := substring_from (len - 1) s in
@@ -552,7 +552,7 @@ Definition print_mutual_inductive_body
        (if first then ret tt else append_nl);;
 
        (* Add type parameters. Note that since we are in prenex form, *)
-       (*    our context will have last type parameter last, not first. *)
+       (* our context will have last type parameter last, not first. *)
        Γ <- monad_fold_left
               (fun Γ name =>
                  name <- fresh_ty_arg_name (tvar_name name) Γ;;

@@ -114,7 +114,7 @@ Definition quote_recursively_body {A : Type} (def : A) : TemplateMonad program :
   p <- tmQuoteRecTransp def false ;;
   kn <- match p.2 with
        | tConst name _ => ret name
-       | _ => tmFail ("Expected constant, got "  ++
+       | _ => tmFail ("Expected constant, got " ++
                        string_of_term p.2)
        end;;
   match lookup_env p.1 kn with
@@ -158,11 +158,11 @@ Definition _N0 := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind 
 
 Definition _Npos := EAst.tConstruct {| inductive_mind := <%% N %%>; inductive_ind := 0 |} 1 [].
 
-Definition _Z0 :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0 [].
+Definition _Z0 := EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 0 [].
 
-Definition _Zpos :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 1 [].
+Definition _Zpos := EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 1 [].
 
-Definition _Zneg :=  EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2 [].
+Definition _Zneg := EAst.tConstruct {| inductive_mind := <%% Z %%>; inductive_ind := 0 |} 2 [].
 
 Fixpoint pos_syn_to_nat_aux (n : nat) (t : EAst.term) : option nat :=
   match t with
@@ -226,7 +226,7 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
 (* TODO: port the pretty-printers to use bytestring and use metacoq's MCString utils *)
 
 Definition parens (top : bool) (s : String.string) : String.string :=
-  if top then s else  "(" ++ s ++ ")".
+  if top then s else "(" ++ s ++ ")".
 
 Definition nl : String.string := String (Ascii.ascii_of_nat 10) EmptyString.
 

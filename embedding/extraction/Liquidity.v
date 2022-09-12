@@ -14,7 +14,7 @@ Open Scope string.
 
 Module TCString := bytestring.String.
 
-Coercion TCString.to_string : TCString.t  >-> string.
+Coercion TCString.to_string : TCString.t >-> string.
 
 (* Names for two mandatory argument for the main function. Used when generating code for [wrapper] and for the entry point *)
 Definition MSG_ARG := "msg".
@@ -25,7 +25,7 @@ Record LiquidityModule :=
     storage : type ;
     message : type ;
     functions : list (string * expr) ;
-    (* the [init] function must return [storage]  *)
+    (* the [init] function must return [storage] *)
     init : expr;
     (* the [main] function must be of type
        message * storage -> option (list SimpleActionBody * storage) *)
@@ -40,7 +40,7 @@ Definition newLine := String (Ascii.Ascii false true false true false false fals
 Definition inParens s := "(" ++ s ++ ")".
 Definition inCurly s := "{" ++ s ++ "}".
 Definition ofType e ty := e ++ " : " ++ ty.
-Definition sep :=  concat.
+Definition sep := concat.
 
 Definition look (e : env string) (s : string) : option string :=
   lookup e s.
@@ -93,7 +93,7 @@ Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
       Extras.with_default "Not a Record!" (head (map (printRecord TT) ctors))
     else
       fold_right
-        (fun '(nm, ctor_info) s => "| " ++ nm  ++ printCtorTy TT ctor_info ++ newLine ++ s) "" ctors
+        (fun '(nm, ctor_info) s => "| " ++ nm ++ printCtorTy TT ctor_info ++ newLine ++ s) "" ctors
   end.
 
 Definition printPat (p : pat) :=
@@ -184,7 +184,7 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
       if cst' =? "fst" then go e2 ++ "." ++ inParens ("0")
       else
         (* is it a second projection? *)
-        if cst' =? "snd" then go e2 ++  "." ++ inParens ("1")
+        if cst' =? "snd" then go e2 ++ "." ++ inParens ("1")
       else default_app
     | _ => default_app
     end
@@ -205,7 +205,7 @@ Definition liquidify (TT TTty : env string ) : expr -> string :=
     Extras.with_default cst' (option_map TCString.of_string (look TT cst))
   | eCase (ind,_) _ d bs =>
     match bs with
-    | [b1;b2] => (* Handling if-then-else *)
+    | [b1; b2] => (* Handling if-then-else *)
       (* ignore module path *)
       let (_, ind') := PCUICTranslate.kername_of_string ind in
       if (ind' =? "bool") then
@@ -288,7 +288,7 @@ Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type)
   "let wrapper "
     ++ mainDomainType
     ++ " = "
-    ++ printWrapperBody (contract ++ " " ++ sep " " [MSG_ARG;STORAGE_ARG]
+    ++ printWrapperBody (contract ++ " " ++ sep " " [MSG_ARG; STORAGE_ARG]
                                   ++ " " ++ _extra_args).
 
 (* NOTE: Polymoprhic definitions might not behave well in Liquidity *)
@@ -310,7 +310,7 @@ Definition printLiqInit (TT TTty: env string) (def_name : string) (e : expr) :=
   let init_params := firstn (List.length args - 1) args in
   "let%init" ++ " " ++ "storage "
              ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) init_params)
-             ++ " = " ++  newLine
+             ++ " = " ++ newLine
              (* FIXME: this is currently a workaround, since [init] cannot refer to any global definition *)
              ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
              ++ newLine
@@ -326,7 +326,7 @@ Definition liquidifyModule (TT TTty: env string) (module : LiquidityModule) :=
         ++ inParens (ofType STORAGE_ARG (liquidifyTy TTty module.(storage))) in
   let wrapper := printWrapper TTty module.(message) module.(storage) module.(main_extra_args) module.(main) in
   let init := printLiqInit TT TTty "storage" module.(init) in
-  let main := "let%entry main " ++ mainDomainType ++ " = wrapper " ++ sep " " [MSG_ARG;STORAGE_ARG] in
+  let main := "let%entry main " ++ mainDomainType ++ " = wrapper " ++ sep " " [MSG_ARG; STORAGE_ARG] in
   newLine
     ++ LiquidityPrelude ++ newLine
     ++ dt ++ newLine

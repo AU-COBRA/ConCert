@@ -43,7 +43,7 @@ Class CameLIGOPrintConfig :=
   { (* cosnstructors start with an uppercase letter *)
     print_ctor_name : kername -> string;
 
-    (* types start with a lowercase letter  *)
+    (* types start with a lowercase letter *)
     print_type_name : kername -> string;
 
     (* constants start with a lowercase letter *)
@@ -53,12 +53,12 @@ Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
 
 Local Coercion bytestring.String.to_string : bytestring.String.t >-> string.
 
-(** Prepend the last module name all global declaration names to avoid name clashes.  Due
+(** Prepend the last module name all global declaration names to avoid name clashes. Due
     to limitations for constructors, use only part of the module name and cut the first
     31 letters *)
 Module PrintConfAddModuleNames.
 
-  
+
   Definition last_module_name (mp : modpath) : string :=
     match mp with
     | MPdot mp' nm => nm
@@ -84,7 +84,7 @@ Module PrintConfAddModuleNames.
     let nm := (snd ind_kn) in
     let ty_name := if lmn =? "" then bs_to_s nm else lmn ^ "_" ^ nm in
     uncapitalize ty_name.
-  
+
   Local Instance PrintWithModuleNames : CameLIGOPrintConfig :=
     {| print_ctor_name := print_ctor_name_;
        print_type_name := print_ind_type_name_;
@@ -131,7 +131,7 @@ Section PPTerm.
     else
       let no_parens := (#|args| =? 1)%nat in
       Common.parens (no_parens) (String.concat ", " args).
-  
+
   Definition print_uncurried_app (s : string) (args : list string) :=
     let print_parens := (Nat.ltb 0 (List.length args)) in
     s ++ " " ++ print_uncurried args.
@@ -142,13 +142,13 @@ Section PPTerm.
   | _ => false
   end.
 
-  Definition map_targs (f : box_type -> string) :  box_type -> list string
-    := fix go bt := match bt with
-                    | TApp t1 t2 => (go t1 ++ [f t2])%list
-                    | _ => []
-                    end.
+  Definition map_targs (f : box_type -> string) : box_type -> list string :=
+    fix go bt := match bt with
+                 | TApp t1 t2 => (go t1 ++ [f t2])%list
+                 | _ => []
+                 end.
 
-  
+
   Fixpoint get_tapp_hd (bt : box_type) : box_type :=
     match bt with
     | TApp t1 t2 => get_tapp_hd t1
@@ -158,10 +158,10 @@ Section PPTerm.
   (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
      they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
-  Definition is_reserved_name (id : string) (reserved : list string) := 
+  Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (String.eqb id) reserved.
 
-  Definition ligo_reserved_names := 
+  Definition ligo_reserved_names :=
     [
         "to"
       ; "val"
@@ -240,8 +240,8 @@ Section PPTerm.
       (Γ2, nm :: vs1)
     end in
     go Γ vs.
-  
-  
+
+
   (** The [for_ind] flag tells the type printer whether the type is used in an inductive
       type definition or in a fucntion, since the syntax is different for these two cases
       in CameLIGO *)
@@ -289,7 +289,7 @@ Section PPTerm.
   Open Scope program_scope.
 
   Definition print_box_type := print_box_type_aux false.
-  Definition print_ind_box_type := print_box_type_aux true. 
+  Definition print_ind_box_type := print_box_type_aux true.
   Definition print_ctor
              (TT : env string)
              (ind_kn : kername)
@@ -312,19 +312,19 @@ Section PPTerm.
     else
       let ps := String.concat "," (map (print_type_var_name true) ty_ctx) in
       parens (Nat.eqb #|ty_ctx| 1) ps ^ " ".
-  
+
   Definition print_type_declaration (nm : string) (ty_ctx : list string) (body : string) : string :=
     "type " ^ print_type_params ty_ctx ^ nm ^ " = " ^ body.
-  
+
   Definition print_inductive (ind_kn : kername) (TT : env string)
              (oib : ExAst.one_inductive_body) :=
-    let ind_nm := with_default (print_type_name (fst ind_kn, oib.(ExAst.ind_name))) 
+    let ind_nm := with_default (print_type_name (fst ind_kn, oib.(ExAst.ind_name)))
                                (lookup TT oib.(ExAst.ind_name)) in
     (* a context of type variable names, potentially renamed to avoid clashes *)
     let '(_, type_params_ctx) := fresh_string_names [] (map tvar_name oib.(ind_type_vars)) in
     (* one-constructor inductives are interpreted/printed as records *)
     match oib.(ExAst.ind_ctors), oib.(ExAst.ind_projs) with
-    | [build_record_ctor], _::_ =>
+    | [build_record_ctor], _ :: _ =>
       let '(_, ctors,_) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
       let projs_and_ctors_printed := map (fun '(p, (na, ty)) => print_proj TT type_params_ctx (fst p, ty)) projs_and_ctors in
@@ -390,14 +390,14 @@ Section PPTerm.
   Definition print_pair (f : term -> string) (t1 : term) (t2 : term) :=
     parens false ((f t1) ++ " ," ++ (f t2)).
 
-  Definition is_list_cons (ind : inductive) (ctor_num : nat):=
+  Definition is_list_cons (ind : inductive) (ctor_num : nat) :=
     andb (eq_kername ind.(inductive_mind) <%% list %%>)
          (Nat.eqb ctor_num 1).
 
   Definition print_list_cons (f : term -> string) (t1 : term) (t2 : term) :=
     (f t1) ++ " :: " ++ (f t2).
 
-  Definition is_record_constr (t : term) : option ExAst.one_inductive_body := 
+  Definition is_record_constr (t : term) : option ExAst.one_inductive_body :=
     match t with
     | tConstruct (mkInd mind j as ind) i _ =>
       match lookup_ind_decl mind i with
@@ -411,7 +411,7 @@ Section PPTerm.
     | _ => None
   end.
 
-  Definition is_name_remapped nm TT := 
+  Definition is_name_remapped nm TT :=
     match (look TT nm) with
     | Some nm' => true
     | None => false
@@ -487,7 +487,7 @@ Section PPTerm.
   Definition print_transfer (args : list string) :=
     match args with
     | [] => "MalformedTransfer()"
-    | [a1;a2] => "Tezos.transaction unit " ++ a2 ++ " (get_contract_unit " ++ a1 ++ ")"
+    | [a1; a2] => "Tezos.transaction unit " ++ a2 ++ " (get_contract_unit " ++ a1 ++ ")"
     | _ => "MalformedTransfer(" ++ String.concat "," args ++ ")"
     end.
 
@@ -506,7 +506,7 @@ Section PPTerm.
 
       [top,inapp] - flags used to determine how to print parenthesis.
 
-      [t] - a term to be printed.  *)
+      [t] - a term to be printed. *)
 
   Fixpoint print_term (TT : env string)
                       (ctx : context)
@@ -527,7 +527,7 @@ Section PPTerm.
       | None => "UnboundRel(" ++ string_of_nat n ++ ")"
       end
     | tVar n => fun bt => "Var(" ++ n ++ ")"
-    | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *)  ++ ")"
+    | tEvar ev args => fun bt => "Evar(" ++ string_of_nat ev ++ "[]" (* TODO *) ++ ")"
     | tLambda na body => fun '(bt, a) =>
       let na' := fresh_string_name ctx na in
       let (dom_tys, _) := ExAst.decompose_arr bt in
@@ -545,7 +545,7 @@ Section PPTerm.
                         print_term TT (vdef (nNamed (bytestring.String.of_string na')) def :: ctx) ty_ctx true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
       let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx ty_ctx false false t a) t (bt, (fa, la))) in
-      let '((b;ba),argas) := Edecompose_app_annot f fa in
+      let '((b; ba),argas) := Edecompose_app_annot f fa in
       match apps with
       | [] => print_term TT ctx ty_ctx false true f fa
       | _ =>
@@ -583,12 +583,12 @@ Section PPTerm.
               | Some s => s
               | None =>
                 match is_name_remapped nm TT, is_record_constr b with
-                | false, Some oib => 
-                  let projs_and_apps := combine (map (bytestring.String.to_string ∘ fst) oib.(ExAst.ind_projs)) apps in 
+                | false, Some oib =>
+                  let projs_and_apps := combine (map (bytestring.String.to_string ∘ fst) oib.(ExAst.ind_projs)) apps in
                   let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
                                                           |> String.concat "; " in
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type ty_ctx TT bt ++ ")"
-                | _,_ => 
+                | _,_ =>
                   let nm' := with_default (print_ctor_name (fst mind, bytestring.String.of_string nm)) (look TT nm) in
                   (* constructors take a single argument (uncurried), so we wrap the args into a tuple *)
                   parens top (print_uncurried_app nm' apps)
@@ -635,7 +635,7 @@ Section PPTerm.
         (* [if-then-else] is a special case *)
         if eq_kername mind <%% bool %%> then
           match brs with
-          | [b1;b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
+          | [b1; b2] => fun '(bt, (ta, (b1a, (b2a, _)))) =>
             parens top
                     ("if " ++ print_term TT ctx ty_ctx true false t ta
                            ++ " then " ++ print_term TT ctx ty_ctx true false (snd b1) b1a
@@ -655,9 +655,9 @@ Section PPTerm.
                             (* [list] is a special case *)
                             let na := bs_to_s na in
                             if (eq_kername mind <%% list %%>) && (na =? "cons") then
-                              print_pat  TT mind "::" true b
+                              print_pat TT mind "::" true b
                             (* else if (eq_kername mind <%% list %%>) && (na =? "nil") then *)
-                            (*   print_pat "" TT mind "[]" false b *)
+                            (* print_pat "" TT mind "[]" false b *)
                             else
                             print_pat TT mind na false b)
                          (nl ++ " | ") brs_ in
@@ -696,7 +696,7 @@ Section PPTerm.
         let targs := combine sargs (map (print_box_type ty_ctx TT) tys) in
         let sargs_typed := String.concat " " (map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs) in
         let fix_call := parens false (fix_name ^ " : " ^ print_box_type ty_ctx TT bt) in
-        (* NOTE: we cannot directly use the result of decomposing with [Edecompose_lam_annot] beause the guardedness check cannot see through it  *)
+        (* NOTE: we cannot directly use the result of decomposing with [Edecompose_lam_annot] beause the guardedness check cannot see through it *)
         let fix_body := lam_body_annot_cont (fun body body_annot => print_term TT ctx ty_ctx true false body body_annot) fix_decl.(dbody) fixa in
         parens top ("let rec " ++ fix_name ^ " " ^ sargs_typed ^ " : " ^ sret_ty ^ " = " ^ nl ^
                       fix_body ^ nl ^
@@ -727,7 +727,7 @@ Section PPLigo.
     | _ => let binders := String.concat " " ty_ctx in
           parens false ("type " ++ binders)
     end.
-  
+
   Example print_forall_ex :
     let (_, tys) := fresh_string_names []
       [BasicAst.nNamed (bytestring.String.of_string "a"); BasicAst.nNamed (bytestring.String.of_string "b"); BasicAst.nAnon] in
@@ -740,7 +740,7 @@ Section PPLigo.
 
   Import bytestring.String.
   Example print_ex1 :
-    (let (args,_) :=Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a"))
+    (let (args,_) := Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a"))
                                   (tLambda (BasicAst.nNamed (bytestring.String.of_string "b")) (tRel 0))) in
     fresh_string_names [{|
       Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
@@ -760,7 +760,7 @@ Section PPLigo.
           Extract.E.decl_body := None
         |}], ["a"; "b0"]).
   Proof. reflexivity. Qed.
-  
+
   Definition print_decl
              (TT : env string) (* translation table *)
              (env : ExAst.global_env)
@@ -768,8 +768,7 @@ Section PPLigo.
              (wrap : string -> string)
              (ty_in_ctx : list BasicAst.name * box_type)
              (t : term)
-             (ta : annots box_type t)
-    :=
+             (ta : annots box_type t) :=
     let '(args,(lam_body; body_annot)) := Edecompose_lam_annot t ta in
     let (ctx, args) := fresh_string_names [] args in
     let '(ty_ctx, ty) := ty_in_ctx in
@@ -867,7 +866,7 @@ Section PPLigo.
     | ExAst.ConstantDecl cst => fun annot =>
       match print_cst TT env nm cst annot with
       | Some r => ConstDecl (nm, r)
-      | None =>  ConstDecl (nm, "print_global_decl ConstantDecl ERROR: " ++ string_of_kername nm)
+      | None => ConstDecl (nm, "print_global_decl ConstantDecl ERROR: " ++ string_of_kername nm)
       end
     | ExAst.InductiveDecl mib as d => fun annot =>
       match mib.(ExAst.ind_bodies) with
@@ -923,8 +922,8 @@ Section PPLigo.
     "[@inline] let addTez (n : tez) (m : tez) = n + m" ;
     "[@inline] let subTez (n : tez) (m : tez) : tez option = n - m" ;
     "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
-    "[@inline] let ltTez (a : tez ) (b : tez ) =  a < b" ;
-    "[@inline] let gtbTez (a : tez ) (b : tez ) =  a > b" ;
+    "[@inline] let ltTez (a : tez ) (b : tez ) = a < b" ;
+    "[@inline] let gtbTez (a : tez ) (b : tez ) = a > b" ;
     "[@inline] let eqTez (a : tez ) (b : tez ) = a = b" ;
     "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez" ;
     "[@inline] let divTez (a : tez) (b : tez) : tez = natural_to_mutez (a/b)" ;
@@ -965,7 +964,7 @@ Section PPLigo.
 
   Definition get_contract_def :=
     <$
-    "let get_contract_unit (a : address) : unit contract  =" ;
+    "let get_contract_unit (a : address) : unit contract =" ;
     "  match (Tezos.get_contract_opt a : unit contract option) with" ;
     "    Some c -> c" ;
     "  | None -> (failwith (""Contract not found."") : unit contract)"
@@ -1047,7 +1046,7 @@ Section PPLigo.
        "type return = (operation) list * " ++ storage_name ;
        "" ;
        "let main (p, st : " ++ parameter_name ++ " option * " ++ storage_name ++ ") : return = " ;
-       "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with   " ;
+       "   (match (" ++ contract ++ " dummy_chain cctx_instance " ++ " st p) with " ;
        "      Ok v -> (v.0, v.1)" ;
        "    | Err e -> (failwith e : return))" $>.
 

@@ -95,7 +95,7 @@ where "T⟦ ty ⟧ " := (type_to_term ty).
 (** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
 Definition etrans_branch (params : list type)(bs : list (pat * term))
            (c : constr) : branch term :=
-  let nm  := fst c in
+  let nm := fst c in
   let tys := remove_proj c in
   let tparams := map type_to_term params in
   let o_pt_e := find (fun x =>(fst x).(pName) =? nm) bs in
@@ -113,7 +113,7 @@ Definition etrans_branch (params : list type)(bs : list (pat * term))
         {| bcontext := [];
            bbody := tVar (TCString.of_string (nm ++ ": arity does not match"))%string |}
   | None => {| bcontext := [] ;
-               bbody:= dummy |}
+               bbody := dummy |}
   end.
 
 Open Scope list.
@@ -187,7 +187,7 @@ Definition of_ename (e : option ename) : aname :=
 
 (** Translation of constructors of parameterised inductive types requires
     non-trivial manipulation of De Bruijn indices. *)
-Definition mkArrows_rec (ind_name : ename) (nparam : nat)  :=
+Definition mkArrows_rec (ind_name : ename) (nparam : nat) :=
   fix rec (n : nat) (proj_tys : list (option ename * type)) :=
   match proj_tys with
   | [] => (* this is a return type of the constructor *)
@@ -241,7 +241,7 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
                 mind_entry_params := gen_params nparam;
                 mind_entry_inds := [oie];
                 mind_entry_universes := Monomorphic_ctx;
-                mind_entry_private := None;|} in
+                mind_entry_private := None; |} in
    mie
   end.
 
@@ -279,7 +279,7 @@ Fixpoint add_prefix (e : expr) (ps : env string) :=
   | eRel _ | eVar _ => e
   | eLambda nm ty e1 => eLambda nm (add_prefix_ty ty ps) (add_prefix e1 ps)
   | eTyLam nm e1 => eTyLam nm (add_prefix e1 ps)
-  | eLetIn nm e1 ty e2  => eLetIn nm (add_prefix e1 ps)
+  | eLetIn nm e1 ty e2 => eLetIn nm (add_prefix e1 ps)
                                  (add_prefix_ty ty ps)
                                  (add_prefix e2 ps)
   | eApp e1 e2 => eApp (add_prefix e1 ps) (add_prefix e2 ps)
@@ -351,10 +351,10 @@ Module StdLib.
      gdInd Bool 0 [("true", []); ("false", [])] false;
      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
      gdInd Int 0 [("Z0", [])] false ; (* we ommit other construtors for now, since in general integer literals are not supported yet *)
-     gdInd String 0 [] false; (* just for remapping string to Coq string, construtors are not necessary  *)
+     gdInd String 0 [] false; (* just for remapping string to Coq string, construtors are not necessary *)
      gdInd List 1 [("nil", []); ("cons", [(None,tyRel 0);
                                          (None,tyApp (tyInd List) (tyRel 0))])] false;
-     gdInd Prod 2 [("pair", [(None,tyRel 1);(None,tyRel 0)])] false].
+     gdInd Prod 2 [("pair", [(None,tyRel 1); (None,tyRel 0)])] false].
 
   Notation "a + b" := [| {eConst (to_string_name <% Nat.add %>)} {a} {b} |]
                         (in custom expr at level 0).
@@ -391,7 +391,7 @@ Module StdLib.
   Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
 
   Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
-  Notation "'Cons' y z" := (pConstr "cons" [y;z])
+  Notation "'Cons' y z" := (pConstr "cons" [y; z])
                              (in custom pat at level 0,
                                  y constr at level 4,
                                  z constr at level 4).

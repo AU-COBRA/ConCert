@@ -50,7 +50,7 @@ Program Definition dec_pair_string (p1 p2 : string × string) :
   _. Next Obligation.
        specialize (String.string_dec s1 s) as H1.
        specialize (String.string_dec s2 s0) as H2.
-       destruct H1;subst. destruct H2;subst;auto.
+       destruct H1; subst. destruct H2; subst; auto.
        right. intro HH. inversion HH. contradiction.
        right. intro HH. inversion HH. contradiction.
        Defined.
@@ -61,13 +61,13 @@ Definition prefixes_gds (gds : list global_dec) (deps : env string) (p : string)
   nodup dec_pair_string (concat (map (fun gd => build_prefix_table_gd gd deps p) gds)).
 
 
-Fixpoint build_prefix_table (e : expr) (deps : env string) (p : string) : env string:=
+Fixpoint build_prefix_table (e : expr) (deps : env string) (p : string) : env string :=
   match e with
   | eRel _ | eVar _ => []
   | eLambda nm ty e1 =>
     build_prefix_table_ty ty deps p ++ build_prefix_table e1 deps p
   | eTyLam nm e1 => build_prefix_table e1 deps p
-  | eLetIn nm e1 ty e2  =>
+  | eLetIn nm e1 ty e2 =>
     build_prefix_table e1 deps p
     ++ build_prefix_table_ty ty deps p
     ++ build_prefix_table e2 deps p
@@ -100,15 +100,15 @@ Fixpoint build_prefix_table (e : expr) (deps : env string) (p : string) : env st
   | eTy ty => build_prefix_table_ty ty deps p
   end.
 
-Definition prefixes (defs : list (string × expr)) (deps : env string) (p : string)
-  := nodup dec_pair_string (concat (map (fun def => build_prefix_table def.2 deps p) defs)).
+Definition prefixes (defs : list (string × expr)) (deps : env string) (p : string) :=
+  nodup dec_pair_string (concat (map (fun def => build_prefix_table def.2 deps p) defs)).
 
 Definition stdlib_prefixes : env string :=
   fold_left
     (fun l gd => match gd with
               | gdInd ty_name _ _ _ =>
                   let (mp,nm) := kername_of_string ty_name
-                  in ( TCString.to_string nm, (PCUICTranslate.string_of_modpath mp  ++ "@")%string) :: l
+                  in ( TCString.to_string nm, (PCUICTranslate.string_of_modpath mp ++ "@")%string) :: l
               end) StdLib.Σ [].
 
 (** We translate and unquote a list of data type declarations in the TemplateMonad *)

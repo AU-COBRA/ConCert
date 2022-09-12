@@ -43,7 +43,7 @@ Fixpoint monad_map {A B} {m : Type -> Type} `{Monad m} (f : A -> m B) (xs : list
   | nil => ret nil
   | cons x xs' =>
       do v <- f x;
-      do vs <- monad_map f  xs';
+      do vs <- monad_map f xs';
       ret (cons v vs)
   end.
 

@@ -71,9 +71,9 @@ Module EscrowLiquidityExtraction.
       lmd_receive := liquidity_escrow_receive ;
 
       (* code for the entry point *)
-      lmd_entry_point :=  storageDef ++ nl
-                       ++ printWrapper (PREFIX ++ "liquidity_escrow_receive") ++ nl
-                       ++ printMain
+      lmd_entry_point := storageDef ++ nl
+                      ++ printWrapper (PREFIX ++ "liquidity_escrow_receive") ++ nl
+                      ++ printMain
     |}.
 
 

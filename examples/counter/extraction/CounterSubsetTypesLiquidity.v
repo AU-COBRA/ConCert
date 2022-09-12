@@ -38,7 +38,7 @@ Module CounterRefinementTypes.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z)
                   : result storage Error :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
@@ -121,14 +121,14 @@ Section LiquidityExtractionSetup.
     ; ("nil", "[]")
     ; ("true", "true")
     ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
-    ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
+    ; (String.to_string (string_of_kername <%% storage %%>), "storage") (* we add [storage] so it is printed without the prefix *) ].
 
   Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_counter" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [prod_ops;int_ops; sig_def; exist_def; result_def];
+      lmd_prelude := concat nl [prod_ops; int_ops; sig_def; exist_def; result_def];
 
       (* initial storage *)
       lmd_init := init ;

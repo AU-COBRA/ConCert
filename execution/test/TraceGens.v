@@ -3,7 +3,7 @@
   This file defines a generator combinator, gChain, for the ChainBuilder type.
   From this, a generator/arbitrary instance for the ChainTrace type is derived automatically.
 
-  This file also contains checker combinator  over ChainBuilders/ChainTraces,
+  This file also contains checker combinator over ChainBuilders/ChainTraces,
   like forAllChainTrace, reachableFrom_chaintrace, and pre_post_assertion.
 *)
 
@@ -28,7 +28,7 @@ Import BoundedN.Stdpp.
 Import ListNotations.
 
 Section TraceGens.
-  
+
   Context `{Show ChainBuilder}.
   Context `{Show ChainState}.
   Global Definition BlockReward : Amount := 50.
@@ -292,7 +292,7 @@ Section TraceGens.
     | clnil => []
     end.
 
-  (* Asserts that a ChainState property holds for all step_block ChainStates in a ChainTrace  *)
+  (* Asserts that a ChainState property holds for all step_block ChainStates in a ChainTrace *)
   Definition ChainTrace_ChainTraceProp {prop : Type}
                                        {from to}
                                       `{Checkable prop}
@@ -303,7 +303,7 @@ Section TraceGens.
     let trace_list := trace_states_step_block trace in
     discard_empty trace_list (conjoin_map printOnFail).
 
-  (* -------------------- Checker combinators on traces --------------------  *)
+  (* -------------------- Checker combinators on traces -------------------- *)
 
   (* Asserts that a ChainState property holds on all ChainStates in a ChainTrace *)
   Definition forAllChainState {prop : Type}
@@ -349,7 +349,7 @@ Section TraceGens.
           conjoin [(checker (pf next_bstate prev_bstate)); all_statepairs trace' bstate_before_step_block]
         | _ => all_statepairs trace' prev_bstate
           end
-      | clnil  => checker true
+      | clnil => checker true
       end in
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => all_statepairs (builder_trace cb) (last_cstate (builder_trace cb))).

@@ -96,15 +96,15 @@ Definition receive_wrapper (msg : msg)
 Definition dummy_init : init_ctx -> BV.Setup -> result BV.State Error := fun _ _ => Err default_error.
 
 Definition dummy_receive : msg -> BV.State -> result (list ActionBody × BV.State) Error :=
-  fun m s  =>
-    let x := handle_signup 0 (0, 0) s s.(owner) 0%nat  in
+  fun m s =>
+    let x := handle_signup 0 (0, 0) s s.(owner) 0%nat in
     Err default_error.
 
 Definition storage_alias := "type storage = state".
 
 Definition bruteforce_tally_def :=
- "let bruteforce_tally_aux  =
-  let rec bruteforce_tally_aux  (n, votes_product) =
+ "let bruteforce_tally_aux =
+  let rec bruteforce_tally_aux (n, votes_product) =
     if elmeqb (pow_p generator (int n)) votes_product then
         Some (n)
     else if n = 0p then
@@ -122,12 +122,12 @@ Definition extra_ops :=
     n
   let predN (n : nat) = unsafe_int_to_nat (n - 1p)
 
-  let nth  = let rec nth  (n, l, default) =
+  let nth = let rec nth (n, l, default) =
   if n = 0p then (match l with
-  []  -> default
+  [] -> default
    | x :: l' -> x)
   else let m = predN n in (match l with
-  []  -> default
+  [] -> default
    | x :: t -> (nth (m, t, default)))
    in fun n l default -> nth (n, l, default)
 
@@ -140,20 +140,20 @@ Definition extra_ops :=
         else (predN n, b :: a)) l (n,[]) in
     List.rev r
 
-  let skipn  = let rec skipn  (n, l) =
+  let skipn = let rec skipn (n, l) =
   if n = 0p then l
    else let n0 = predN n in (match l with
-  []  -> []
+  [] -> []
    | a :: l0 -> (skipn (n0, l0)))
    in fun n l -> skipn (n, l)
 
-  let existsb (f : 'a -> bool) = let rec existsb  (l) =
+  let existsb (f : 'a -> bool) = let rec existsb (l) =
   match l with
-  []  -> false
+  [] -> false
    | a :: l0 -> (if (f a) then true else (existsb (l0)))
    in fun l -> existsb (l)".
 
-Definition hash_func_def := "let hash_func (l : ( (nat) list)) = addNat 1p (List.fold (fun (p,a) -> lxorNat p a) l 1p)".
+Definition hash_func_def := "let hash_func (l : ((nat) list)) = addNat 1p (List.fold (fun (p,a) -> lxorNat p a) l 1p)".
 
 
 Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody Error :=
@@ -345,7 +345,7 @@ Definition TT_rename : list (string * string) :=
   ; ("nil", "[]")
   ; ("true", "true")
   ; ("false", "false")
-  ; (String.to_string (string_of_kername <%% BV.State %%>), "state")  (* we add [storage] so it is printed without the prefix *) 
+  ; (String.to_string (string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 

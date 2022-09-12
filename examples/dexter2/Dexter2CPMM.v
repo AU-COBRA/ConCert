@@ -321,7 +321,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
+      do xtz_withdrawn <- div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
       do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
       do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn))default_error ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
       do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) default_error; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
@@ -332,7 +332,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       let op_token := token_transfer state ctx.(ctx_contract_address) param.(liquidity_to) tokens_withdrawn in
       do opt_xtz <- xtz_transfer param.(liquidity_to) xtz_withdrawn ;
       let new_state :=
-        {| tokenPool :=  new_tokenPool;
+        {| tokenPool := new_tokenPool;
           xtzPool := new_xtzPool;
           lqtTotal := new_lqtPool;
           selfIsUpdatingTokenPool := state.(selfIsUpdatingTokenPool);

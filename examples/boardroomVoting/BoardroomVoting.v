@@ -675,7 +675,7 @@ Module BoardroomVoting (Params : BoardroomParams).
           split; [tauto|].
           split.
           unfold AddressMap.add.
-          {  rewrite FMap.size_add_existing by congruence; tauto. }
+          { rewrite FMap.size_add_existing by congruence; tauto. }
           split; [tauto|].
           split; [tauto|].
           intros [_ msg_assum] order_assum num_signups_assum.

@@ -17,7 +17,7 @@ Definition action := ActionBody.
 (* TODO: use the interpreter defined in StackInterpreter.v to avoid duplication. *)
 Module Interpreter.
 
-  Inductive op : Set :=  Add | Sub | Mult | Lt | Le | Equal.
+  Inductive op : Set := Add | Sub | Mult | Lt | Le | Equal.
 
   Inductive instruction :=
   | IPushZ : Z -> instruction
@@ -42,7 +42,7 @@ Module Interpreter.
                   (setup : unit)
                   : result storage Error :=
     let ctx0 := ctx in
-    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup]  *)
+    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup] *)
     Ok [].
 
   Definition params := list instruction * ext_map.
@@ -121,7 +121,7 @@ Module Interpreter.
   Definition receive (p : params)
                      (s : storage)
                      : result (list action * storage) Error :=
-    let s0 := s in (* prevents optimisations from removing unused [s]  *)
+    let s0 := s in (* prevents optimisations from removing unused [s] *)
     match interp p.2 p.1 [] 0 with
     | Ok v => Ok ([],v)
     | Err e => Err e
@@ -135,20 +135,20 @@ Module TestInterpreter.
   (** Input for the interpreter in Liquidity:
       ([IPushZ 0; IObs ("blah",0); IOp Add; IPushZ 1; IOp Equal], (Map [(("blah", 0), (ZVal 1))])) *)
   Example test_interp :
-    let env  := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
+    let env := FMap.of_list [(("blah", 0%Z), (ZVal 1))] in
     interp env [IPushZ 0; IObs ("blah", 0); IOp Add; IPushZ 1; IOp Equal] [] 0 =
     Ok [BVal true].
   Proof. vm_compute. reflexivity. Qed.
 
   (** Input for the interpreter in Liquidity:
-  ([IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf], (Map [])) *)
+  ([IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1; IElse; IPushZ (-1); IEndIf], (Map [])) *)
   Example test_interp_if_1 :
-    interp FMap.empty [IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
+    interp FMap.empty [IPushZ 1; IPushZ 1; IOp Equal; IIf; IPushZ 1; IElse; IPushZ (-1); IEndIf] [] 0
     = Ok [ZVal 1].
   Proof. vm_compute. reflexivity. Qed.
 
   Example test_interp_if_2 :
-    interp FMap.empty [IPushZ 1; IPushZ 0; IOp Equal; IIf; IPushZ 1;IElse; IPushZ (-1);IEndIf] [] 0
+    interp FMap.empty [IPushZ 1; IPushZ 0; IOp Equal; IIf; IPushZ 1; IElse; IPushZ (-1); IEndIf] [] 0
     = Ok [ZVal (-1)].
   Proof. vm_compute. reflexivity. Qed.
 
@@ -189,7 +189,7 @@ Module TestInterpreter.
     = Ok [ZVal (-1)].
   Proof. vm_compute. reflexivity. Qed.
 
-  (*     let strike = 50.0
+  (* let strike = 50.0
           nominal = 1000.0
           theobs = obs ("Carlsberg",0)
       in scale (r nominal)
@@ -219,18 +219,18 @@ Module TestInterpreter.
     IPushZ 0;
     IEndIf].
 
-  (* ([IObs ("Maturity", 0);IPushZ 90;IOp Equal;IIf; IObs ("Carlsberg",0); IPushZ 50; IOp Lt; IIf; IPushZ 50; IObs ("Carlsberg", 0); IOp Sub; IPushZ 1000; IOp Mult; IElse; IPushZ 0; IEndIf; IElse; IPushZ 0; IEndIf], (Map [(("Carlsberg", 0), (ZVal 100));(("Maturity", 0), (ZVal 90))])) *)
+  (* ([IObs ("Maturity", 0); IPushZ 90; IOp Equal; IIf; IObs ("Carlsberg",0); IPushZ 50; IOp Lt; IIf; IPushZ 50; IObs ("Carlsberg", 0); IOp Sub; IPushZ 1000; IOp Mult; IElse; IPushZ 0; IEndIf; IElse; IPushZ 0; IEndIf], (Map [(("Carlsberg", 0), (ZVal 100)); (("Maturity", 0), (ZVal 90))])) *)
 
   (* try-liquidty: estimated fee 0.054191 *)
 
   Example run_call_option_in_the_money :
-    let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 100));(("Maturity", 0%Z), (ZVal 90))] in
+    let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 100)); (("Maturity", 0%Z), (ZVal 90))] in
     interp env call_option [] 0
     = Ok [ZVal 50000].
   Proof. vm_compute. reflexivity. Qed.
 
   Example run_call_option_out_the_money :
-      let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 30));(("Maturity", 0%Z), (ZVal 90))] in
+      let env := FMap.of_list [(("Carlsberg", 0%Z), (ZVal 30)); (("Maturity", 0%Z), (ZVal 90))] in
     interp env call_option [] 0
     = Ok [ZVal 0].
   Proof. vm_compute. reflexivity. Qed.

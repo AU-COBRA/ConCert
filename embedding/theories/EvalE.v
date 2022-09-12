@@ -47,7 +47,7 @@ Definition option_to_res {A : Type} (o : option A) (msg : string) :=
   | None => EvalError msg
   end.
 
-Definition todo {A} := EvalError (A:=A) "Not implemented".
+Definition todo {A} := EvalError (A := A) "Not implemented".
 
 Import Basics.
 
@@ -78,7 +78,7 @@ Definition val_ind_full
        AllEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
    (Htyclos : forall (ρ : env val) (n : ename) (e0 : expr),
        AllEnv P ρ -> P (vTyClos ρ n e0))
-   (Hty : forall (t : type),  P (vTy t)) :
+   (Hty : forall (t : type), P (vTy t)) :
   forall v : val, P v.
   refine (fix val_ind_fix (v : val) := _).
   destruct v.
@@ -104,7 +104,7 @@ Definition val_elim_full
        AllEnv P ρ -> P (vClos ρ n cm ty1 ty2 e0))
   (Htyclos : forall (ρ : env val) (n : ename) (e0 : expr),
        AllEnv P ρ -> P (vTyClos ρ n e0))
-   (Hty : forall (t : type),  P (vTy t)) :
+   (Hty : forall (t : type), P (vTy t)) :
   forall v : val, P v.
    refine (fix val_ind_fix (v : val) := _).
   destruct v.
@@ -144,7 +144,7 @@ Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
     else EvalError (cn ++ ": constructor arity does not match")
   else EvalError (cn ++ ": pattern arity does not match (constructor: "
                      ++ String.to_string (string_of_nat ctr_len) ++ ",
-                  pattern: "  ++ String.to_string (string_of_nat pt_len) ++ ")").
+                  pattern: " ++ String.to_string (string_of_nat pt_len) ++ ")").
 
 Fixpoint inductive_name (ty : type) : option ename :=
   match ty with
@@ -164,7 +164,7 @@ Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
     ty2' <- eval_type_i k ρ ty2;;
     ty1' <- eval_type_i k ρ ty1;;
     match decompose_inductive ty1' with
-    | Some _  => ret (tyApp ty1' ty2')
+    | Some _ => ret (tyApp ty1' ty2')
     | _ => None
     end
   | tyVar nm => None
@@ -190,7 +190,7 @@ Fixpoint eval_type_n (ρ : env val) (ty : type) : option type :=
     ty2' <- eval_type_n ρ ty2;;
     ty1' <- eval_type_n ρ ty1;;
     match decompose_inductive ty1' with
-    | Some _  => ret (tyApp ty1' ty2')
+    | Some _ => ret (tyApp ty1' ty2')
     | _ => None
     end
   | tyVar nm => match lookup ρ nm with
@@ -221,7 +221,7 @@ Fixpoint print_type (ty : type) : string :=
 
 Definition is_type_val (v : val) : bool :=
  match v with
- | vTy ty  => true
+ | vTy ty => true
  | _ => false
 end.
 
@@ -240,11 +240,11 @@ Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type): bool :=
   | tyArr ty1 ty2 => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2
   end.
 
-Definition valid_env (ρ : env val) : nat -> expr -> bool:=
+Definition valid_env (ρ : env val) : nat -> expr -> bool :=
   fix rec n e :=
     match e with
     | eRel i => true
-    | eVar nm  => false
+    | eVar nm => false
     | eLambda nm ty b => valid_ty_env n ρ ty && rec (1+n) b
     | eTyLam nm b => rec (1+n) b
     | eLetIn nm e1 ty e2 => rec n e1 && valid_ty_env n ρ ty && rec (1+n) e2

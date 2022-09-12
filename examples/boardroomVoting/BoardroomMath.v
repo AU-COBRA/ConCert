@@ -812,7 +812,7 @@ Module Zp.
     | x~1%positive => mod_pow_pos_aux (a * a mod m) x m (r * a mod m)
     | _ => r * a mod m
     end.
-  
+
   Definition mod_pow_pos (a : Z) (x : positive) (m : Z) : Z :=
     mod_pow_pos_aux a x m 1.
 
@@ -1220,7 +1220,7 @@ Module Zp.
       apply IHx.
     + now rewrite Z.mul_1_r.
   Qed.
-  
+
   Lemma mod_pow_pos_1_l x p :
     mod_pow_pos 1 x p = 1 mod p.
   Proof. apply mod_pow_pos_aux_1_l. Qed.

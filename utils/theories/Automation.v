@@ -1,5 +1,4 @@
-(* This file implements various helper tactics *)
-
+(** * This file implements various helper tactics *)
 From Coq Require Import List.
 From Coq Require Import Permutation.
 From Coq Require Import ZArith.
@@ -16,7 +15,7 @@ Proof.
   auto.
 Qed.
 
-(* Change all x :: l into [x] ++ l *)
+(** Change all x :: l into [x] ++ l *)
 Ltac appify :=
   match goal with
   | [|- context[?e :: ?l]] =>
@@ -46,8 +45,8 @@ Local Ltac perm_simplify_once :=
   let rec aux :=
       apply Permutation_app_middle ||
       tryif reassoc_right
-        then aux
-        else (unassoc_right; reassoc_left; aux) in
+      then aux
+      else (unassoc_right; reassoc_left; aux) in
   repeat rewrite <- app_assoc;
   aux.
 
@@ -69,7 +68,7 @@ Local Ltac perm_simplify_round :=
     | [H: Permutation ?l1 ?l2|-_] => rewrite H
     end.
 
-(* Automatically tries to solve obvious "Permutation x y" goals. *)
+(** Automatically tries to solve obvious "Permutation x y" goals. *)
 Ltac perm_simplify :=
   repeat perm_simplify_round;
   cbn;
@@ -219,9 +218,9 @@ Ltac unset_all :=
 
 Ltac destruct_or_hyps :=
   repeat
-      match goal with
-      | [H: _ \/ _ |- _] => destruct H
-      end.
+    match goal with
+    | [H: _ \/ _ |- _] => destruct H
+    end.
 
 Ltac destruct_hyps :=
   repeat
@@ -243,7 +242,10 @@ Ltac destruct_and_split :=
     end.
 
 Tactic Notation "tryfalse" :=
-  try solve [ elimtype False; try solve [assumption | discriminate | congruence ]].
+  try solve [
+    elimtype False;
+    try solve [assumption | discriminate | congruence]
+  ].
 
 Ltac propify :=
   unfold is_true in *;

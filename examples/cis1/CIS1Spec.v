@@ -115,7 +115,7 @@ End ReceiveHook.
 (** * Views *)
 
 (** A module type that defines a view interface. The interface specifies functions for
-    observing the contract's state. These functions are used to define the specification.  *)
+    observing the contract's state. These functions are used to define the specification. *)
 Module Type CIS1View (cis1_types : CIS1Types).
 
   Import cis1_types.
@@ -128,7 +128,7 @@ Module Type CIS1View (cis1_types : CIS1Types).
 
     Parameter get_operators : Storage -> Address -> list Address.
 
-    Parameter get_owners :  Storage -> TokenID -> list Address.
+    Parameter get_owners : Storage -> TokenID -> list Address.
 
     Axiom get_owners_no_dup : forall st token_id, NoDup (get_owners st token_id).
 
@@ -166,8 +166,8 @@ Module CIS1ViewExtra (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       match o as o' return (o' = o -> _) with
       | Some bal => fun _ => bal
       | None => fun heq =>
-                 False_rect _ (ltac:(intros;subst o; unfold get_balance in *;rewrite p in *;
-                                     destruct (get_balance_opt st token_id addr);congruence))
+                 False_rect _ (ltac:(intros; subst o; unfold get_balance in *; rewrite p in *;
+                                     destruct (get_balance_opt st token_id addr); congruence))
       end eq_refl.
 End CIS1ViewExtra.
 
@@ -186,7 +186,7 @@ Module CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
 
   (** * Contract functions *)
 
-  (** First, we specify data types that represent input parameters for all entry points  *)
+  (** First, we specify data types that represent input parameters for all entry points *)
 
   (** NOTE: not handling additional data at the moment *)
   Record CIS1_transfer_data `{ChainBase} :=
@@ -268,7 +268,7 @@ Module CIS1Axioms (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
                             get_balance_opt next_st other_token_id addr = get_balance_opt prev_st other_token_id addr) /\
     (** Token ids are preserved by a single transfer *)
     (forall token_id,
-        token_id_exists prev_st token_id =  token_id_exists next_st token_id) /\
+        token_id_exists prev_st token_id = token_id_exists next_st token_id) /\
     (** CIS1: Let operator be an operator of the address owner. A transfer of any amount
         of a token type from an address owner sent by an address operator MUST be
         executed as if the transfer was sent by owner. *)
@@ -348,7 +348,7 @@ the given token type between balances. *)
   (** *** Requirements *)
 
   (** A specification for the update of a single operator *)
-  Definition updateOperator_single_spec  `{ChainBase} (ctx : ContractCallContext) (prev_st next_st : Storage) (p : CIS1_updateOperator_update) : Prop :=
+  Definition updateOperator_single_spec `{ChainBase} (ctx : ContractCallContext) (prev_st next_st : Storage) (p : CIS1_updateOperator_update) : Prop :=
     match p.(cis1_ou_update_kind) with
     | cis1_ou_remove_operator =>
       let addr := p.(cis1_ou_operator_address) in
@@ -384,7 +384,7 @@ the given token type between balances. *)
          (ret_ops : list ActionBody) :=
     { updateOperator_token_ids_preserved :
         forall token_id,
-          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
+          token_id_exists prev_st token_id = token_id_exists next_st token_id;
 
       updateOperator_balances_preserved : forall addr token_id,
         get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr;
@@ -428,7 +428,7 @@ the given token type between balances. *)
 
       balanceOf_token_ids_preserved :
         forall token_id,
-          token_id_exists prev_st token_id =  token_id_exists next_st token_id;
+          token_id_exists prev_st token_id = token_id_exists next_st token_id;
 
       balanceOf_balances_preserved :
         forall token_id addr, get_balance_opt next_st token_id addr = get_balance_opt prev_st token_id addr;
@@ -461,7 +461,7 @@ Module Type CIS1ReceiveSpec (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_
   Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
 
   (** This axiom captures the intuition that a contact that implements CIS1 can handle _at least_
-      [CIS1_entry_points].  *)
+      [CIS1_entry_points]. *)
   Axiom left_inverse_get_CIS1_entry_point :
     forall `{ChainBase} (entry_point : CIS1_entry_points),
       get_CIS1_entry_point (get_contract_msg entry_point) = Some entry_point.
@@ -490,7 +490,7 @@ Module Type CIS1ReceiveSpec (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_
 
 End CIS1ReceiveSpec.
 
-(** * CIS1 properties  *)
+(** * CIS1 properties *)
 
 (** ** Operator updates *)
 
@@ -520,8 +520,8 @@ Module CIS1Operators (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
      intros ? ? ? ? ? ? ? ? H. simpl in *.
      destruct H as [st1 [Hst1 [st2 [Hst2 Heq]]]]. subst. cbn in *.
      destruct Hst1. destruct Hst2 as [H2 ?].
-     destruct (address_eqb_spec addr1 addr2);subst;auto.
-     apply H2;auto.
+     destruct (address_eqb_spec addr1 addr2); subst; auto.
+     apply H2; auto.
    Qed.
 
   Lemma compose_updateOperator_add_remove_same :
@@ -597,7 +597,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
                          end.
 
 
-  (** We sum up all the balances for a given [token_id] for a list of [owners]  *)
+  (** We sum up all the balances for a given [token_id] for a list of [owners] *)
   Definition sum_balances `{ChainBase} (st : Storage) (token_id : TokenID) (owners : list Address) :=
     fold_right (fun addr s => get_balance_default st token_id addr + s) 0 owners.
 
@@ -611,21 +611,21 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     intros Hin.
     destruct Hin as [Hin | Hbal].
     revert dependent owner.
-    -induction owners;intros owner Hin Hnodup.
+    -induction owners; intros owner Hin Hnodup.
      + inversion Hin.
-     + inversion Hin;subst;clear Hin.
+     + inversion Hin; subst; clear Hin.
        * simpl.
-         destruct (addr_eq_dec owner owner);try congruence.
-         inversion Hnodup;subst;clear Hnodup.
+         destruct (addr_eq_dec owner owner); try congruence.
+         inversion Hnodup; subst; clear Hnodup.
          now rewrite not_in_remove_same.
-       * inversion Hnodup;subst;clear Hnodup.
+       * inversion Hnodup; subst; clear Hnodup.
          simpl.
          destruct (addr_eq_dec owner a).
          ** easy.
-         ** simpl. rewrite (IHowners owner);auto;lia.
-    - rewrite Hbal;cbn.
-      induction owners; intros Hnodup;auto;inversion Hnodup;subst;clear Hnodup.
-      simpl. destruct (addr_eq_dec owner a);subst;simpl;easy.
+         ** simpl. rewrite (IHowners owner); auto; lia.
+    - rewrite Hbal; cbn.
+      induction owners; intros Hnodup; auto; inversion Hnodup; subst; clear Hnodup.
+      simpl. destruct (addr_eq_dec owner a); subst; simpl; easy.
   Qed.
 
   (* begin hide *)
@@ -635,7 +635,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     sum_balances next_st token_id addrs = sum_balances prev_st token_id addrs.
   Proof.
     intros Hbal.
-    induction addrs;simpl in *;intuition;auto.
+    induction addrs; simpl in *; intuition; auto.
   Qed.
   (* end hide *)
 
@@ -655,24 +655,24 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros Hnodup1 Hnodup2 Hiff.
     revert dependent owners2.
-    induction owners1;intros.
-    + cbn in *. destruct owners2;auto.
-      destruct (Hiff a);cbn in *;intuition.
+    induction owners1; intros.
+    + cbn in *. destruct owners2; auto.
+      destruct (Hiff a); cbn in *; intuition.
     + simpl.
-      destruct (Hiff a) as [H1 H2];cbn in *.
+      destruct (Hiff a) as [H1 H2]; cbn in *.
       specialize (H1 (or_introl eq_refl)) as HH.
-      rewrite remove_owner with (st := st) (owner := a) (owners:=owners2);auto with hints.
-      inversion Hnodup1;subst.
-      rewrite IHowners1 with (owners2 := (remove addr_eq_dec a owners2));eauto with hints.
+      rewrite remove_owner with (st := st) (owner := a) (owners := owners2); auto with hints.
+      inversion Hnodup1; subst.
+      rewrite IHowners1 with (owners2 := (remove addr_eq_dec a owners2)); eauto with hints.
       intros. split.
       * intros Hin.
-        destruct (Hiff addr) as [HH1 HH2];cbn in *.
+        destruct (Hiff addr) as [HH1 HH2]; cbn in *.
         specialize (HH1 (or_intror Hin)) as HH1.
         destruct (address_eqb_spec a addr).
         ** now subst.
         ** auto with hints.
       * intros Hin.
-        destruct (Hiff addr);cbn in *.
+        destruct (Hiff addr); cbn in *.
         destruct (address_eqb_spec a addr).
         ** assert (~ In addr (remove addr_eq_dec a owners2)).
            { intros Hin0. subst. apply (remove_In _ _ _ Hin0). }
@@ -693,7 +693,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros.
     erewrite sum_of_balances_eq by eauto.
-    apply sum_balances_extensional;auto.
+    apply sum_balances_extensional; auto.
   Qed.
 
   Lemma get_balance_opt_default `{ChainBase} next_st prev_st token_id addr :
@@ -704,14 +704,14 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     intros Hids Hopt.
     unfold get_balance_default,get_balance.
     rewrite Hids.
-    destruct (token_id_exists next_st token_id);auto.
+    destruct (token_id_exists next_st token_id); auto.
     destruct (get_balance_opt next_st token_id addr) eqn:Heq1;
-    destruct (get_balance_opt prev_st token_id addr) eqn:Heq2;auto;
-      inversion H;try congruence.
+    destruct (get_balance_opt prev_st token_id addr) eqn:Heq2; auto;
+      inversion H; try congruence.
   Qed.
 
-  (** The owners are the same in two states if the balances agree. We generalise the statement to cover the case when we ignore certain addresses given by [ignore_addrs].  *)
-  Lemma same_owners_remove_all  `{ChainBase} token_id ignore_addrs next_st prev_st :
+  (** The owners are the same in two states if the balances agree. We generalise the statement to cover the case when we ignore certain addresses given by [ignore_addrs]. *)
+  Lemma same_owners_remove_all `{ChainBase} token_id ignore_addrs next_st prev_st :
     (forall addr1, ~ In addr1 ignore_addrs ->
     get_balance_opt next_st token_id addr1 = get_balance_opt prev_st token_id addr1) ->
     (forall addr1, In addr1 (remove_all addr_eq_dec ignore_addrs (get_owners next_st token_id))
@@ -719,44 +719,44 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros H0 addr1.
     assert (Hdec : forall (a1 a2 : Address), a1 = a2 \/ a1 <> a2).
-    { intros. destruct (addr_eq_dec a1 a2);auto. }
+    { intros. destruct (addr_eq_dec a1 a2); auto. }
     split.
     + intros Hin.
-      destruct (ListDec.In_decidable Hdec addr1 ignore_addrs) as [Hin_addrs | Hnotin_addrs];subst.
+      destruct (ListDec.In_decidable Hdec addr1 ignore_addrs) as [Hin_addrs | Hnotin_addrs]; subst.
       * exfalso.
         assert (Hall : Forall (fun x =>~In x (remove_all addr_eq_dec ignore_addrs ((get_owners next_st token_id)))) ignore_addrs)
           by apply remove_all_In.
-        rewrite Forall_forall in Hall;easy.
+        rewrite Forall_forall in Hall; easy.
       * specialize (H0 _ Hnotin_addrs).
-        destruct (get_balance_opt next_st token_id addr1) eqn:Hnext;inversion Hnext.
-        ** apply remove_all_not_in_to_remove;auto. apply get_owners_balances;eauto.
-        ** apply In_remove_all in Hin;auto.
-           apply get_owners_balances in Hin;destruct Hin;congruence.
+        destruct (get_balance_opt next_st token_id addr1) eqn:Hnext; inversion Hnext.
+        ** apply remove_all_not_in_to_remove; auto. apply get_owners_balances; eauto.
+        ** apply In_remove_all in Hin; auto.
+           apply get_owners_balances in Hin; destruct Hin; congruence.
     + intros Hin.
-      destruct (ListDec.In_decidable Hdec addr1 ignore_addrs) as [Hin_addrs | Hnotin_addrs];subst.
+      destruct (ListDec.In_decidable Hdec addr1 ignore_addrs) as [Hin_addrs | Hnotin_addrs]; subst.
       * exfalso.
         assert (Hall : Forall (fun x =>~In x (remove_all addr_eq_dec ignore_addrs ((get_owners prev_st token_id)))) ignore_addrs)
           by apply remove_all_In.
-        rewrite Forall_forall in Hall;easy.
+        rewrite Forall_forall in Hall; easy.
       * specialize (H0 _ Hnotin_addrs).
-        destruct (get_balance_opt next_st token_id addr1) eqn:Hnext;inversion Hnext.
-        ** apply remove_all_not_in_to_remove;auto. apply get_owners_balances;eauto.
-        ** apply In_remove_all in Hin;auto.
-           apply get_owners_balances in Hin;destruct Hin;congruence.
+        destruct (get_balance_opt next_st token_id addr1) eqn:Hnext; inversion Hnext.
+        ** apply remove_all_not_in_to_remove; auto. apply get_owners_balances; eauto.
+        ** apply In_remove_all in Hin; auto.
+           apply get_owners_balances in Hin; destruct Hin; congruence.
   Qed.
 
   (** Any address either in the list of owners, or owns zero tokens. *)
-  Lemma in_owners_or_zero_balance_default  `{ChainBase} st token_id owner :
+  Lemma in_owners_or_zero_balance_default `{ChainBase} st token_id owner :
     In owner (get_owners st token_id) \/ get_balance_default st token_id owner = 0.
   Proof.
     assert (Hdec : forall (a1 a2 : Address), a1 = a2 \/ a1 <> a2).
-    { intros. destruct (addr_eq_dec a1 a2);auto. }
-    destruct (ListDec.In_decidable Hdec owner (get_owners st token_id)) as [Hin_addrs | Hnotin_addrs];subst;auto.
+    { intros. destruct (addr_eq_dec a1 a2); auto. }
+    destruct (ListDec.In_decidable Hdec owner (get_owners st token_id)) as [Hin_addrs | Hnotin_addrs]; subst; auto.
     right. unfold get_balance_default,get_balance.
-    destruct (token_id_exists st token_id);auto.
+    destruct (token_id_exists st token_id); auto.
     cbn.
-    destruct (get_balance_opt st token_id owner) eqn:Heq;auto.
-    assert (In owner (get_owners st token_id)) by (apply get_owners_balances;eauto).
+    destruct (get_balance_opt st token_id owner) eqn:Heq; auto.
+    assert (In owner (get_owners st token_id)) by (apply get_owners_balances; eauto).
     easy.
   Qed.
 
@@ -779,23 +779,23 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       let params := Build_CIS1_transfer_params _ transfers in
       transfer_spec ctx params prev_st next_st ops ->
       forall token_id,
-        token_id_exists prev_st token_id =  token_id_exists next_st token_id.
+        token_id_exists prev_st token_id = token_id_exists next_st token_id.
   Proof.
     revert dependent prev_st.
     revert dependent ops.
     cbn.
     induction transfers.
     - intros ops prev_st spec token_id.
-      destruct spec. cbn in *;now subst.
+      destruct spec. cbn in *; now subst.
     - intros ops prev_st spec token_id.
       destruct spec as [Htrans Hcalls]. cbn in *.
       destruct Htrans as [st [? [? [Hsingle ?]]]].
       transitivity (token_id_exists st token_id).
       * now destruct Hsingle.
       * destruct (address_is_contract (cis1_td_to a)).
-        ** inversion Hcalls;subst.
-           eapply IHtransfers;eauto with hints.
-        ** eapply IHtransfers;eauto with hints.
+        ** inversion Hcalls; subst.
+           eapply IHtransfers; eauto with hints.
+        ** eapply IHtransfers; eauto with hints.
   Qed.
 
   (** The balances of all token-address pairs NOT mentioned in the transfer batch remain unchanged
@@ -805,15 +805,15 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     transfer_spec ctx params prev_st next_st ops ->
     forall addr token_id,
       ~ In (token_id, addr) (transfer_from params) ->
-      ~ In (token_id, addr) (transfer_to params)   ->
+      ~ In (token_id, addr) (transfer_to params) ->
     get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr.
   Proof.
     revert dependent next_st.
     revert dependent prev_st.
     revert dependent ops.
     induction transfers.
-    - cbn;intros ops prev_st next_st spec addr token_id.
-      destruct spec. cbn in *;now subst.
+    - cbn; intros ops prev_st next_st spec addr token_id.
+      destruct spec. cbn in *; now subst.
     - intros ops prev_st next_st ? spec addr token_id Hfrom Hto.
       destruct spec as [Htr Hcalls].
       destruct Htr as [st [p [q [Hsingle Htrs]]]].
@@ -831,7 +831,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       + cbn in *.
         destruct (address_is_contract (cis1_td_to a));
           inversion Hcalls;
-          eapply IHtransfers;now subst;firstorder.
+          eapply IHtransfers; now subst; firstorder.
   Qed.
 
   (** If the properties of the single transfer holds (the transfer succeeds), then
@@ -868,43 +868,43 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     destruct (address_eqb_spec from to) as [Haddr | Haddr].
     + subst.
       rewrite remove_owner with (st := prev_st) (owner := to)
-         by (subst owners1;auto with hints).
+         by (subst owners1; auto with hints).
       rewrite remove_owner with (st := next_st) (owner := to)
-        by (subst owners2;auto with hints).
+        by (subst owners2; auto with hints).
       assert (HH :
                 sum_balances next_st token_id (remove addr_eq_dec to owners2) =
                 sum_balances prev_st token_id (remove addr_eq_dec to owners1)).
-      { apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
+      { apply sum_of_balances_eq_extensional; subst owners2; subst owners1; eauto with hints.
         intros addr.
-        apply same_owners_remove_all with (ignore_addrs:=[to]);intros;cbn in *;intuition;eauto.
+        apply same_owners_remove_all with (ignore_addrs := [to]); intros; cbn in *; intuition; eauto.
         intros addr Haddr. unfold is_true in *.
-        apply get_balance_opt_default;try congruence.
-        destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ Haddr).
+        apply get_balance_opt_default; try congruence.
+        destruct (address_eqb_spec addr to); subst. exfalso; apply (remove_In _ _ _ Haddr).
         eauto. }
       repeat rewrite get_balance_total_get_balance_default in Htransfer, Hself_transfer.
       specialize (Hself_transfer eq_refl).
       lia.
     + rewrite remove_owner with (st := prev_st) (owner := from)
-        by (subst owners1;auto with hints).
+        by (subst owners1; auto with hints).
       rewrite remove_owner with (st := prev_st) (owner := to)
-        by (assert (In to owners1 \/ get_balance_default prev_st token_id to = 0); subst owners1;auto with hints;intuition;auto with hints).
+        by (assert (In to owners1 \/ get_balance_default prev_st token_id to = 0); subst owners1; auto with hints; intuition; auto with hints).
       rewrite remove_owner with (st := next_st) (owner := from)
-        by (subst owners2;auto with hints).
+        by (subst owners2; auto with hints).
       rewrite remove_owner with (st := next_st) (owner := to)
         by (assert (In to owners2 \/ get_balance_default next_st token_id to = 0);
-            subst owners2;auto with hints;intuition;auto with hints).
+            subst owners2; auto with hints; intuition; auto with hints).
       specialize (Htransfer Haddr). destruct Htransfer as [Hfrom Hto].
       repeat rewrite get_balance_total_get_balance_default in Hfrom,Hto.
       rewrite Hfrom. rewrite Hto.
       assert (HH :
                 sum_balances next_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
               sum_balances prev_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
-      { apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
-        apply same_owners_remove_all with (ignore_addrs:=[to;from]);intros;cbn in *;intuition;eauto.
+      { apply sum_of_balances_eq_extensional; subst owners2; subst owners1; eauto with hints.
+        apply same_owners_remove_all with (ignore_addrs := [to; from]); intros; cbn in *; intuition; eauto.
         intros addr Haddr0. unfold is_true in *.
-        apply get_balance_opt_default;try congruence.
-        destruct (address_eqb_spec addr to);subst. exfalso;apply (remove_In _ _ _ Haddr0).
-        destruct (address_eqb_spec addr from);subst. apply In_remove in Haddr0; auto. exfalso;apply (remove_In _ _ _ Haddr0).
+        apply get_balance_opt_default; try congruence.
+        destruct (address_eqb_spec addr to); subst. exfalso; apply (remove_In _ _ _ Haddr0).
+        destruct (address_eqb_spec addr from); subst. apply In_remove in Haddr0; auto. exfalso; apply (remove_In _ _ _ Haddr0).
         eauto. }
       lia.
   Qed.
@@ -926,7 +926,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     revert dependent prev_st.
     revert dependent next_st.
     revert dependent ops.
-    induction transfers;intros ops ? next_st prev_st Htr ? ?.
+    induction transfers; intros ops ? next_st prev_st Htr ? ?.
     - cbn in *. now subst.
     - cbn in *.
       destruct Htr as [st [p [q [Hsingle Htrs]]]].
@@ -935,15 +935,15 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
         * subst. symmetry.
           now eapply transfer_single_spec_preserves_balances with (next_st := st).
         * destruct Hsingle as [? [HH [? ?]]].
-          apply sum_of_balances_eq_extensional;subst owners2;subst owners1;eauto with hints.
+          apply sum_of_balances_eq_extensional; subst owners2; subst owners1; eauto with hints.
           ** intros. repeat rewrite get_owners_balances.
              now rewrite HH.
           ** intros.
-          apply get_balance_opt_default;symmetry;auto.
+          apply get_balance_opt_default; symmetry; auto.
       + cbn in *.
         destruct (address_is_contract (cis1_td_to a));
           inversion Hcalls;
-          eapply IHtransfers;now subst;firstorder.
+          eapply IHtransfers; now subst; firstorder.
   Qed.
 
   Lemma balanceOf_preserves_sum_of_balances `{ChainBase} params prev_st next_st token_id ops
@@ -955,7 +955,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros ??.
     destruct spec as [H1 H2 H3 H4]. clear H4.
-    apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
+    apply sum_of_balances_eq_extensional; subst owners1 owners2; auto with hints.
     intros. now apply same_owners_remove_all with (ignore_addrs := []).
     intros. now apply get_balance_opt_default.
   Qed.
@@ -969,7 +969,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros ??.
     destruct spec as [H1 H2 H3].
-    apply sum_of_balances_eq_extensional;subst owners1 owners2;auto with hints.
+    apply sum_of_balances_eq_extensional; subst owners1 owners2; auto with hints.
     intros. now apply same_owners_remove_all with (ignore_addrs := []).
     intros. now apply get_balance_opt_default.
   Qed.

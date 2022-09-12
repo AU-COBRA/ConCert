@@ -42,7 +42,7 @@ Section Theories.
       ((ctx_amount ctx) <= 0)%Z.
   Proof.
     intros * receive_some.
-    unfold receive, throwIf in receive_some;cbn in receive_some.
+    unfold receive, throwIf in receive_some; cbn in receive_some.
     destruct (0 <? _)%Z eqn:amount in receive_some.
     - (* case: ctx_amount > 0 *)
       congruence.
@@ -55,7 +55,7 @@ Section Theories.
       receive chain ctx prev_state msg = Err default_error.
   Proof.
     intros * ctx_amount_positive.
-    unfold receive,throwIf;cbn.
+    unfold receive,throwIf; cbn.
     destruct (0 <? _)%Z eqn:amount.
     - (* case: ctx_amount > 0 *)
       reflexivity.
@@ -123,7 +123,7 @@ Section Theories.
     - (* from = to *)
       destruct (address_eqb_spec param.(from) param.(to)) as [<-|]; auto.
       rewrite !FMap.map_update_idemp.
-      rewrite !FMap.find_update_eq with (map:=prev_state.(tokens)).
+      rewrite !FMap.find_update_eq with (map := prev_state.(tokens)).
       destruct (FMap.find (from param) _) eqn:from_prev; cbn in *.
       + now apply maybe_sub_add in enough_balance as [[-> ->] | ->]; rewrite N.eqb_refl.
       + rewrite N.add_0_l.
@@ -131,7 +131,7 @@ Section Theories.
         now rewrite enough_balance.
     - (* from <> to *)
       destruct (address_eqb_spec param.(from) param.(to)) as [| from_to_eq]; auto.
-      rewrite !FMap.find_update_ne with (map:=prev_state.(tokens)) by auto.
+      rewrite !FMap.find_update_ne with (map := prev_state.(tokens)) by auto.
       rewrite !FMap.find_update_ne by auto.
       rewrite !FMap.find_update_eq.
       destruct (FMap.find (from param) _) eqn:from_prev; cbn;
@@ -295,7 +295,7 @@ Section Theories.
     - intros (amount_zero & enough_balance & enough_allowance).
       apply Z.ltb_ge in amount_zero.
       cbn.
-      rewrite amount_zero;cbn.
+      rewrite amount_zero; cbn.
       destruct_match eqn:receive_some;
       destruct_match eqn:allowances_eq in receive_some;
       destruct_match eqn:sender_from_eqb in allowances_eq; try congruence;
@@ -325,8 +325,8 @@ Section Theories.
       rewrite N.ltb_ge in *.
       destruct_match eqn:sender_from_eqb in *.
         destruct (address_eqb_spec ctx.(ctx_from) param.(from)) as
-          [send_from_eq | sender_from_ne];contract_simpl;try discriminate.
-      +  (* sender = from *)
+          [send_from_eq | sender_from_ne]; contract_simpl; try discriminate.
+      + (* sender = from *)
         now split.
       + (* sender <> from *)
         destruct_match eqn:enough_allowance in *; try congruence.
@@ -577,7 +577,7 @@ Section Theories.
             |apply try_get_allowance_new_acts_correct in H
             |apply try_get_balance_new_acts_correct in H
             |apply try_get_total_supply_new_acts_correct in H ];
-      subst;eauto
+      subst; eauto
     end.
 
   Ltac try_solve_preserves_state :=
@@ -586,7 +586,7 @@ Section Theories.
       first [apply try_get_allowance_preserves_state in H
             |apply try_get_balance_preserves_state in H
             |apply try_get_total_supply_preserves_state in H];
-      subst;eauto
+      subst; eauto
     end.
   (* end hide *)
 
@@ -663,7 +663,7 @@ Section Theories.
   Proof.
     intros * receive_some.
     destruct msg.
-    - destruct m;try_solve_acts_correct.
+    - destruct m; try_solve_acts_correct.
     - contract_simpl.
   Qed.
 
@@ -676,7 +676,7 @@ Section Theories.
     apply (lift_outgoing_acts_prop contract); auto.
     intros * receive_some. simpl in *.
     destruct msg.
-    - destruct m;try_solve_acts_correct.
+    - destruct m; try_solve_acts_correct.
     - contract_simpl.
   Qed.
 
@@ -806,7 +806,7 @@ Section Theories.
   Proof.
     intros * reach deployed.
     apply (lift_contract_state_prop contract);
-      intros *;simpl in *; auto; clear reach deployed bstate caddr.
+      intros *; simpl in *; auto; clear reach deployed bstate caddr.
     - intros init_some.
       unfold sum_balances.
       erewrite init_total_supply_correct, init_balances_correct; eauto.
@@ -825,7 +825,7 @@ Section Theories.
           [rewrite FMap.find_update_eq | rewrite FMap.find_update_ne by auto];
           destruct (FMap.find (from param) _) eqn:from_balance;
           destruct (FMap.find (to param) (tokens cstate)) eqn:to_balance;
-          destruct param;cbn in *;
+          destruct param; cbn in *;
             unshelve (repeat match goal with
               | H : ?x = ?y |- context [ ?x ] => rewrite H
               | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
@@ -840,7 +840,7 @@ Section Theories.
               | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
               | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((_, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
               | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
-              | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x:= (t, n)) (y := (_, m)) by lia
+              | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x := (t, n)) (y := (_, m)) by lia
               | |- context [ sumN _ ((_, 0) :: (?x, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n)) by auto
               | |- context [ sumN _ ((_, ?n) :: (?x, ?m - ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))
               | |- context [ sumN _ ((?x, ?m - ?n) :: (_, ?n) :: _) ] => erewrite <- sumN_split with (z := (x, n + m - n))
@@ -863,7 +863,7 @@ Section Theories.
               | |- context [ maybe _ ] => specialize maybe_cases as [[-> ?H] | [-> _]]
               | H : ?y <> ?x |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?y _)) ] =>
                   cbn; rewrite N.add_comm; change n with ((fun '(_, v) => v) (y, n)); rewrite sumN_inv
-            end);try easy.
+            end); try easy.
       + erewrite <- try_approve_preserves_total_supply; eauto.
         unfold sum_balances.
         erewrite <- try_approve_preserves_balances; eauto.

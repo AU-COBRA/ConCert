@@ -388,7 +388,7 @@ Definition set_contract_state
   env<|env_contract_states ::= set_chain_contract_state addr state|>.
 
 (* set_chain_contract_state updates a map (function) by returning a
-   new map (function).  If this function is immediately applied to a
+   new map (function). If this function is immediately applied to a
    key, then unfold it. *)
 Global Arguments set_chain_contract_state _ _ _ /.
 
@@ -707,11 +707,11 @@ Lemma origin_is_account acts :
   Forall act_origin_is_account acts.
 Proof.
   intros Hall.
-  induction Hall as [| a Ha];intros Hall0;auto.
-  inversion Hall0;subst.
-  constructor;auto.
+  induction Hall as [| a Ha]; intros Hall0; auto.
+  inversion Hall0; subst.
+  constructor; auto.
   specialize (address_eqb_spec (act_origin a) (act_from a)) as Haddr;
-    unfold act_origin_is_eq_from in *; destruct Haddr;easy.
+    unfold act_origin_is_eq_from in *; destruct Haddr; easy.
 Qed.
 
 
@@ -1417,7 +1417,7 @@ Lemma origin_is_always_account {bstate : ChainState} :
   Forall act_origin_is_account (chain_state_queue bstate).
 Proof.
   intros [trace].
-  remember empty_state; induction trace;subst; cbn in *; try constructor.
+  remember empty_state; induction trace; subst; cbn in *; try constructor.
   destruct_chain_step.
   - (* New block, use the fact that [act_origin] is the same as [act_from]
        and [act_from] is an account address*)
@@ -1428,7 +1428,7 @@ Proof.
       rewrite queue_prev in *;
       cbn in *;
       specialize_hypotheses;
-      inversion IHtrace;subst; try easy.
+      inversion IHtrace; subst; try easy.
     apply Forall_app. split.
     * apply All_Forall.Forall_map.
       apply Forall_forall; easy.
@@ -1763,7 +1763,7 @@ Proof.
       replace caddr with (ctx_contract_address ctx) by (subst; auto).
       replace amount with (ctx_amount ctx) by (subst; auto).
       rewrite Z.add_0_r.
-      apply init_case;auto.
+      apply init_case; auto.
     + (* Deployment of other contract, might be by this contract. *)
       specialize_hypotheses.
       destruct IH as (depinfo & cstate & inc_calls & -> & ? & -> & ?).
@@ -2085,20 +2085,21 @@ Ltac contract_induction :=
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
        cbv [P]; clear P; cycle 1; clear dependent bstate; clear dependent caddr).
 
-Global Notation "'Please' 'prove' 'your' 'facts'" := TagFacts (at level 100, only printing).
-Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'addition' 'of' 'a' 'block'"
-  := TagAddBlock (at level 100, only printing).
-Global Notation "'Please' 'establish' 'the' 'invariant' 'after' 'deployment' 'of' 'the' 'contract'"
-  := TagDeployment (at level 100, only printing).
-Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'an' 'outgoing' 'action'"
-  := TagOutgoingAct (at level 100, only printing).
-Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'nonrecursive' 'call'"
-  := TagNonrecursiveCall (at level 100, only printing).
-Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'recursive' 'call'"
-  := TagRecursiveCall (at level 100, only printing).
+Global Notation "'Please' 'prove' 'your' 'facts'" :=
+  TagFacts (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'addition' 'of' 'a' 'block'" :=
+  TagAddBlock (at level 100, only printing).
+Global Notation "'Please' 'establish' 'the' 'invariant' 'after' 'deployment' 'of' 'the' 'contract'" :=
+  TagDeployment (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'an' 'outgoing' 'action'" :=
+  TagOutgoingAct (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'nonrecursive' 'call'" :=
+  TagNonrecursiveCall (at level 100, only printing).
+Global Notation "'Please' 'reestablish' 'the' 'invariant' 'after' 'a' 'recursive' 'call'" :=
+  TagRecursiveCall (at level 100, only printing).
 Global Notation
-       "'Please' 'reestablish' 'the' 'invariant' 'after' 'permutation' 'of' 'the' 'action' 'queue'"
-  := TagPermuteQueue (at level 100, only printing).
+       "'Please' 'reestablish' 'the' 'invariant' 'after' 'permutation' 'of' 'the' 'action' 'queue'" :=
+  TagPermuteQueue (at level 100, only printing).
 
 
 Section LiftTransactionProp.

@@ -63,7 +63,7 @@ Module Crowdfunding.
             (params : msg_coq)
             (st : storage)
             : result (list SimpleActionBody_coq × storage) nat :=
-    let res :=receive params st
+    let res := receive params st
             (Time_coq c.(current_slot),
              (to_simple_ctx_addr ctx.(ctx_from),
              (ctx.(ctx_amount),
@@ -88,7 +88,7 @@ Module Crowdfunding.
           ++ nl
           ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)"
           ++ nl
-          ++ "let init_storage :  (timestamp * (tez * address)) =
+          ++ "let init_storage : (timestamp * (tez * address)) =
           (Tezos.get_now (), (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
 
       (* initial storage *)
@@ -124,7 +124,7 @@ Section CrowdfundingExtraction.
 
   Definition TT_remap_crowdfunding : list (kername * String.string) :=
 
-  [  (* types *)
+  [ (* types *)
     remap <%% address_coq %%> "address"
   ; remap <%% SimpleActionBody_coq %%> "operation"
   ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"

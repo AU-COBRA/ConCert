@@ -18,7 +18,7 @@ Import MCMonadNotation.
 
 Local Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
 Local Notation "'s_to_bs' s" := (bytestring.String.of_string s) (at level 200).
-Local Coercion bytestring.String.of_string : string  >-> bytestring.String.t.
+Local Coercion bytestring.String.of_string : string >-> bytestring.String.t.
 
 #[local]
 Instance StandardBoxes : ElmPrintConfig :=

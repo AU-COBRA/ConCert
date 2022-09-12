@@ -50,7 +50,7 @@ Section ExchangeBuggyContract.
 
   Definition Error : Type := nat.
   Definition default_error : Error := 1%nat.
-  
+
   (* begin hide *)
   MetaCoq Run (make_setters State).
   MetaCoq Run (make_setters Setup).
@@ -145,7 +145,7 @@ Section ExchangeBuggyContract.
       act_call state.(fa2_caddr) 0%Z (@serialize FA2Token.Msg _ (token_transfer_param)) in
     (* Remove exchange from ongoing exchanges in state *)
     let state := state<| ongoing_exchanges := removelast state.(ongoing_exchanges)|>
-                      <| price_history := tokens_price :: state.(price_history)   |> in
+                      <| price_history := tokens_price :: state.(price_history) |> in
       Ok (state, [asset_transfer_msg; token_transfer_msg]).
 
   Definition create_tokens (tokenid : token_id)

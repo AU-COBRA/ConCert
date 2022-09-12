@@ -106,7 +106,7 @@ Definition make_setters (T : Type) : TemplateMonad unit :=
         end;;
         create_setters B (S idx)
       | tLetIn na a A B => create_setters B idx
-      | _  => ret tt
+      | _ => ret tt
       end in
   create_setters ctor 0.
 
@@ -114,9 +114,9 @@ Module RecordSetNotations.
   Declare Scope record_set.
   Delimit Scope record_set with rs.
   Open Scope rs.
-  Notation "x <| proj  ::=  f |>" := ((_ : SetterFromGetter proj) f x)
+  Notation "x <| proj ::= f |>" := ((_ : SetterFromGetter proj) f x)
                                      (at level 12, f at next level, left associativity) : record_set.
-  Notation "x <| proj  :=  v |>" := ((_ : SetterFromGetter proj) (fun _ => v) x)
+  Notation "x <| proj := v |>" := ((_ : SetterFromGetter proj) (fun _ => v) x)
                                     (at level 12, left associativity) : record_set.
   Notation "x <| proj1 ; proj2 ; .. ; projn ::= f |>" :=
     ((_ : SetterFromGetter proj1)
