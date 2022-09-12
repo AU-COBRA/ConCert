@@ -118,6 +118,7 @@ jobs:
       run: |
         cp LICENSE extraction/tests/extracted-code/LICENSE
         cp extra/extraction-results.md extraction/tests/extracted-code/README.md
+        find extraction/tests/extracted-code -name 'placeholder' -delete
     - name: Push to the extraction results repository
       uses: cpina/github-action-push-to-another-repository@main
       env:
