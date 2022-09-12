@@ -110,7 +110,7 @@ jobs:
         mv examples/svg/* docs/graphs/
         echo "::endgroup::"
     - name: Upload Liquidity extraction logs
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Liquidity logs
         path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
