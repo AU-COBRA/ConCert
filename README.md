@@ -69,17 +69,33 @@ The [project documentation in HTML format](https://au-cobra.github.io/ConCert/to
 We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE)) and local table of contents by [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
 
 ## Papers
-- ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995). Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Journal of Functional Programming (JFP), Volume 32, 2022, e11. [DOI: 10.1017/S0956796822000077](https://doi.org/10.1017/S0956796822000077)
-- ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016). Eske Hoy Nielsen, Danil Annenkov and Bas Spitters. Preprint
-- ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf). Danil Annenkov, Mikkel Milo and Bas Spitters. ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21
-- ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf). Extended abstract. The Coq Workshop 2021. Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
-- ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138) Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. CPP'21.
-- ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf)
-  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters. Coq Workshop 2020.
-- ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674)
-  Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters. CPP 2020.
-- ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732)
-   Jakob Botsch Nielsen, Bas Spitters. 1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
+- ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995).
+  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
+  Journal of Functional Programming (JFP), Volume 32, 2022, e11. [DOI: 10.1017/S0956796822000077](https://doi.org/10.1017/S0956796822000077)
+- ["Finding Smart Contract Vulnerabilities with ConCert’s Property-Based Testing Framework"](https://arxiv.org/abs/2208.00758).
+  Mikkel Milo, Eske Hoy Nielsen, Danil Annenkov, and Bas Spitters.
+  FMBC 2022.
+- ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016).
+  Eske Hoy Nielsen, Danil Annenkov and Bas Spitters.
+  Preprint.
+- ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf).
+  Danil Annenkov, Mikkel Milo and Bas Spitters.
+  ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21.
+- ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf).
+  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
+  Extended abstract. The Coq Workshop 2021.
+- ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138).
+  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
+  CPP'21.
+- ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf).
+  Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
+  Coq Workshop 2020.
+- ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674).
+  Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters.
+  CPP 2020.
+- ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732).
+   Jakob Botsch Nielsen, Bas Spitters.
+   1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
 
 ## Videos
 A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
