@@ -49,7 +49,7 @@ The [embedding](embedding/) folder contains the development of the verified embe
 The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [test](execution/test) folder contains the property-based testing framework. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/test/TraceGens.v). The testing framework was developed as part of a Master's Thesis at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
 
-The [typed-extraction](typed-extraction/) submodule contains an implementation of the extraction pipeline based on MetaCoq's **verified erasure** extended with an erasure procedure for types.
+The [typed-extraction](https://github.com/AU-COBRA/typed-extraction) submodule contains an implementation of the extraction pipeline based on MetaCoq's **verified erasure** extended with an erasure procedure for types.
 It also features *certifying*(proof-generating) pre-processing steps and verified dead argument elimination.
 
 The [extraction](extraction/) folder contains extraction pipeline for smart contract languages.
@@ -57,7 +57,7 @@ Currently, we support smart contract languages Liquidity and CameLIGO, and gener
 Pretty-printers to these languages are implemented directly in Coq.
 One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard extraction of Coq (currently, it is possible for extraction to Rust).
 
-The [examples](examples/) folder contains examples of smart-contract implementations, embedding, extraction and tests.
+The [examples](examples/) folder contains examples of smart-contract implementations, embedding, extraction and tests. Extracted smart-contracts can be found [here](https://github.com/AU-COBRA/extraction-resutls).
 
 ## Notes for developers
 
