@@ -91,7 +91,6 @@ clean-compiled-concordium:
 .PHONY: clean-compiled-concordium
 
 clean-compiled-rust:
-	rm -f -r $(RUST_DIR)/concert-std/target
 	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-rust
 
@@ -101,7 +100,7 @@ clean-compiled-elm:
 	rm -f -r $(ELM_DIR)/elm-stuff
 .PHONY: clean-comliped-elm
 
-clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
+clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-rust clean-compiled-concordium
 .PHONY: clean-compiled-extraction
 
 clean-extraction-out-files:
