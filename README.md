@@ -5,7 +5,10 @@
 A framework for smart contract verification in Coq.
 
 See the [Papers](#papers) for details on the development.
-ConCert is able to find real world attacks as explained [here](https://medium.com/blockchain-academy-network/finding-real-world-bugs-in-smart-contract-interactions-with-property-based-testing-9eb59b117785) and [here](https://medium.com/blockchain-academy-network/preventing-an-8m-attack-on-ethereums-bzx-defi-platform-with-property-based-testing-12234d9479b7).
+ConCert is able to find real world attacks as explained
+[here](https://medium.com/blockchain-academy-network/finding-real-world-bugs-in-smart-contract-interactions-with-property-based-testing-9eb59b117785),
+[here](https://medium.com/blockchain-academy-network/preventing-an-8m-attack-on-ethereums-bzx-defi-platform-with-property-based-testing-12234d9479b7) and
+[here](https://medium.com/@bawspitters/using-formal-methods-to-prevent-creating-money-out-of-thin-air-5f30057fe3d3).
 
 ## How to build
 
