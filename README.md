@@ -1,4 +1,6 @@
 # ConCert
+[![Build](https://github.com/AU-COBRA/ConCert/actions/workflows/build.yml/badge.svg)](https://github.com/AU-COBRA/ConCert/actions/workflows/build.yml)
+![GitHub](https://img.shields.io/github/license/AU-COBRA/ConCert)
 
 A framework for smart contract verification in Coq.
 
