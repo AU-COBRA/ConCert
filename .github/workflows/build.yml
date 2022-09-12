@@ -121,7 +121,7 @@ jobs:
       with:
         source-directory: 'extraction/tests/extracted-code'
         destination-github-username: 'AU-COBRA'
-        destination-repository-name: 'extraction-resutls'
+        destination-repository-name: 'extraction-results'
         user-email: danil.v.annenkov@gmail.com
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
