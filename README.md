@@ -77,30 +77,102 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 - ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995).
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
   Journal of Functional Programming (JFP), Volume 32, 2022, e11. [DOI: 10.1017/S0956796822000077](https://doi.org/10.1017/S0956796822000077)
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    @article{annenkov_milo_nielsen_spitters_2022,
+      author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
+      title={{Extracting functional programs from Coq, in Coq}},
+      volume={32},
+      DOI={10.1017/S0956796822000077},
+      journal={Journal of Functional Programming},
+      publisher={Cambridge University Press},
+      year={2022},
+      pages={e11}
+    }
+    ```
+  </details>
 - ["Finding Smart Contract Vulnerabilities with ConCert’s Property-Based Testing Framework"](https://arxiv.org/abs/2208.00758).
   Mikkel Milo, Eske Hoy Nielsen, Danil Annenkov, and Bas Spitters.
   FMBC 2022.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016).
   Eske Hoy Nielsen, Danil Annenkov and Bas Spitters.
   Preprint.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf).
   Danil Annenkov, Mikkel Milo and Bas Spitters.
   ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf).
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, and Bas Spitters.
   Extended abstract. The Coq Workshop 2021.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138).
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
   CPP'21.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf).
   Danil Annenkov, Mikkel Milo, Jakob Botsch Nielsen, Bas Spitters.
   Coq Workshop 2020.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674).
   Danil Annenkov, Jakob Botsch Nielsen, Bas Spitters.
   CPP 2020.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 - ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732).
    Jakob Botsch Nielsen, Bas Spitters.
    1st Workshop on Formal Methods for Blockchains, 3rd Formal Methods World Congress, October 2019.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    ```
+    TODO
+    ```
+  </details>
 
 ## Videos
 A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
