@@ -35,7 +35,7 @@ all: theory process-extraction-examples
 # Do not forward these files
 Makefile _CoqProject: ;
 
-process-extraction-examples: theory
+process-extraction-examples: theory plugin
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
