@@ -80,6 +80,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+    
     ```
     @article{annenkov_milo_nielsen_spitters_2022,
       author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
@@ -96,31 +97,24 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 - ["Finding Smart Contract Vulnerabilities with ConCert’s Property-Based Testing Framework"](https://arxiv.org/abs/2208.00758).
   Mikkel Milo, Eske Hoy Nielsen, Danil Annenkov, and Bas Spitters.
   FMBC 2022.
-  <br>
-  <details>
-    <summary>Cite paper</summary>
-    ```
-    TODO
-    ```
-  </details>
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016).
   Eske Hoy Nielsen, Danil Annenkov and Bas Spitters.
   Preprint.
-  <br>
-  <details>
-    <summary>Cite paper</summary>
-    ```
-    TODO
-    ```
-  </details>
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf).
   Danil Annenkov, Mikkel Milo and Bas Spitters.
   ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21.
   <br>
   <details>
     <summary>Cite paper</summary>
+
     ```
-    TODO
+    @article{annenkovcode,
+      title={Code Extraction from Coq to ML-like languages},
+      author={Annenkov, Danil and Milo, Mikkel and Spitters, Bas},
+      year = {2021},
+      url = {https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages},
+      location = {ML’21 at ICFP’21,}
+    }
     ```
   </details>
 - ["Extending MetaCoq Erasure: Extraction to Rust and Elm"](https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf).
@@ -129,8 +123,15 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+
     ```
-    TODO
+    @article{annenkovextending,
+      title={Extending MetaCoq Erasure: Extraction to Rust and Elm},
+      author={Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
+      year = {2021},
+      url = {https://dannenkov.me/papers/extraction-rust-elm-coq-workshop2021.pdf},
+      location = {Coq Workshop 2021}
+    }
     ```
   </details>
 - ["Extracting Smart Contracts Tested and Verified in Coq"](https://arxiv.org/abs/2012.09138).
@@ -139,8 +140,21 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+
     ```
-    TODO
+    @inproceedings{ConCert-extraction-testing,
+      author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
+      title = {Extracting Smart Contracts Tested and Verified in Coq},
+      year = {2021},
+      isbn = {9781450382991},
+      publisher = {Association for Computing Machinery},
+      url = {https://doi.org/10.1145/3437992.3439934},
+      doi = {10.1145/3437992.3439934},
+      pages = {105–121},
+      numpages = {17},
+      location = {Virtual, Denmark},
+      series = {CPP 2021}
+    }
     ```
   </details>
 - ["Verifying, testing and running smart contracts in ConCert"](https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf).
@@ -149,8 +163,15 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+
     ```
-    TODO
+    @article{annenkovverifying,
+      title={Verifying, testing and running smart contracts in ConCert},
+      author={Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
+      year = {2020},
+      url = {https://cs.au.dk/fileadmin/site_files/cs/AA_pdf/COBRA_Paper_-_Verifying__testing_and_running_smart_contracts_in_ConCert.pdf},
+      location = {Coq Workshop 2020}
+    }
     ```
   </details>
 - ["ConCert: A Smart Contract Certification Framework in Coq"](https://arxiv.org/abs/1907.10674).
@@ -159,8 +180,19 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+
     ```
-    TODO
+    @article{ConCert,
+      title={ConCert: a smart contract certification framework in Coq},
+      ISBN={9781450370974},
+      url={https://dx.doi.org/10.1145/3372885.3373829},
+      DOI={10.1145/3372885.3373829},
+      journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
+      publisher={ACM},
+      author={Annenkov, Danil and Nielsen, Jakob Botsch and Spitters, Bas},
+      year={2020},
+      month={Jan}
+    }
     ```
   </details>
 - ["Smart Contract Interactions in Coq"](https://arxiv.org/abs/1911.04732).
@@ -169,8 +201,19 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
+    
     ```
-    TODO
+    @inproceedings{smart-contract-interactions,
+      author    = {Jakob Botsch Nielsen and
+                  Bas Spitters},
+      title     = {Smart Contract Interactions in Coq},
+      booktitle = {{FM} Workshops {(1)}},
+      series    = {Lecture Notes in Computer Science},
+      volume    = {12232},
+      pages     = {380--391},
+      publisher = {Springer},
+      year      = {2019}
+    }
     ```
   </details>
 
@@ -178,6 +221,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 A video collection, presenting various parts of ConCert can be found on [Youtube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
 
 ### Citing the papers
+
 ```
 @article{annenkov_milo_nielsen_spitters_2022,
    author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
