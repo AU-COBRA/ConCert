@@ -69,13 +69,15 @@ do
     cat $CONCORDIUM_PATH/${f}.rs.out $CONCORDIUM_PATH/${f}-${CONCORDIUM_TESTS} > ${fname}
 done
 
+RUST_SUFFIX_PATH=extracted/src/
 RUST_SUFFIX=extracted/src/main.rs
 
 rust_examples="BernsteinYangTermination Ack Even"
 echo "Processing Rust extraction"
 for f in ${rust_examples}
 do
-    if [[ ! -e "$CONCORDIUM_PATH/${f}.rs.out" ]]; then continue; fi
+    if [[ ! -e "$RUST_PATH/${f}.rs.out" ]]; then continue; fi
+    mkdir -p $RUST_PATH/${f}-${RUST_SUFFIX_PATH}
     src_rust_fname=$RUST_PATH/${f}.rs.out
     tgt_rust_fname=$RUST_PATH/${f}-${RUST_SUFFIX}
     main_rust_name=$RUST_PATH/${f}.main
