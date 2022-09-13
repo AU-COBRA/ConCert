@@ -119,6 +119,7 @@ jobs:
         cp LICENSE extraction/tests/extracted-code/LICENSE
         cp extra/extraction-results.md extraction/tests/extracted-code/README.md
         find extraction/tests/extracted-code -name 'placeholder' -delete
+        find extraction/tests/extracted-code/rust-extract -name '*.main' -delete
     - name: Upload extraction results
       uses: actions/upload-artifact@v3
       with:
