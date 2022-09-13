@@ -115,17 +115,15 @@ jobs:
         name: Liquidity logs
         path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
     - name: Prepare extraction results
+      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
       run: |
         cp LICENSE extraction/tests/extracted-code/LICENSE
         cp extra/extraction-results.md extraction/tests/extracted-code/README.md
         find extraction/tests/extracted-code -name 'placeholder' -delete
         find extraction/tests/extracted-code/rust-extract -name '*.main' -delete
-    - name: Upload extraction results
-      uses: actions/upload-artifact@v3
-      with:
-        name: extraction-results
-        path: extraction/tests/extracted-code/
     - name: Push to the extraction results repository
+      # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
+      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
       uses: cpina/github-action-push-to-another-repository@main
       env:
         SSH_DEPLOY_KEY: ${{ secrets.EXTRACTION_RESULTS_DEPLOY_KEY }}
@@ -136,8 +134,6 @@ jobs:
         user-email: danil.v.annenkov@gmail.com
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: main
-      # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
-      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v2
