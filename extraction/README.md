@@ -33,7 +33,7 @@ Compiling Rust code with the Concordium infrastructure:
 ## Extraction results
 
 As part of the CI, the extraction results from the `tests/extracted-code/*-extract/` directories are compiled (and tested, for the targets with tests).
-Moreover, the extracted source code is pushed to another repository https://github.com/AU-COBRA/extraction-resutls, so one can always browse through the code produced by the last successful build.
+Moreover, the extracted source code is pushed to another repository https://github.com/AU-COBRA/extraction-results, so one can always browse through the code produced by the last successful build.
 
 Some highlights from [theories](theories/):
 

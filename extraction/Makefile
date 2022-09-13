@@ -35,7 +35,7 @@ all: theory process-extraction-examples
 # Do not forward these files
 Makefile _CoqProject: ;
 
-process-extraction-examples: theory
+process-extraction-examples: theory plugin
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
@@ -50,6 +50,7 @@ LIGOFILES=$(wildcard $(LIGO_SRC_DIR)/*.mligo)
 LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
 
 CONCORDIUM_DIR=./tests/extracted-code/concordium-extract
+MIDLANG_DIR=./tests/extracted-code/midlang-extract
 
 RUST_DIR=./tests/extracted-code/rust-extract
 
@@ -65,6 +66,7 @@ test-rust: clean-compiled-rust
 	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), cd $(dir) && cargo run && cd ../../../..;)
 
 test-elm:
+	mkdir -p $(ELM_DIR)/src
 	cd $(ELM_DIR); elm-test
 	cd $(ELM_WEB_APP_DIR); elm make src/Main.elm
 
@@ -72,7 +74,6 @@ test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
 
 $(LIQUIDITY_SRC_DIR)/%.tz:
 	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@ 2>> $(LIQUIDITY_DIR)/liquidity.log
-
 
 test-ligo: clean-comiped-ligo $(LIGO_DIST)
 
@@ -91,7 +92,6 @@ clean-compiled-concordium:
 .PHONY: clean-compiled-concordium
 
 clean-compiled-rust:
-	rm -f -r $(RUST_DIR)/concert-std/target
 	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-rust
 
@@ -101,7 +101,7 @@ clean-compiled-elm:
 	rm -f -r $(ELM_DIR)/elm-stuff
 .PHONY: clean-comliped-elm
 
-clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
+clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-rust clean-compiled-concordium
 .PHONY: clean-compiled-extraction
 
 clean-extraction-out-files:
@@ -110,6 +110,7 @@ clean-extraction-out-files:
 	rm -f $(LIQUIDITY_DIR)/*.liq.out
 	rm -f $(LIGO_DIR)/*.mligo.out
 	rm -f $(CONCORDIUM_DIR)/*.rs.out
+	rm -f $(MIDLANG_DIR)/*.midlang.out
 	rm -f $(RUST_DIR)/*.rs.out
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/*.rs.out;)
 

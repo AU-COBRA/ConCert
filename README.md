@@ -60,7 +60,7 @@ Currently, we support smart contract languages Liquidity and CameLIGO, and gener
 Pretty-printers to these languages are implemented directly in Coq.
 One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard extraction of Coq (currently, it is possible for extraction to Rust).
 
-The [examples](examples/) folder contains examples of smart contract implementations, embedding, extraction, and tests. Extracted smart contracts can be found [here](https://github.com/AU-COBRA/extraction-resutls).
+The [examples](examples/) folder contains examples of smart contract implementations, embedding, extraction, and tests. Extracted smart contracts can be found [here](https://github.com/AU-COBRA/extraction-results).
 
 ## Notes for developers
 
