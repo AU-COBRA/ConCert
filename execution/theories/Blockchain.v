@@ -1,62 +1,60 @@
-(* This file defines blockchains, both a contract's view (which is
+(** This file defines blockchains, both a contract's view (which is
 more computational) and the semantics of executing smart contracts
 in a blockchain.
 
 The most important types are:
 
-* The ChainBase type, describing basic assumptions made of any blockchain.
-In most cases we will abstract over this type.
+- The [ChainBase] type describes basic assumptions made of any blockchain.
+  In most cases, we will abstract over this type.
 
-* The Chain type, describing a smart contract's view of the blockchain.
-This is the the data that can be accessed by smart contracts.
+- The [Chain] type describes a smart contract's view of the blockchain.
+  This is the data that can be accessed by smart contracts.
 
-* The Action type, describing how smart contracts (and external users)
-interact with the blockchain. We allow transfers, calls and deployment
-of contracts.
+- The [Action] type describes how smart contracts (and external users)
+  interact with the blockchain. We allow transfers, calls and deployment
+  of contracts.
 
-* The WeakContract type, describing a "weak" or "stringly" typed
-version of smart contracts. Contracts are just two functions init and
-receive to respectively initialize state on deployment and to update
-state when receiving messages. The weak version of contracts means that
-the state/message/setup types, which would normally vary with contracts,
-are stored in a serialized format.
+- The [WeakContract] type describes a "weak" or "stringly" typed
+  version of smart contracts. Contracts are just two functions init and
+  receive to respectively initialize state on deployment and update
+  state when receiving messages. The weak version of contracts means that
+  the state/message/setup types, which would normally vary with contracts,
+  are stored in a serialized format.
 
-* The Contract type, describing a more strongly typed version of a contract.
-This is the same as the above except we abstract over the appropriate types.
-Users of the framework will mostly need to deal with this.
+- The [Contract] type describes a more strongly typed version of a contract.
+  This is the same as the above except we abstract over the appropriate types.
+  Users of the framework will mostly need to deal with this.
 
 The next types deal with semantics.
 
-* The Environment type. This augments the Chain type with more information.
-Environment can be thought of as the information that a realistic blockchain
-implementation would need to keep track of to implement operations. For instance,
-it is reasonable to assume that an implementation needs to access the state of
-contracts, but not to assume that it needs to store the full transaction history
-of all addresses.
+- The [Environment] type augments the Chain type with more information.
+  [Environment] can be thought of as the information that a realistic blockchain
+  implementation would need to keep track of to implement operations. For instance,
+  it is reasonable to assume that an implementation needs to access the state of
+  contracts, but not to assume that it needs to store the full transaction history
+  of all addresses.
 
-* The ActionEvaluation type. This specifies how to evaluate actions returned by
-contracts or input in blocks. This related an environment and action to a new
-environment and list of new actions to execute.
+- The [ActionEvaluation] type. This specifies how to evaluate actions returned by
+  contracts or input in blocks. This related an environment and action to a new
+  environment and a list of new actions to execute.
 
-* The ChainState type. This augments the Environment type with a queue of
-"outstanding" actions that need to be executed. For instance, when a block is
-added, its actions are put into this queue.
+- The [ChainState] type. This augments the [Environment] type with a queue of
+  "outstanding" actions that need to be executed. For instance, when a block is
+  added, its actions are put into this queue.
 
-* The ChainStep type. This specifies how the blockchain should execute smart
-contracts, and how new blocks are added. It relates a ChainState to a new ChainState.
-There are steps to allow adding blocks, evaluating actions in the queue and to
-permute the queue (allowing to model any execution order).
+- The [ChainStep] type. This specifies how the blockchain should execute smart
+  contracts, and how new blocks are added. It relates a [ChainState] to a new [ChainState].
+  There are steps to allow adding blocks, evaluating actions in the queue and to
+  permute the queue (allowing to model any execution order).
 
-* The ChainTrace type. This just represents a sequence of steps. If a trace ends
-in a state it means that state is reachable and there is a "semantically correct"
-way of executing to get to this state. This type records the full history of a
-blockchain's execution and it would thus be unrealistic to extract.
+- The [ChainTrace] type. This just represents a sequence of steps. If a trace ends
+  in a state it means that state is [reachable] and there is a "semantically correct"
+  way of executing to get to this state. This type records the full history of a
+  blockchain's execution and it would thus be unrealistic to extract.
 
-* The ChainBuilderType type. This is a typeclass for implementations of blockchains,
-where these implementations need to prove that they satisfy our semantics.
-
+- The [ChainBuilderType] type. This is a typeclass for implementations of blockchains,
+  where these implementations need to prove that they satisfy our semantics.
 *)
-
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
@@ -90,7 +88,8 @@ Class ChainBase :=
   }.
 
 Global Opaque Address address_eqb address_eqb_spec
-       address_eqdec address_countable address_serializable.
+              address_eqdec address_countable
+              address_serializable.
 
 Declare Scope address_scope.
 Delimit Scope address_scope with address.
@@ -126,7 +125,7 @@ Global Ltac destruct_address_eq :=
 Section Blockchain.
 Context {Base : ChainBase}.
 
-(* This represents the view of the blockchain that a contract
+(** This represents the view of the blockchain that a contract
 can access and interact with. *)
 Record Chain :=
   build_chain {
@@ -137,24 +136,25 @@ Record Chain :=
 
 Record ContractCallContext :=
   build_ctx {
-    (* Address that initiated the transaction (never a contract) *)
+    (** Address that initiated the transaction (never a contract) *)
     ctx_origin : Address;
-    (* Address of the immediate account that sent the call (can be a contract or a user account) *)
+    (** Address of the immediate account that sent 
+        the call (can be a contract or a user account) *)
     ctx_from : Address;
-    (* Address of the contract being called *)
+    (** Address of the contract being called *)
     ctx_contract_address : Address;
-    (* Balance of the contract being called *)
+    (** Balance of the contract being called *)
     ctx_contract_balance : Amount;
-    (* Amount of currency passed in call *)
+    (** Amount of currency passed in call *)
     ctx_amount : Amount;
   }.
 
-(* Operations that a contract can return or that a user can use
+(** Operations that a contract can return or that a user can use
 to interact with a chain. *)
 Inductive ActionBody :=
-  | act_transfer (to : Address) (amount : Amount)
-  | act_call (to : Address) (amount : Amount) (msg : SerializedValue)
-  | act_deploy (amount : Amount) (c : WeakContract) (setup : SerializedValue)
+| act_transfer (to : Address) (amount : Amount)
+| act_call (to : Address) (amount : Amount) (msg : SerializedValue)
+| act_deploy (amount : Amount) (c : WeakContract) (setup : SerializedValue)
 with WeakContract :=
      | build_weak_contract
          (init :
@@ -189,9 +189,10 @@ Record Action :=
     act_body : ActionBody;
   }.
 
-Definition act_amount (a : Action) := act_body_amount (act_body a).
+Definition act_amount (a : Action) :=
+  act_body_amount (act_body a).
 
-(* Represents a strongly-typed contract. This is what user's will primarily
+(** Represents a strongly-typed contract. This is what user's will primarily
 use and interact with when they want deployment. We keep the weak contract
 only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
@@ -221,7 +222,8 @@ Global Arguments init {_ _ _ _ _ _ _ _}.
 Global Arguments receive {_ _ _ _ _ _ _ _}.
 Global Arguments build_contract {_ _ _ _ _ _ _ _}.
 
-Definition deser_error := serialize "Deserialization failed"%string.
+Definition deser_error :=
+  serialize "Deserialization failed"%string.
 Definition error_to_weak_error {T E : Type}
                               `{Serializable E}
                                (r : result T E)
@@ -234,7 +236,8 @@ Definition contract_to_weak_contract
          `{Serializable Msg}
          `{Serializable State}
          `{Serializable Error}
-          (c : Contract Setup Msg State Error) : WeakContract :=
+          (c : Contract Setup Msg State Error)
+          : WeakContract :=
       let weak_init chain ctx ser_setup :=
           do setup <- result_of_option (deserialize ser_setup) deser_error;
           do state <- error_to_weak_error (c.(init) chain ctx setup);
@@ -254,7 +257,7 @@ Definition contract_to_weak_contract
 
 Coercion contract_to_weak_contract : Contract >-> WeakContract.
 
-(* Deploy a strongly typed contract with some amount and setup *)
+(** Deploy a strongly typed contract with some amount and setup *)
 Definition create_deployment
           {Setup Msg State Error : Type}
          `{Serializable Setup}
@@ -266,23 +269,25 @@ Definition create_deployment
           (setup : Setup) : ActionBody :=
   act_deploy amount contract (serialize setup).
 
-(* The contract interface is the main mechanism allowing a deployed
+(** The contract interface is the main mechanism allowing a deployed
 contract to interact with another deployed contract. This hides
 the ugly details of everything being SerializedValue away from contracts. *)
 Record ContractInterface {Msg : Type} :=
   build_contract_interface {
-    (* The address of the contract being interfaced with *)
+    (** The address of the contract being interfaced with *)
     contract_address : Address;
-    (* Make an action sending money and optionally a message to the contract *)
+    (** Make an action sending money and optionally a message to the contract *)
     send : Amount -> option Msg -> ActionBody;
   }.
 
 Global Arguments ContractInterface _ : clear implicits.
 
 Definition get_contract_interface
-          (chain : Chain) (addr : Address)
-          (Msg : Type) `{Serializable Msg}
-  : option (ContractInterface Msg) :=
+           (chain : Chain)
+           (addr : Address)
+           (Msg : Type)
+           `{Serializable Msg}
+           : option (ContractInterface Msg) :=
   let ifc_send amount msg :=
       match msg with
       | None => act_transfer addr amount
@@ -293,8 +298,11 @@ Definition get_contract_interface
 Section Semantics.
 MetaCoq Run (make_setters Chain).
 
-Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amount) :
-  Address -> Amount :=
+Definition add_balance
+           (addr : Address)
+           (amount : Amount)
+           (map : Address -> Amount)
+           : Address -> Amount :=
   fun a => if (a =? addr)%address
            then (amount + map a)%Z
            else map a.
@@ -302,9 +310,10 @@ Definition add_balance (addr : Address) (amount : Amount) (map : Address -> Amou
 Global Arguments add_balance _ _ _ /.
 
 Definition set_chain_contract_state
-           (addr : Address) (state : SerializedValue)
+           (addr : Address)
+           (state : SerializedValue)
            (map : Address -> option SerializedValue)
-  : Address -> option SerializedValue :=
+           : Address -> option SerializedValue :=
   fun a => if (a =? addr)%address
            then Some state
            else map a.
@@ -317,19 +326,25 @@ Record Environment :=
     env_contract_states : Address -> option SerializedValue;
   }.
 
-(* Two environments are equivalent if they are extensionally equal *)
+(** Two environments are equivalent if they are extensionally equal *)
 Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
   build_env_equiv {
     chain_eq : env_chain e1 = env_chain e2;
-    account_balances_eq : forall a, env_account_balances e1 a = env_account_balances e2 a;
-    contracts_eq : forall a, env_contracts e1 a = env_contracts e2 a;
-    contract_states_eq : forall addr, env_contract_states e1 addr = env_contract_states e2 addr;
+    account_balances_eq :
+      forall a, env_account_balances e1 a = env_account_balances e2 a;
+    contracts_eq :
+      forall a, env_contracts e1 a = env_contracts e2 a;
+    contract_states_eq :
+      forall addr, env_contract_states e1 addr = env_contract_states e2 addr;
   }.
 
-(* Strongly typed version of contract state *)
+(** Strongly typed version of contract state *)
 Definition contract_state
-           {A : Type} `{Serializable A}
-           (env : Environment) (addr : Address) : option A :=
+           {A : Type}
+           `{Serializable A}
+           (env : Environment)
+           (addr : Address)
+           : option A :=
   env_contract_states env addr >>= deserialize.
 
 Global Program Instance environment_equiv_equivalence : Equivalence EnvironmentEquiv.

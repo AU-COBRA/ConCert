@@ -14,7 +14,7 @@ Definition env (A : Type) := list (string * A).
 Fixpoint lookup {A} (ρ : env A) (key : string) : option A :=
   match ρ with
   | [] => None
-  | (nm,a) :: ρ' =>
+  | (nm, a) :: ρ' =>
     if (eqb nm key)
     then Some a
     else lookup ρ' key
@@ -27,10 +27,10 @@ Fixpoint lookup_with_ind_rec {A}
                              : option (nat * A) :=
   match ρ with
   | [] => None
-  | (nm,a) :: ρ' =>
+  | (nm, a) :: ρ' =>
     if (eqb nm key)
-    then Some (i,a)
-    else lookup_with_ind_rec (1+i) ρ' key
+    then Some (i, a)
+    else lookup_with_ind_rec (1 + i) ρ' key
   end.
 
 Definition lookup_with_ind {A} (ρ : env A) (key : string) : option (nat * A) :=
@@ -41,10 +41,10 @@ Definition lookup_with_ind {A} (ρ : env A) (key : string) : option (nat * A) :=
 Fixpoint lookup_i {A} (ρ : env A) (i : nat) : option A :=
   match ρ with
   | [] => None
-  | (nm,a) :: ρ' =>
+  | (nm, a) :: ρ' =>
     if (Nat.eqb i 0)
     then Some a
-    else lookup_i ρ' (i-1)
+    else lookup_i ρ' (i - 1)
   end.
 
 (** A value environment lookup: *)
@@ -55,10 +55,10 @@ Notation "ρ # [ k ~> v ]" := ((k,v) :: ρ) (at level 50).
 Fixpoint remove_by_key {A} (key : string) (ρ : env A) : env A :=
   match ρ with
   | [] => []
-  | (nm,a) :: ρ' =>
+  | (nm, a) :: ρ' =>
     if (eqb nm key)
     then remove_by_key key ρ'
-    else (nm,a) :: (remove_by_key key ρ')
+    else (nm, a) :: (remove_by_key key ρ')
   end.
 
 Lemma lookup_i_length {A} (ρ : env A) n :
@@ -71,7 +71,7 @@ Proof.
   + simpl; eauto.
   + simpl.
     assert (n < length ρ) by lia.
-    replace (n-0) with n by lia.
+    replace (n - 0) with n by lia.
     apply IHρ.
     now propify.
 Qed.
@@ -86,7 +86,7 @@ Proof.
     inversion H.
   + simpl.
     assert (length ρ <= n) by lia.
-    replace (n-0) with n by lia.
+    replace (n - 0) with n by lia.
     rewrite <- PeanoNat.Nat.ltb_ge in *.
     now apply IHρ.
 Qed.

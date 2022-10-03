@@ -10,7 +10,8 @@ Global Unset Asymmetric Patterns.
 
 Import MCMonadNotation.
 
-Class SetterFromGetter {A B} (a : A -> B) := setter_from_getter : (B -> B) -> A -> A.
+Class SetterFromGetter {A B} (a : A -> B) :=
+  setter_from_getter : (B -> B) -> A -> A.
 
 Definition aRelevant (na : name) : aname :=
   {| binder_name := na; binder_relevance := Relevant |}.
@@ -115,9 +116,9 @@ Module RecordSetNotations.
   Delimit Scope record_set with rs.
   Open Scope rs.
   Notation "x <| proj ::= f |>" := ((_ : SetterFromGetter proj) f x)
-                                     (at level 12, f at next level, left associativity) : record_set.
+                                   (at level 12, f at next level, left associativity) : record_set.
   Notation "x <| proj := v |>" := ((_ : SetterFromGetter proj) (fun _ => v) x)
-                                    (at level 12, left associativity) : record_set.
+                                  (at level 12, left associativity) : record_set.
   Notation "x <| proj1 ; proj2 ; .. ; projn ::= f |>" :=
     ((_ : SetterFromGetter proj1)
        ((_ : SetterFromGetter proj2) .. ((_ : SetterFromGetter projn) f) ..) x)
