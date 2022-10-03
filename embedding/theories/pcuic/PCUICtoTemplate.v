@@ -39,10 +39,10 @@ Definition trans_universes_decl (ud : universes_decl) : universes_entry :=
   | Polymorphic_ctx (ln, cst) => Polymorphic_entry (AUContext.repr (ln,cst))
   end.
 
-Definition trans_minductive_entry (e : P.mutual_inductive_entry) :  TC.mutual_inductive_entry :=
+Definition trans_minductive_entry (e : P.mutual_inductive_entry) : TC.mutual_inductive_entry :=
   {| TC.mind_entry_record := e.(P.mind_entry_record);
      TC.mind_entry_finite := e.(P.mind_entry_finite);
-     TC.mind_entry_params := List.map trans_local_entry  e.(P.mind_entry_params);
+     TC.mind_entry_params := List.map trans_local_entry e.(P.mind_entry_params);
      TC.mind_entry_inds := List.map trans_one_ind_entry e.(P.mind_entry_inds);
      TC.mind_entry_universes := trans_universes_decl e.(P.mind_entry_universes);
      TC.mind_entry_variance := None;

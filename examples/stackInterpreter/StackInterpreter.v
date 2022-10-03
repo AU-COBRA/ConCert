@@ -14,7 +14,7 @@ Section StackInterpreter.
 
   Definition map_key_type := string * Z.
 
-  Inductive op : Set :=  Add | Sub | Mult | Lt | Le | Equal.
+  Inductive op : Set := Add | Sub | Mult | Lt | Le | Equal.
 
   Inductive instruction :=
   | IPushZ : Z -> instruction

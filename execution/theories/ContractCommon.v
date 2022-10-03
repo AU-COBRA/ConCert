@@ -9,7 +9,7 @@ From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith_base.
 
-(** A type of  finite maps (dictionaries) with addresses as keys.
+(** A type of finite maps (dictionaries) with addresses as keys.
 Basically, it's just a specilisation of [FMap] to [Address] as keys.
 This definitions is more extraction-friendly. *)
 
@@ -22,19 +22,19 @@ Module AddressMap.
   Definition find `{ChainBase} {V : Type} (addr : Address) (m : AddrMap V) : option V :=
     FMap.find addr m.
 
-  Definition add  `{ChainBase} {V : Type} (addr : Address) (val : V) (m : AddrMap V) : AddrMap V :=
+  Definition add `{ChainBase} {V : Type} (addr : Address) (val : V) (m : AddrMap V) : AddrMap V :=
     FMap.add addr val m.
 
-  Definition values  `{ChainBase} {V : Type} (m : AddrMap V) : list V :=
+  Definition values `{ChainBase} {V : Type} (m : AddrMap V) : list V :=
     FMap.values m.
 
-  Definition keys  `{ChainBase} {V : Type} (m : AddrMap V) : list Address :=
+  Definition keys `{ChainBase} {V : Type} (m : AddrMap V) : list Address :=
     FMap.keys m.
 
-  Definition of_list  `{ChainBase} {V : Type} (l : list (Address * V)) : AddrMap V :=
+  Definition of_list `{ChainBase} {V : Type} (l : list (Address * V)) : AddrMap V :=
     FMap.of_list l.
 
-  Definition empty  `{ChainBase} {V : Type} : AddrMap V :=
+  Definition empty `{ChainBase} {V : Type} : AddrMap V :=
     FMap.empty.
 
   Definition update `{ChainBase} {V : Type} (addr : Address) (val : option V) (m : AddrMap V) : AddrMap V :=
@@ -43,12 +43,12 @@ Module AddressMap.
 End AddressMap.
 
 (** The specialised version is convertible to [FMap.find] after resolving the instances *)
-Lemma AddressMap_find_convertible  `{ChainBase} {V : Type} :
-  AddressMap.find (V:=V) = FMap.find.
+Lemma AddressMap_find_convertible `{ChainBase} {V : Type} :
+  AddressMap.find (V := V) = FMap.find.
 Proof. reflexivity. Qed.
 
-Lemma AddressMap_add_convertible  `{ChainBase} {V : Type} :
-  AddressMap.add (V:=V) = FMap.add.
+Lemma AddressMap_add_convertible `{ChainBase} {V : Type} :
+  AddressMap.add (V := V) = FMap.add.
 Proof. reflexivity. Qed.
 
 Section Utility.

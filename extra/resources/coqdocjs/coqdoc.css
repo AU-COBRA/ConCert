@@ -116,7 +116,7 @@ tr.infrulemiddle hr {
 }
 
 .id[type="constructor"], .id[type="projection"], .id[type="method"],
-.id[title="constructor"], .id[title="projection"], .id[title="method"]  {
+.id[title="constructor"], .id[title="projection"], .id[title="method"] {
   color: #A30E16;
 }
 

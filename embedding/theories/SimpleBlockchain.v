@@ -1,4 +1,4 @@
-(** * A simply-typed version of the blockchain execution environment  *)
+(** * A simply-typed version of the blockchain execution environment *)
 (* We develop some blockchain infrastructure relevant for the contract execution. *)
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -49,7 +49,7 @@ Module AcornBlockchain.
   (* MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn). *)
 
   Record SimpleChain_coq : Set := Build_chain_coq
-  { Chain_height : nat;  Current_slot : nat;  Finalized_height : nat }.
+  { Chain_height : nat; Current_slot : nat; Finalized_height : nat }.
 
 
   Notation "'cur_time' a" := [| {eConst (to_string_name <% Current_slot %>)} {a} |]

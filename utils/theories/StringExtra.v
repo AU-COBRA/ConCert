@@ -133,12 +133,15 @@ Definition remove_char (c : ascii) : string -> string :=
     end.
 
 Local Open Scope char.
-(* Structurally recursive starts_with with continuation from
+(** Structurally recursive starts_with with continuation from
    rest of string if it does start with *)
 Definition starts_with_cont
-         (with_char : ascii) (with_str : string)
+         (with_char : ascii)
+         (with_str : string)
          {A}
-         (cont : string -> A) (s : string) : option A :=
+         (cont : string -> A)
+         (s : string)
+         : option A :=
   (fix f s c ws :=
      match s with
      | EmptyString => None
@@ -166,12 +169,12 @@ Definition replace (orig : string) (new : string) : string -> string :=
   | EmptyString => fun s => s
   | String origc origs =>
     fix replace s :=
-    match starts_with_cont origc origs replace s with
-    | Some s => new ++ s
-    | None => match s with
-              | EmptyString => EmptyString
-              | String c s => String c (replace s)
-              end
+      match starts_with_cont origc origs replace s with
+      | Some s => new ++ s
+      | None => match s with
+                | EmptyString => EmptyString
+                | String c s => String c (replace s)
+                end
     end
   end.
 

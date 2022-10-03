@@ -7,7 +7,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
-From ConCert.Examples.Dexter Require Import DexterPrinters.
+From ConCert.Examples.Dexter Require Export DexterPrinters.
 From ConCert.Examples.Dexter Require Import DexterGens.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 From Coq Require Import ZArith_base.
@@ -27,7 +27,7 @@ Definition dexter_caddr : Address := addr_of_Z 129.
 (* Dexter will have 60 tokens in reverse initially *)
 Definition dexter_setup : Dexter.Setup := {|
   token_caddr_ := token_caddr;
-  token_pool_  := (token_pool_size - 40);
+  token_pool_ := (token_pool_size - 40);
 |}.
 
 Definition add_as_operator_act owner operator tokens :=
@@ -43,7 +43,7 @@ Definition exchange_tokens_to_money_act owner amount :=
    Also adds some tokens to person_1 and dexter contract, and adds some operators on the fa2 contract *)
 Definition chain : ChainBuilder :=
   unpack_result (TraceGens.add_block builder_initial
-  [  (* Give 10 to person 1 *)
+  [ (* Give 10 to person 1 *)
     build_transfer creator person_1 10 ;
     (* Deploy contracts *)
     build_deploy creator 0 EIP20Token.contract token_setup ;
@@ -149,7 +149,7 @@ Action{act_from: 10%256, act_body: (act_call 128%256, 0, DexterSetup{token_caddr
 Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 129%256 100)}];
 Block 2 [
 Action{act_from: 11%256, act_body: (act_call 129%256, 0, token_to_asset exchange{exchange_owner: 11%256, tokens_sold: 20})};
-Action{act_from: 11%256, act_body: (act_call 129%256, 0, token_to_asset exchange{exchange_owner: 11%256, tokens_sold: 14})}];|}
+Action{act_from: 11%256, act_body: (act_call 129%256, 0, token_to_asset exchange{exchange_owner: 11%256, tokens_sold: 14})}]; |}
 
 dexter balance was 19 while it was expected to be at least 20
 person_1 balance: 11

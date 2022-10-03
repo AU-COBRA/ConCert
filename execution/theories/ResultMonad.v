@@ -70,7 +70,7 @@ Lemma result_of_option_eq_some : forall {T E : Type} (x : option T) (e : E) (y :
   result_of_option x e = Ok y <-> x = Some y.
 Proof.
   split; destruct x; intros eq;
-  (discriminate || injection eq as <-;reflexivity).
+  (discriminate || injection eq as <-; reflexivity).
 Qed.
 
 Lemma result_of_option_eq_none : forall {T E : Type} (x : option T) (e1 e2 : E),

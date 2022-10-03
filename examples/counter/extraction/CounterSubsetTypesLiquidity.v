@@ -5,7 +5,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
@@ -38,7 +38,7 @@ Module CounterRefinementTypes.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z)
                   : result storage Error :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
@@ -79,7 +79,7 @@ Import CounterRefinementTypes.
 
 Section LiquidityExtractionSetup.
 
-  Import LPretty.
+  Import LiquidityPretty.
   Import LiquidityExtract.
 
   Definition PREFIX := "coq_".
@@ -121,14 +121,14 @@ Section LiquidityExtractionSetup.
     ; ("nil", "[]")
     ; ("true", "true")
     ; ("exist", "exist_") (* remapping [exist] to the wrapper *)
-    ; (String.to_string (string_of_kername <%% storage %%>), "storage")  (* we add [storage] so it is printed without the prefix *) ].
+    ; (String.to_string (string_of_kername <%% storage %%>), "storage") (* we add [storage] so it is printed without the prefix *) ].
 
   Definition COUNTER_MODULE : LiquidityMod msg _ Z storage ActionBody Error :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "liquidity_counter" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl [prod_ops;int_ops; sig_def; exist_def; result_def];
+      lmd_prelude := concat nl [prod_ops; int_ops; sig_def; exist_def; result_def];
 
       (* initial storage *)
       lmd_init := init ;

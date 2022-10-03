@@ -5,6 +5,7 @@ From ConCert.Examples.Congress Require Import Congress_Buggy.
 From Coq Require Import List.
 Open Scope string_scope.
 
+#[export]
 Instance showRules : Show Rules :=
 {|
   show r :=
@@ -21,10 +22,11 @@ match ca with
 | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++
     match @deserialize Msg _ msg with
     | Some msg => str_of_msg msg
-    | None =>  "<FAILED DESERIALIZATION OF CONGRESS MSG>"
+    | None => "<FAILED DESERIALIZATION OF CONGRESS MSG>"
     end ++ ")"
 end.
 
+#[export]
 Instance showSetup : Show Setup :=
 {|
   show v := show (setup_rules v)
@@ -43,13 +45,14 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   | add_member addr => "add_member " ++ show addr
   | remove_member addr => "remove_member " ++ show addr
   | create_proposal actions => "create_proposal " ++ show_acts actions
-  | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
+  | vote_for_proposal proposalId => "vote_for_proposal " ++ show proposalId
   | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
   | retract_vote proposalId => "retract_vote " ++ show proposalId
   | finish_proposal proposalId => "finish_proposal " ++ show proposalId
   | finish_proposal_remove proposalId => "finish_proposal " ++ show proposalId
   end.
 
+#[export]
 Instance showMsg : Show Msg :=
 {|
   show := string_of_Msg 20
@@ -57,22 +60,25 @@ Instance showMsg : Show Msg :=
 
 (* TODO: fix printing for msg of type SerializedValue such that
    it works whenever it is serialized from type Msg *)
+#[export]
 Instance showCongressBuggyAction : Show CongressAction :=
 {|
   show := string_of_ca (string_of_Msg 20)
 |}.
 
+#[export]
 Instance showProposal : Show Proposal :=
 {|
   show p :=
     "Proposal{"
-    ++ "actions: " ++  show (actions p) ++ sep
+    ++ "actions: " ++ show (actions p) ++ sep
     ++ "votes: " ++ show (votes p) ++ sep
     ++ "vote_result: " ++ show (vote_result p) ++ sep
     ++ "proposed_in: " ++ show (proposed_in p) ++ sep
     ++ "}" ++ newline
 |}.
 
+#[export]
 Instance showState : Show Congress_Buggy.State :=
 {|
   show s := "State{"
@@ -83,5 +89,6 @@ Instance showState : Show Congress_Buggy.State :=
             ++ "members: " ++ show (members s) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

@@ -101,7 +101,7 @@ Section LQTFA12Types.
     should have this type as its Msg type. The contract may have other endpoints,
     as composed in the 'other_msg' constructor. *)
   Inductive FA12ReceiverMsg {Msg' : Type} :=
-  | receive_allowance : N ->  FA12ReceiverMsg
+  | receive_allowance : N -> FA12ReceiverMsg
   | receive_balance_of : N -> FA12ReceiverMsg
   | receive_total_supply : N -> FA12ReceiverMsg
   | other_msg : Msg' -> FA12ReceiverMsg.
@@ -139,7 +139,7 @@ Section LQTFA12Types.
     { lqt_contract : Contract Setup Msg State Error;
 
       lqt_total_supply_correct :
-      forall  (bstate : ChainState) (caddr : Address)
+      forall (bstate : ChainState) (caddr : Address)
         (trace : ChainTrace empty_state bstate),
         env_contracts bstate caddr = Some (lqt_contract : WeakContract) ->
         exists (cstate : State) (depinfo : DeploymentInfo Setup)
@@ -150,7 +150,7 @@ Section LQTFA12Types.
             (let initial_tokens := initial_pool (deployment_setup depinfo) in
             Z.of_N (total_supply cstate) =
               (Z.of_N initial_tokens +
-                  sumZ (fun callInfo  => mintedOrBurnedTokens (call_msg callInfo))
+                  sumZ (fun callInfo => mintedOrBurnedTokens (call_msg callInfo))
                       (filter (callFrom (admin cstate)) inc_calls))%Z) }.
 
 End LQTFA12Types.
@@ -242,17 +242,17 @@ Module Dexter2Lqt (SI : Dexter2LqtSerializable).
   Import SI.
 
   (* begin hide *)
-  Existing Instance callback_serializable.
-  Existing Instance transfer_param_serializable.
-  Existing Instance approve_param_serializable.
-  Existing Instance mintOrBurn_param_serializable.
-  Existing Instance getAllowance_param_serializable.
-  Existing Instance getBalance_param_serializable.
-  Existing Instance getTotalSupply_param_serializable.
-  Existing Instance FA12ReceiverMsg_serializable.
-  Existing Instance msg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance setup_serializable.
+  #[global] Existing Instance callback_serializable.
+  #[global] Existing Instance transfer_param_serializable.
+  #[global] Existing Instance approve_param_serializable.
+  #[global] Existing Instance mintOrBurn_param_serializable.
+  #[global] Existing Instance getAllowance_param_serializable.
+  #[global] Existing Instance getBalance_param_serializable.
+  #[global] Existing Instance getTotalSupply_param_serializable.
+  #[global] Existing Instance FA12ReceiverMsg_serializable.
+  #[global] Existing Instance msg_serializable.
+  #[global] Existing Instance state_serializable.
+  #[global] Existing Instance setup_serializable.
   (* end hide *)
 
   Section DexterLqtDefs.

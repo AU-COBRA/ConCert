@@ -1,4 +1,4 @@
-(**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
+(** We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -16,7 +16,7 @@ Open Scope list.
 
 Import Prelude.Maps.
 
-(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
+(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
@@ -45,7 +45,7 @@ Module CrowdfundingContract.
    Import CrowdfundingData.Notations.
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
-   Notation "'#Just' a" := [| {eConstr (to_string_name <% option %>) "Some"}  {eTy [! Result!]} {a}|]
+   Notation "'#Just' a" := [| {eConstr (to_string_name <% option %>) "Some"} {eTy [! Result!]} {a}|]
                            (in custom expr at level 0,
                                a custom expr at level 1).
 
@@ -63,7 +63,7 @@ Module CrowdfundingContract.
    Definition SChain := to_string_name <% SimpleChain_coq %>.
 
    Definition crowdfunding : expr :=
-    [| \chain : SChain =>  \c : SCtx => \m : Msg => \s : State =>
+    [| \chain : SChain => \c : SCtx => \m : Msg => \s : State =>
          let bal : Money := balance s in
          let now : Nat := cur_time chain in
          let tx_amount : Money := amount c in
@@ -72,7 +72,7 @@ Module CrowdfundingContract.
          let accs : Map := donations s in
          case m : Msg return Maybe Result of
             | GetFunds ->
-             if (own ==n sender) && (deadline s <n now) && (goal s <= bal)  then
+             if (own ==n sender) && (deadline s <n now) && (goal s <= bal) then
                #Just (#Pair (mkState 0z accs own (deadline s) True (goal s))
                           [Transfer bal sender])
              else #Nothing : Maybe Result

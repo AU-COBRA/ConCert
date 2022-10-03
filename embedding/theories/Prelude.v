@@ -66,7 +66,7 @@ Module Maps.
       * simpl. now rewrite Heq.
   Qed.
 
-  Fixpoint to_list (m : addr_map_coq) : list (nat * Z)%type:=
+  Fixpoint to_list (m : addr_map_coq) : list (nat * Z)%type :=
     match m with
     | mnil => nil
     | mcons k v tl => cons (k,v) (to_list tl)
@@ -79,13 +79,13 @@ Module Maps.
     end.
 
   Lemma of_list_to_list m: of_list (to_list m) = m.
-  Proof. induction m;simpl;congruence. Qed.
+  Proof. induction m; simpl; congruence. Qed.
 
   Lemma to_list_of_list l: to_list (of_list l) = l.
-  Proof. induction l as [ | x l'];simpl;auto.
-         destruct x. simpl;congruence. Qed.
+  Proof. induction l as [ | x l']; simpl; auto.
+         destruct x. simpl; congruence. Qed.
 
-  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool:=
+  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool :=
     match m with
     | mnil => true
     | mcons k v m' => p v && map_forallb p m'
@@ -97,9 +97,9 @@ Module Maps.
     p v = true.
   Proof.
     revert k v p.
-    induction m;intros;try discriminate;simpl in *.
-    propify. destruct (_ =? _)%nat;auto.
-    * now inversion H0;subst.
+    induction m; intros; try discriminate; simpl in *.
+    propify. destruct (_ =? _)%nat; auto.
+    * now inversion H0; subst.
     * easy.
   Qed.
 
@@ -109,18 +109,18 @@ Module Maps.
   Notation "'MNil'" := [| {eConstr Map "mnil"} |]
                          (in custom expr at level 0).
 
-  Notation "'mfind' a b" :=  [| {eConst (to_string_name <% lookup_map %>)} {a} {b} |]
+  Notation "'mfind' a b" := [| {eConst (to_string_name <% lookup_map %>)} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).
 
-  Notation "'madd' a b c" :=  [| {eConst (to_string_name <% add_map %>)} {a} {b} {c} |]
+  Notation "'madd' a b c" := [| {eConst (to_string_name <% add_map %>)} {a} {b} {c} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1,
               c custom expr at level 1).
 
-  Notation "'mem' a b" :=  [| {eConst (to_string_name <% inmap_map %>)} {a} {b} |]
+  Notation "'mem' a b" := [| {eConst (to_string_name <% inmap_map %>)} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).
@@ -180,7 +180,7 @@ Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
 Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
 
 Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
-Notation "'Cons' y z" := (pConstr "cons" [y;z])
+Notation "'Cons' y z" := (pConstr "cons" [y; z])
                            (in custom pat at level 0,
                                y constr at level 4,
                                z constr at level 4).
@@ -200,7 +200,7 @@ Notation "A × B" := (tyApp (tyApp (tyInd Prod) A) B)
 
 
 Notation "'Pair' b o" :=
-    (pConstr "pair" [b;o]) (in custom pat at level 0,
+    (pConstr "pair" [b; o]) (in custom pat at level 0,
                                 b constr at level 4,
                                 o constr at level 4).
 
@@ -245,12 +245,12 @@ Notation "'Cons' A x xs" :=
 Definition Maybe := to_string_name <% option %>.
 
 Definition AcornMaybe : global_dec :=
-  gdInd Maybe 1 [("Some", [(None, tyRel 0)]);("None", [])] false.
+  gdInd Maybe 1 [("Some", [(None, tyRel 0)]); ("None", [])] false.
 
-(** A shortcut for [if .. then .. else ..]  *)
+(** A shortcut for [if .. then .. else ..] *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
   (eCase (Bool,[]) ty cond
-         [(pConstr true_name [],b1);(pConstr false_name [],b2)])
+         [(pConstr true_name [],b1); (pConstr false_name [],b2)])
     (in custom expr at level 4,
         cond custom expr at level 4,
         ty custom type at level 4,

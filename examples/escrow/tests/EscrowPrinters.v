@@ -10,11 +10,13 @@ Local Open Scope string_scope.
 Derive Show for NextStep.
 Derive Show for Msg.
 
+#[export]
 Instance showEscrowSetup : Show Setup :=
 {|
   show setup := "Setup{buyer: " ++ show setup.(setup_buyer) ++ "}"
 |}.
 
+#[export]
 Instance showEscrowState : Show Escrow.State :=
 {|
   show s := "EscrowState{" ++
@@ -26,5 +28,6 @@ Instance showEscrowState : Show Escrow.State :=
               "buyer_withdrawable: " ++ show s.(buyer_withdrawable) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

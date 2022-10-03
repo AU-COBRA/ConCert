@@ -280,5 +280,6 @@ Module BoundedN.
        elements_all := bounded_elements_all bound; |}.
 End BoundedN.
 
+Declare Scope BoundedN_scope.
 Delimit Scope BoundedN_scope with BoundedN.
 Bind Scope BoundedN_scope with BoundedN.

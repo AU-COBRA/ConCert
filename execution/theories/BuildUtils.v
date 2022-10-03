@@ -362,8 +362,8 @@ Proof.
     now apply contract_addr_format in deployed; auto.
   - (* act_body = act_deploy amount c setup *)
     apply deployable_address_decidable
-      with (wc:=c) (setup:=setup) (act_origin:=act_origin)
-      (act_from:=act_from) (amount:=amount)
+      with (wc := c) (setup := setup) (act_origin := act_origin)
+      (act_from := act_from) (amount := amount)
       in reach.
     destruct reach as [[to [state [to_is_contract_addr [to_not_deployed init]]]] | no_deployable_addr].
     + (* Case: act_deploy is evaluable by eval_deploy *)
@@ -657,7 +657,7 @@ Proof.
    (cbn; destruct_address_eq; easy).
   assert (step : ChainStep bstate bstate').
   - eapply step_action; eauto.
-    eapply eval_call with (msg:= Some ((@serialize Msg _) msg)); eauto.
+    eapply eval_call with (msg := Some ((@serialize Msg _) msg)); eauto.
     + rewrite new_to_balance_eq.
       now apply wc_receive_to_receive in receive_some.
     + constructor; reflexivity.
@@ -887,7 +887,7 @@ Local Ltac update_chainstate bstate1 bstate2 :=
   | H : context [ bstate1 ] |- _ =>
     match type of H with
     | EnvironmentEquiv _ _ => fail 1
-    | _ => update bstate1 with bstate2 in H by (try (rewrite_environment_equiv;cbn; easy))
+    | _ => update bstate1 with bstate2 in H by (try (rewrite_environment_equiv; cbn; easy))
     end
   end;
   only_on_match ltac:(progress update_chainstate bstate1 bstate2).
@@ -961,7 +961,7 @@ Ltac add_block acts_ slot_ :=
   | Hqueue : (chain_state_queue ?bstate) = [],
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize add_block with (acts:=acts_) (slot_incr:=slot_)
+      specialize add_block with (acts := acts_) (slot_incr := slot_)
         as [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | apply Hqueue| | | | | |]
   end.

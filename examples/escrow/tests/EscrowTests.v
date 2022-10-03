@@ -10,7 +10,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowCorrect.
-From ConCert.Examples.Escrow Require Import EscrowPrinters.
+From ConCert.Examples.Escrow Require Export EscrowPrinters.
 From ConCert.Examples.Escrow Require Import EscrowGens.
 From Coq Require Import ZArith.
 From Coq Require Import List.
@@ -133,7 +133,7 @@ Section TestProperties.
   Qed.
 
   (* Finally, we can show that escrow_correct_Prop is decidable (using escrow_correct_bool as
-    the decision procedure).  *)
+    the decision procedure). *)
   Global Instance escrow_correct_P_dec {from to caddr cstate trace depinfo inc_calls}
     : Dec (@escrow_correct_Prop from to caddr cstate trace depinfo inc_calls).
   Proof.
@@ -158,8 +158,8 @@ Section TestProperties.
     let trace := builder_trace cb in
     let depinfo' := deployment_info Escrow.Setup trace escrow_contract_addr in
     let inc_calls' := incoming_calls Escrow.Msg trace escrow_contract_addr in
-    depinfo'  ===>  (fun depinfo =>
-    inc_calls' ===>  (fun inc_calls =>
+    depinfo' ===> (fun depinfo =>
+    inc_calls' ===> (fun inc_calls =>
       match get_contract_state Escrow.State cb escrow_contract_addr with
       (* main part of the property: *)
       | Some cstate =>
@@ -181,7 +181,7 @@ Section TestProperties.
       match trace with
       | snoc trace' step =>
         match acc, get_contract_state Escrow.State to escrow_caddr with
-        | nextstep::_, Some state => if (nextstep = state.(next_step))?
+        | nextstep ::_, Some state => if (nextstep = state.(next_step))?
                                      then rec trace' acc
                                      else rec trace' (state.(next_step) :: acc)
         | [], Some state => rec trace' (state.(next_step) :: acc)
@@ -219,8 +219,8 @@ Section TestProperties.
   Fixpoint is_valid_step_sequence_fix steps prev_step :=
   match prev_step, steps with
   | _, [] => true
-  | None, step::steps' => is_valid_step_sequence_fix steps' (Some step)
-  | Some prev_step, step::steps' => match prev_step, step with
+  | None, step ::steps' => is_valid_step_sequence_fix steps' (Some step)
+  | Some prev_step, step ::steps' => match prev_step, step with
           | buyer_commit, buyer_confirm
           | buyer_commit, no_next_step
           | buyer_confirm, withdrawals
@@ -252,7 +252,7 @@ Discarded: 20000 *)
 (* +++ Passed 10000 tests (0 discards) *)
 (* Or alternatively we can just write: *)
 (* QuickChick escrow_correct_P. *)
-(* +++ Passed 10000 tests  (40 discards) *)
+(* +++ Passed 10000 tests (40 discards) *)
 (* Not sure where the 40 discards come from, but it's an acceptable amount for sure... *)
 
 (* Note that we are implicitly using the "better" generator here to generate arbitrary ChainTraces *)

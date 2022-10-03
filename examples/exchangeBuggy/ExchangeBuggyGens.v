@@ -40,7 +40,7 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
       let has_balance p :=
         let ledger := snd p in
         0 <? FMap.size ledger.(balances) in
-      '(tokenid, ledger) <-  (sampleFMapOpt_filter state.(assets) has_balance) ;;
+      '(tokenid, ledger) <- (sampleFMapOpt_filter state.(assets) has_balance) ;;
       let has_tokens p := N.ltb 0 (snd p) in
       '(addr, nr_tokens) <- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
       tokens_to_exchange <- gTokensToExchange nr_tokens ;;

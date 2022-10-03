@@ -5,8 +5,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
-From ConCert.Examples.Congress Require Import CongressGens.
-From ConCert.Examples.Congress Require Import CongressPrinters.
+From ConCert.Examples.Congress Require Export CongressGens.
+From ConCert.Examples.Congress Require Export CongressPrinters.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 
@@ -80,6 +80,7 @@ Definition receive_state_well_behaved state msg new_state (resp_acts : list Acti
   num_cacts_in_state new_state + length resp_acts <=
   num_cacts_in_state state + nr_cacts msg.
 
+#[export]
 Instance receive_state_well_behaved_dec_ {state : Congress.State}
                                          {msg : option Congress.Msg}
                                          {new_state : Congress.State}
@@ -92,6 +93,7 @@ Proof.
   apply le_dec.
 Qed.
 
+#[export]
 Instance receive_state_well_behaved_checkable {state : Congress.State}
                                               {msg : option Congress.Msg}
                                               {new_state : Congress.State}

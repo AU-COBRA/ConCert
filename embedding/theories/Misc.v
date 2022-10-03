@@ -14,23 +14,23 @@ Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A):
   Forall (fun x => p x = true) l <-> forallb p l = true.
 Proof.
   split.
-  + induction l;intros H.
+  + induction l; intros H.
     * reflexivity.
     * simpl. inversion H as [H1 | a1 l1 Heq]. subst. rewrite Heq. simpl.
       now eapply IHl.
-  + induction l;intros H.
+  + induction l; intros H.
     * constructor.
     * simpl in *. rewrite Bool.andb_true_iff in *. destruct H.
-      constructor;auto.
+      constructor; auto.
 Qed.
 
 Lemma Forall_impl_inner {A} (P Q : A -> Prop) l :
   Forall P l -> Forall (fun x => P x -> Q x) l ->
   Forall Q l.
 Proof.
-  intros HP. induction HP;intros HQ.
+  intros HP. induction HP; intros HQ.
   + constructor.
-  + constructor;inversion HQ;auto.
+  + constructor; inversion HQ; auto.
 Qed.
 
 
@@ -38,16 +38,16 @@ Lemma All_impl_inner {A} (P Q : A -> Type) l :
   All P l -> All (fun x => P x -> Q x) l ->
   All Q l.
 Proof.
-  intros HP. induction HP;intros HQ.
+  intros HP. induction HP; intros HQ.
   + constructor.
-  + constructor;inversion HQ;auto.
+  + constructor; inversion HQ; auto.
 Qed.
 
 Lemma forallb_impl_inner {A} {p q} {l : list A} :
   forallb p l -> (forall x, p x = true -> q x = true) -> forallb q l.
 Proof.
   revert p q.
-  induction l;simpl;intros p q Hfa H;auto.
+  induction l; simpl; intros p q Hfa H; auto.
   now propify.
 Qed.
 
@@ -57,9 +57,9 @@ Lemma Forall_In {A} x (xs : list A) P :
   P x.
 Proof.
   revert x.
-  induction xs;intros x Hin Hfa;auto.
+  induction xs; intros x Hin Hfa; auto.
   * inversion Hin.
-  * simpl in *. destruct Hin;subst; inversion Hfa;eauto.
+  * simpl in *. destruct Hin; subst; inversion Hfa; eauto.
 Qed.
 
 Lemma forallb_In {A} x (xs : list A) p :
@@ -68,8 +68,8 @@ Lemma forallb_In {A} x (xs : list A) p :
   p x.
 Proof.
   revert x.
-  induction xs;intros x Hin Hfa;auto.
-  simpl in *. propify;intuition;subst;auto.
+  induction xs; intros x Hin Hfa; auto.
+  simpl in *. propify; intuition; subst; auto.
 Qed.
 
 
@@ -80,9 +80,9 @@ Section CombineProp.
     combine (l1 ++ l1') (l2 ++ l2') = combine l1 l2 ++ combine l1' l2'.
   Proof.
     induction l2.
-    + simpl. intros l2' l1 l1' Heq. destruct l1;try discriminate;reflexivity.
-    + simpl. intros l2' l1 l1' Heq. destruct l1;cbn; inversion Heq.
-      simpl. apply f_equal2;eauto.
+    + simpl. intros l2' l1 l1' Heq. destruct l1; try discriminate; reflexivity.
+    + simpl. intros l2' l1 l1' Heq. destruct l1; cbn; inversion Heq.
+      simpl. apply f_equal2; eauto.
   Qed.
 
   Lemma combine_rev : forall A B (l2 : list B) (l1 : list A),
@@ -91,10 +91,10 @@ Section CombineProp.
   Proof.
     intros A B.
     induction l2 using rev_ind.
-    + simpl. intros l1 Heq. destruct l1;eauto.
-      simpl;destruct (rev l1 ++ [a]);reflexivity.
-    + simpl. intros l1 Heq. destruct l1 using rev_ind;auto.
-      repeat rewrite app_length in Heq;simpl in *.
+    + simpl. intros l1 Heq. destruct l1; eauto.
+      simpl; destruct (rev l1 ++ [a]); reflexivity.
+    + simpl. intros l1 Heq. destruct l1 using rev_ind; auto.
+      repeat rewrite app_length in Heq; simpl in *.
       assert (#|l1| = #|l2|) by lia.
       repeat rewrite rev_unit. simpl.
       rewrite IHl2 by auto.
@@ -107,9 +107,9 @@ Section CombineProp.
    map snd (combine l1 l2) = l2.
   Proof.
     induction l2.
-    + simpl. intros l1 Heq. destruct l1;reflexivity.
-    + simpl. intros l1 Heq. destruct l1;cbn. inversion Heq.
-      simpl. apply f_equal2;eauto.
+    + simpl. intros l1 Heq. destruct l1; reflexivity.
+    + simpl. intros l1 Heq. destruct l1; cbn. inversion Heq.
+      simpl. apply f_equal2; eauto.
   Qed.
 
 
@@ -124,7 +124,7 @@ Section CombineProp.
     forall A B C (f : B -> C) (l1 : list A) (l2 : list B),
       map (fun_prod id f) (combine l1 l2) = combine l1 (map f l2).
   Proof.
-    induction l1;intros.
+    induction l1; intros.
     + reflexivity.
     + destruct l2.
       * reflexivity.

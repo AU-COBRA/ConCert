@@ -1,4 +1,4 @@
-(* This file implements various helper functions and proofs *)
+(** This file implements various helper functions and proofs *)
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
@@ -8,12 +8,11 @@ From Coq Require Import Psatz.
 From ConCert.Utils Require Import Automation.
 Import ListNotations.
 
-Fixpoint map_option {A B : Type} (f : A -> option B) (l : list A)
-  : list B :=
+Fixpoint map_option {A B : Type} (f : A -> option B) (l : list A) : list B :=
   match l with
   | hd :: tl => match f hd with
-                  | Some b => b :: map_option f tl
-                  | None => map_option f tl
+                | Some b => b :: map_option f tl
+                | None => map_option f tl
                 end
   | [] => []
   end.
@@ -57,8 +56,9 @@ Lemma sumnat_permutation
   sumnat f xs = sumnat f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
+#[export]
 Instance sumnat_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumnat.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumnat.
 Proof. repeat intro. subst. now apply sumnat_permutation. Qed.
 
 Lemma sumnat_map {A B : Type} (f : A -> B) (g : B -> nat) (xs : list A) :
@@ -76,13 +76,13 @@ Lemma sumZ_permutation
   sumZ f xs = sumZ f ys.
 Proof. induction perm_eq; perm_simplify; lia. Qed.
 
+#[export]
 Instance sumZ_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumZ.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumZ.
 Proof. repeat intro. subst. now apply sumZ_permutation. Qed.
 
 Local Open Scope Z.
-Lemma sumZ_app
-      {A : Type} {f : A -> Z} {xs ys : list A} :
+Lemma sumZ_app {A : Type} {f : A -> Z} {xs ys : list A} :
   sumZ f (xs ++ ys) = sumZ f xs + sumZ f ys.
 Proof.
   revert ys.
@@ -128,18 +128,18 @@ Proof.
   auto.
 Qed.
 
-Lemma NoDup_incl_reorganize
-      {A : Type}
-      (l l' : list A) :
+Lemma NoDup_incl_reorganize {A : Type} (l l' : list A) :
   NoDup l' ->
   incl l' l ->
   exists suf, Permutation (l' ++ suf) l.
 Proof.
   revert l.
   induction l' as [| x xs IH]; intros l nodup_l' incl_l'_l.
-  - exists l. apply Permutation_refl.
+  - exists l.
+    apply Permutation_refl.
   - assert (x_in_l: In x l).
-    + apply (incl_l'_l x). left. constructor.
+    + apply (incl_l'_l x).
+      left. constructor.
     + destruct (in_split _ _ x_in_l) as [pref [suf eq]]; subst.
       inversion nodup_l'; subst.
       assert (incl xs (pref ++ suf)).
@@ -194,6 +194,7 @@ Proof.
   apply Permutation_in with ys; symmetry in perm; auto.
 Qed.
 
+#[export]
 Instance Forall_Permutation_proper {A} :
   Proper (eq ==> @Permutation A ==> iff) (@Forall A).
 Proof.
@@ -202,6 +203,7 @@ Proof.
   split; apply forall_respects_permutation; auto; symmetry; auto.
 Qed.
 
+#[export]
 Instance forallb_Permutation_proper {A} :
   Proper (eq ==> @Permutation A ==> eq) (@forallb A).
 Proof.
@@ -333,7 +335,8 @@ Proof.
 Qed.
 
 Lemma existsb_forallb {A} f (l : list A) :
-  existsb f l = negb (forallb (fun x => negb (f x)) l).
+  existsb f l =
+  negb (forallb (fun x => negb (f x)) l).
 Proof.
   induction l as [|x xs IH]; auto.
   cbn.
@@ -391,7 +394,8 @@ Proof. induction l; auto. Qed.
 
 Lemma sumZ_seq_feq (f g : nat -> Z) len :
   (forall i, i < len -> f i = g i)%nat ->
-  sumZ g (seq 0 len) = sumZ f (seq 0 len).
+  sumZ g (seq 0 len) =
+  sumZ f (seq 0 len).
 Proof.
   revert f g.
   induction len as [|len IH]; intros f g all_same; auto.
@@ -599,7 +603,7 @@ Proof.
   intros * f_positive Hin.
   induction l.
   - inversion Hin.
-  - apply in_inv in Hin  as [Hin | Hin].
+  - apply in_inv in Hin as [Hin | Hin].
     + cbn. subst.
       rewrite <- (Z.add_0_r (f x)).
       apply Z.add_le_mono.
@@ -748,14 +752,18 @@ Qed.
 
 
 Local Open Scope N.
-Lemma sumN_permutation {A : Type} {f : A -> N} {xs ys : list A} (perm_eq : Permutation xs ys) :
+Lemma sumN_permutation {A : Type}
+                       {f : A -> N}
+                       {xs ys : list A}
+                       (perm_eq : Permutation xs ys) :
   sumN f xs = sumN f ys.
 Proof.
   induction perm_eq; perm_simplify; lia.
 Qed.
 
+#[export]
 Instance sumN_perm_proper {A : Type} :
-  Proper (eq ==> Permutation (A:=A) ==> eq) sumN.
+  Proper (eq ==> Permutation (A := A) ==> eq) sumN.
 Proof.
   repeat intro. subst. now apply sumN_permutation.
 Qed.
@@ -770,16 +778,17 @@ Proof.
 Qed.
 
 Lemma sumN_map_id {A} (f : A -> N) l :
-  sumN f l = sumN id (map f l).
+  sumN f l =
+  sumN id (map f l).
 Proof.
   induction l; cbn; auto.
   unfold id.
   now rewrite IHl.
 Qed.
 
-Lemma sumN_app
-      {A : Type} {f : A -> N} {xs ys : list A} :
-  sumN f (xs ++ ys) = sumN f xs + sumN f ys.
+Lemma sumN_app {A : Type} {f : A -> N} {xs ys : list A} :
+  sumN f (xs ++ ys) =
+  sumN f xs + sumN f ys.
 Proof.
   revert ys.
   induction xs as [| x xs IH]; intros ys; auto.
@@ -829,8 +838,16 @@ Proof.
 Qed.
 
 
-Definition isSome {A : Type} (a : option A) := match a with | Some _ => true | None => false end.
-Definition isNone {A : Type} (a : option A) := match a with | Some _ => false | None => true end.
+Definition isSome {A : Type} (a : option A) :=
+  match a with
+  | Some _ => true
+  | None => false
+  end.
+Definition isNone {A : Type} (a : option A) :=
+  match a with
+  | Some _ => false
+  | None => true
+  end.
 
 Lemma with_default_is_some : forall {A : Type} (x : option A) (y : A),
   isSome x = false ->
@@ -839,10 +856,12 @@ Proof.
   now destruct x.
 Qed.
 
-Lemma with_default_indep {A} (o : option A) d  d' v :
-  o = Some v -> with_default d o = with_default d' o.
+Lemma with_default_indep {A} (o : option A) d d' v :
+  o = Some v ->
+  with_default d o =
+  with_default d' o.
 Proof.
-  intros;subst;easy.
+  intros; subst; easy.
 Qed.
 
 Lemma isSome_some : forall {A : Type} (x : option A) (y : A),

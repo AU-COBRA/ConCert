@@ -7,6 +7,7 @@ From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
 
 Local Open Scope string_scope.
 
+#[export]
 Instance showDexterExchangeParam : Show Dexter.exchange_param :=
 {|
   show t := "exchange{"
@@ -15,6 +16,7 @@ Instance showDexterExchangeParam : Show Dexter.exchange_param :=
             ++ "}"
 |}.
 
+#[export]
 Instance showDexterMsg : Show Dexter.Msg :=
 {|
   show m := match m with
@@ -23,6 +25,7 @@ Instance showDexterMsg : Show Dexter.Msg :=
             end
 |}.
 
+#[export]
 Instance showDexterState : Show Dexter.State :=
 {|
   show t := "DexterState{"
@@ -32,6 +35,7 @@ Instance showDexterState : Show Dexter.State :=
             ++ "}"
 |}.
 
+#[export]
 Instance showDexterSetup : Show Dexter.Setup :=
 {|
   show t := "DexterSetup{"
@@ -40,6 +44,7 @@ Instance showDexterSetup : Show Dexter.Setup :=
             ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     Dexter.Msg,

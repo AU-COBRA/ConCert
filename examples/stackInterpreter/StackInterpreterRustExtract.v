@@ -35,6 +35,7 @@ Definition STACK_INTERP_MODULE : ConcordiumMod _ _ :=
 
 Open Scope list.
 
+#[local]
 Instance RustConfig : RustPrintConfig :=
     {| term_box_symbol := "()";
        type_box_symbol := "()";

@@ -17,6 +17,7 @@ Local Open Scope string_scope.
 
 Notation s_to_bs := bytestring.String.of_string.
 
+#[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
@@ -29,12 +30,11 @@ Module BoolRect.
 
   (** Previously, this example extracted wrong, because some name
       annotations of the [bool_rect] are thse same, leading to
-      shadowing in the resulting code  *)
+      shadowing in the resulting code *)
 
   (** One can see the variable names by quoting and printing the AST, as below *)
-  MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect.
-
-  Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>.
+  (* MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect. *)
+  (* Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>. *)
 
   (** This is, of course meaningless in eager languages, so usually we
       inline such definitions, but here we keep is as it is for the
@@ -45,7 +45,7 @@ Module BoolRect.
   Definition max_nat (n m : nat) := my_stupid_if (Nat.leb n m) m n.
 
   Definition harness (func : string) : string :=
-    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some ( " ++ func ++ " 2n 3n))".
+    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some ( " ++ func ++ " 2n 3n))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
@@ -79,7 +79,7 @@ Module FoldLeft.
   Definition sum (xs : list nat) := foldL Nat.add xs 0.
 
   Definition harness (sum_func : string) : string :=
-    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some ( " ++ sum_func ++ "([1n;2n;3n])))".
+    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some ( " ++ sum_func ++ "([1n;2n;3n])))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
@@ -93,7 +93,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/FoldL.mligo"
-    MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
+      MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
       fixpoint, and not binded by lambdas. Therefore, the type parameters are not
@@ -119,7 +119,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/FoldLAlt.mligo"
-    MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
+      MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
 
 End FoldLeft.
 
@@ -133,7 +133,7 @@ Module SafeHead.
 
   (** We cannot make [safe_head] polymoprhic due to CameLIGO restrictions *)
   Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
-    match l as l' return l' = l -> nat  with
+    match l as l' return l' = l -> nat with
     | [] => (* this is an impossible case *)
       (* NOTE: we use [False_rect] to have more control over the extracted code. *)
       (* Leaving a hole for the whole branch potentially leads to polymoprhic *)
@@ -146,7 +146,7 @@ Module SafeHead.
     intros. subst. inversion non_empty.
   Qed.
 
-  Program Definition head_of_list_2 (xs : list nat) := safe_head (0 :: 0 :: xs)  _.
+  Program Definition head_of_list_2 (xs : list nat) := safe_head (0 :: 0 :: xs) _.
   Next Obligation.
     intros. cbn. lia.
   Qed.
@@ -159,7 +159,7 @@ Module SafeHead.
   Definition TT_ctors := [("O","0n")].
 
   Definition harness : string :=
-    "let main (st : unit * nat option) : operation list * (nat option)  = (([]: operation list), Some (head_of_list_2 ([] : nat list)))".
+    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (head_of_list_2 ([] : nat list)))".
 
     Time MetaCoq Run
          (t <- CameLIGO_extract_single
@@ -173,6 +173,6 @@ Module SafeHead.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo"
-    MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
+      MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
 
 End SafeHead.

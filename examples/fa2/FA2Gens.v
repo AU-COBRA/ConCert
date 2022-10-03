@@ -108,7 +108,7 @@ Module FA2Gens (Info : FA2TestsInfo).
                          : FMap A (list B) :=
       match l with
       | [] => FMap.empty
-      | (a,b)::xs => let res := groupBy_fix xs in
+      | (a,b) ::xs => let res := groupBy_fix xs in
                     match FMap.find a res with
                     | Some bs => FMap.add a (b :: bs) res
                     | None => FMap.add a [b] FMap.empty
@@ -158,7 +158,7 @@ Module FA2Gens (Info : FA2TestsInfo).
                               (state : FA2Token.State)
                               : G (option operator_param) :=
       owner <- liftOptGen (gAddress accounts) ;;
-      addr <-  liftOptGen (gAddrWithout [owner] accounts) ;;
+      addr <- liftOptGen (gAddrWithout [owner] accounts) ;;
       tokenid <- liftM fst (sampleFMapOpt state.(tokens)) ;;
       tokens <- (elems [Some all_tokens; Some (some_tokens [tokenid])]) ;;
       returnGenSome {|

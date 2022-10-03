@@ -7,7 +7,7 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BAT.
 From ConCert.Examples.BAT Require Import BATGens.
-From ConCert.Examples.BAT Require Import BATPrinters.
+From ConCert.Examples.BAT Require Export BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
@@ -214,7 +214,7 @@ Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old
     (* Funding start block and end block should be constants *)
     let funding_start_check := Nat.eqb old_state.(fundingStart) new_state.(fundingStart) in
     let funding_end_check := Nat.eqb old_state.(fundingEnd) new_state.(fundingEnd) in
-    (* Token exchange rate  and initSupply should be constants *)
+    (* Token exchange rate and initSupply should be constants *)
     let exchange_rate_check := N.eqb old_state.(tokenExchangeRate) new_state.(tokenExchangeRate) in
     let init_supply_check := N.eqb old_state.(initSupply) new_state.(initSupply) in
     (* Minimum and maximum token limits should be constants *)
@@ -524,9 +524,9 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
                                 else (from_balance_before =? from_balance_after + tokens) in
     (* Transfer must add the transfered tokens from the "to" address
         if the "from <> to" otherwise the balance should remain the same *)
-    let to_balance_correct :=   if from_to_same
-                                then (to_balance_before =? to_balance_after)
-                                else (to_balance_before + tokens =? to_balance_after) in
+    let to_balance_correct := if from_to_same
+                              then (to_balance_before =? to_balance_after)
+                              else (to_balance_before + tokens =? to_balance_after) in
     whenFail (show old_state ++ nl ++ show result_opt)
     (checker (from_balance_correct &&
               to_balance_correct))
@@ -615,9 +615,9 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
                                 else (from_balance_before =? from_balance_after + tokens) in
     (* Transfer_from must add the transfered tokens to the "to" address
         if the "from <> to" otherwise the balance should remain the same *)
-    let to_balance_correct :=   if from_to_same
-                                then (to_balance_before =? to_balance_after)
-                                else (to_balance_before + tokens =? to_balance_after) in
+    let to_balance_correct := if from_to_same
+                              then (to_balance_before =? to_balance_after)
+                              else (to_balance_before + tokens =? to_balance_after) in
     (* Transfer_from must subtract the number of transfered tokens from the delegates allowance *)
     let delefate_allowance_correct := delegate_allowance_before =?
                                       delegate_allowance_after + tokens in
@@ -823,7 +823,7 @@ Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 6 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 16%256 14)}];|}
+Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer 16%256 14)}]; |}
 
 ChainState{
   env: Environment{
@@ -848,10 +848,10 @@ ChainState{
    We now test if the above property holds when no such transfers occur
 *)
 (*
-Extract Constant defNumTests    => "3000".
+Extract Constant defNumTests => "3000".
 Extract Constant defNumDiscards => "20000".
  QuickChick ({{no_transfers_from_bat_fund}} ==> {{contract_balance_lower_bound'}}).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (* +++ Passed 3000 tests (7170 discards) *)
@@ -897,7 +897,7 @@ Action{act_from: 11%256, act_body: (act_call 128%256, 3, create_tokens)};
 Action{act_from: 12%256, act_body: (act_call 128%256, 2, create_tokens)}];
 Block 6 [
 Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, refund)}]; |}
 
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 13 tests and 0 shrinks. (0 discards)
@@ -949,7 +949,7 @@ Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 17%256, 2)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 3 [
-Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)}];|}
+Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)}]; |}
 
 ChainState{
   env: Environment{chain: Chain{height: 2, current slot: 3, final height: 0}, contract states:...},
@@ -975,7 +975,7 @@ Action{act_from: 10%256, act_body: (act_transfer 16%256, 2)};
 Action{act_from: 10%256, act_body: (act_deploy 0, transfer 19%256 17)}];
 Block 3 [
 Action{act_from: 16%256, act_body: (act_call 128%256, 1, create_tokens)};
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, transfer 17%256 2)}];|}
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, transfer 17%256 2)}]; |}
 
 ChainState{
   env: Environment{chain: Chain{height: 2, current slot: 3, final height: 0}, contract states:...},
@@ -1006,7 +1006,7 @@ Block 5 [
 Action{act_from: 11%256, act_body: (act_call 128%256, 2, create_tokens)}];
 Block 7 [
 Action{act_from: 11%256, act_body: (act_call 128%256, 0, transfer 12%256 4)};
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, refund)}]; |}
 
 ChainState{
 	env: Environment{
@@ -1043,13 +1043,13 @@ ChainState{
    We now test if it is possible when no such transfers occur
 *)
 (*
-Extract Constant defNumTests    => "1000".
+Extract Constant defNumTests => "1000".
 Extract Constant defNumDiscards => "45000".
  QuickChick ({{no_batfund_create_tokens &&&
                  no_transfers_to_batfund &&&
                  only_transfers_modulo_exhange_rate}}
                ==> {{can_always_fully_refund}}).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)". *)
 (* +++ Passed 1000 tests (34031 discards) *)
 
@@ -1082,7 +1082,7 @@ Block 5 [
 Action{act_from: 17%256, act_body: (act_call 128%256, 2, create_tokens)};
 Action{act_from: 17%256, act_body: (act_call 128%256, 0, transfer_from 16%256 17%256 0)}];
 Block 6 [
-Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}];|}
+Action{act_from: 16%256, act_body: (act_call 128%256, 0, finalize)}]; |}
 
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
@@ -1114,9 +1114,9 @@ Definition can_always_finalize check_setup :=
     always possible to successfully fund the token for any
     setup used when deploying the token *)
 (*
-Extract Constant defNumTests    => "100".
+Extract Constant defNumTests => "100".
 QuickChick (expectFailure (forAll gBATSetup (build_init_cb (fun cb => cb ~~> is_finalized)))).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 (*
 Setup{
@@ -1140,9 +1140,9 @@ Setup{
 *)
 
 (*
-Extract Constant defNumTests    => "100".
+Extract Constant defNumTests => "100".
 QuickChick (expectFailure (can_always_finalize funding_period_not_over)).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 (*
 Setup{
@@ -1164,11 +1164,11 @@ Setup{
 *)
 
 (*
-Extract Constant defNumTests    => "200".
+Extract Constant defNumTests => "200".
 QuickChick (expectFailure (can_always_finalize
   (fun setup cb => (funding_period_not_over setup cb) &&
                    (funding_period_non_empty setup)))).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 (*
 Setup{
@@ -1190,12 +1190,12 @@ Setup{
 *)
 
 (*
-Extract Constant defNumTests    => "200".
+Extract Constant defNumTests => "200".
 QuickChick (expectFailure (can_always_finalize
   (fun setup cb => (funding_period_not_over setup cb) &&
                    (funding_period_non_empty setup) &&
                    (initial_supply_le_cap setup)))).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 (*
 Setup{
@@ -1217,13 +1217,13 @@ Setup{
 *)
 
 (*
-Extract Constant defNumTests    => "200".
+Extract Constant defNumTests => "200".
 QuickChick (expectFailure (can_always_finalize
   (fun setup cb => (funding_period_not_over setup cb) &&
                    (funding_period_non_empty setup) &&
                    (initial_supply_le_cap setup) &&
                    (exchange_rate_non_zero setup)))).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 *)
 (*
 Setup{
@@ -1342,7 +1342,7 @@ Block 6 [
 Action{act_from: 13%256, act_body: (act_call 128%256, 0, transfer 15%256 3)}];
 Block 7 [
 Action{act_from: 15%256, act_body: (act_call 128%256, 0, refund)};
-Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}];|}
+Action{act_from: 13%256, act_body: (act_call 128%256, 0, refund)}]; |}
 
 ChainState{
 	env: Environment{
@@ -1398,19 +1398,19 @@ ChainState{
     we now test if it holds when either batFund makes no transfers
     or no transfers are of an amount such that "amount % exchange_rate != 0". *)
 (*
-Extract Constant defNumTests    => "5000".
+Extract Constant defNumTests => "5000".
 Extract Constant defNumDiscards => "30000".
  QuickChick ({{no_transfers_from_bat_fund}} ==> {{total_supply_bounds}}).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (* +++ Passed 5000 tests (11879 discards) *)
 (*
-Extract Constant defNumTests    => "1000".
+Extract Constant defNumTests => "1000".
 Extract Constant defNumDiscards => "30000".
  QuickChick ({{only_transfers_modulo_exhange_rate}}
              ==> {{total_supply_bounds}}).
-Extract Constant defNumTests    => "10000".
+Extract Constant defNumTests => "10000".
 Extract Constant defNumDiscards => "(2 * defNumTests)".
 *)
 (* +++ Passed 1000 tests (11862 discards) *)

@@ -205,19 +205,19 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
   Export NAddr.
 
   (* begin hide *)
-  Existing Instance add_liquidity_param_serializable.
-  Existing Instance remove_liquidity_param_serializable.
-  Existing Instance xtz_to_token_param_serializable.
-  Existing Instance token_to_xtz_param_serializable.
-  Existing Instance set_baker_param_serializable.
-  Existing Instance token_to_token_param_serializable.
-  Existing Instance DexterMsg_serializable.
-  Existing Instance Dexter2FA12_Msg_serialize.
-  Existing Instance setup_serializable.
-  Existing Instance ClientMsg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance FA2Token_Msg_serializable.
-  Existing Instance BaseTypes.
+  #[export] Existing Instance add_liquidity_param_serializable.
+  #[export] Existing Instance remove_liquidity_param_serializable.
+  #[export] Existing Instance xtz_to_token_param_serializable.
+  #[export] Existing Instance token_to_xtz_param_serializable.
+  #[export] Existing Instance set_baker_param_serializable.
+  #[export] Existing Instance token_to_token_param_serializable.
+  #[export] Existing Instance DexterMsg_serializable.
+  #[export] Existing Instance Dexter2FA12_Msg_serialize.
+  #[export] Existing Instance setup_serializable.
+  #[export] Existing Instance ClientMsg_serializable.
+  #[export] Existing Instance state_serializable.
+  #[export] Existing Instance FA2Token_Msg_serializable.
+  #[export] Existing Instance BaseTypes.
   (* end hide *)
 
   Section DexterDefs.
@@ -321,7 +321,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (param.(remove_deadline) <=? chain.(current_slot))%nat default_error; (* error_THE_CURRENT_TIME_MUST_BE_LESS_THAN_THE_DEADLINE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do xtz_withdrawn <-  div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
+      do xtz_withdrawn <- div (param.(lqtBurned) * state.(xtzPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
       do tokens_withdrawn <- div (param.(lqtBurned) * state.(tokenPool)) state.(lqtTotal) ; (* error_DIV_by_0 *)
       do _ <- throwIf (xtz_withdrawn <? param.(minXtzWithdrawn))default_error ; (* error_THE_AMOUNT_OF_XTZ_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_XTZ_WITHDRAWN *)
       do _ <- throwIf (tokens_withdrawn <? param.(minTokensWithdrawn)) default_error; (* error_THE_AMOUNT_OF_TOKENS_WITHDRAWN_MUST_BE_GREATER_THAN_OR_EQUAL_TO_MIN_TOKENS_WITHDRAWN *)
@@ -332,7 +332,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
       let op_token := token_transfer state ctx.(ctx_contract_address) param.(liquidity_to) tokens_withdrawn in
       do opt_xtz <- xtz_transfer param.(liquidity_to) xtz_withdrawn ;
       let new_state :=
-        {| tokenPool :=  new_tokenPool;
+        {| tokenPool := new_tokenPool;
           xtzPool := new_xtzPool;
           lqtTotal := new_lqtPool;
           selfIsUpdatingTokenPool := state.(selfIsUpdatingTokenPool);

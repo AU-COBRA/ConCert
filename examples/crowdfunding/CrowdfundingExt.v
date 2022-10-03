@@ -1,4 +1,4 @@
-(**  We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
+(** We develop a deep embedding of a crowdfunding contract and prove some of its functional correctness properties using the corresponding shallow embedding *)
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -25,7 +25,7 @@ Import BaseTypes.
 Open Scope list.
 
 
-(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
+(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
@@ -47,7 +47,7 @@ Module CrowdfundingContract.
      [| \"o" : Maybe Unit => \"b" : Maybe Result =>
         case "o" : Maybe Unit return Maybe Result of
         | Just "_" -> "b"
-        | Nothing -> $Nothing$Maybe [:  Result ]  |].
+        | Nothing -> $Nothing$Maybe [: Result ] |].
 
     MetaCoq Unquote Definition maybe_bind_unit :=
       (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
@@ -79,11 +79,11 @@ Module CrowdfundingContract.
 
     (** The last argument of the [init] function must be a [CallCtx]. The init function returns an options type. The [init] function in Liquidity cannot refer to global definitions, so we have to inline validation *)
     Definition crowdfunding_init : expr :=
-      [| \setup : {params_ty}  => \ctx : CallCtx =>
+      [| \setup : {params_ty} => \ctx : CallCtx =>
          (if sent_amount ctx == 0z then
             $Just$Maybe [:{full_state_ty}]
              (mkFullState setup (mkState MNil False))
-          else $Nothing$Maybe [: {full_state_ty}] : Maybe  {full_state_ty})|].
+          else $Nothing$Maybe [: {full_state_ty}] : Maybe {full_state_ty})|].
 
     (* Compute ((expr_to_tc Σ' (indexify nil crowdfunding_init))). *)
     MetaCoq Unquote Definition init :=
@@ -95,7 +95,7 @@ Module CrowdfundingContract.
       init setup call_ctx = None.
     Proof.
       intros H. destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
-      unfold init,maybe_bind_unit. destruct ?;auto.
+      unfold init,maybe_bind_unit. destruct ?; auto.
       cbn in *. unfold validate in *.
       rewrite Z.eqb_eq in *. lia.
     Qed.
@@ -146,13 +146,13 @@ Module CrowdfundingContract.
 
     (** We make the remapping to the Liquidity primitives easier by using this abbreviation for the lookup, since in Liquidity the arguments are swapped *)
     Definition lookup_map' k m := PreludeExt.Maps.lookup_map m k.
-    Notation "'findm' a b" :=  [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
+    Notation "'findm' a b" := [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).
 
     Definition crowdfunding : expr :=
-      [|  \m : msg => \s : {full_state_ty}  => \ctx : CallCtx =>
+      [| \m : msg => \s : {full_state_ty} => \ctx : CallCtx =>
           let sender : address := sender_addr ctx in
           let bal : money := acc_balance ctx in
           let tx_amount : money := sent_amount ctx in
@@ -186,25 +186,25 @@ Module CrowdfundingContract.
       (expr_to_tc Σ' (indexify nil crowdfunding)).
 
     (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
-    Lemma receive_validated  message state
-          (call_ctx :  SimpleCallCtx) :
+    Lemma receive_validated message state
+          (call_ctx : SimpleCallCtx) :
       (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_coq ->
       receive message state call_ctx = None.
     Proof.
       intros Hneq Hmsg.
       destruct call_ctx as [curr_time [sender [tx_amount total_bal]]].
       cbn in *.
-      destruct message;tryfalse.
-      + simpl. destruct ?;auto.
-        unfold maybe_bind_unit. destruct ?;auto.
+      destruct message; tryfalse.
+      + simpl. destruct ?; auto.
+        unfold maybe_bind_unit. destruct ?; auto.
         simpl in *. unfold validate in *.
-        destruct ?;tryfalse.
+        destruct ?; tryfalse.
         rewrite Z.eqb_eq in *. lia.
-      + simpl. destruct ?;auto.
-        destruct ?;auto.
-        unfold maybe_bind_unit. destruct ?;auto.
+      + simpl. destruct ?; auto.
+        destruct ?; auto.
+        unfold maybe_bind_unit. destruct ?; auto.
         simpl in *. unfold validate in *.
-        destruct ?;tryfalse.
+        destruct ?; tryfalse.
         rewrite Z.eqb_eq in *. lia.
     Qed.
 

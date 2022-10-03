@@ -125,6 +125,7 @@ Definition token_state (cs : Environment) := get_contract_state FA2Token.State c
 Definition client_state (cs : Environment) := get_contract_state ClientState cs client_contract_addr.
 
 From ConCert.Examples.FA2 Require Import FA2Gens.
+From ConCert.Examples.FA2 Require Export FA2Printers.
 
 Module TestInfo <: FA2TestsInfo.
   Import Monads.

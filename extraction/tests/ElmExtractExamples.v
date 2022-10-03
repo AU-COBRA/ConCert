@@ -67,7 +67,7 @@ Module ElmExamples.
   (* [safe_pred] example is inspired by Letozey's A New Extraction for Coq *)
   Definition safe_pred (n:nat) (not_zero : O<>n) : {p :nat | n=(S p)} :=
     match n as n0 return (n0 = n -> _ -> _ )with
-    | O => fun heq h => False_rect _ (ltac:(cbn;intros;easy))
+    | O => fun heq h => False_rect _ (ltac:(cbn; intros; easy))
     | S m => fun heq h => exist m eq_refl
     end eq_refl not_zero.
 
@@ -80,9 +80,9 @@ Module ElmExamples.
   (* In fully applied case the last argument of [safe_pred] is removed*)
   Redirect "tests/extracted-code/elm-extract/SafePredFull.elm"
   Compute general_wrapped safe_pred_full_syn
-  (Preambule "SafePredFull" ++ Common.nl ++ elm_false_rec)
-  (main_and_test "Expect.equal safe_pred_full (Exist O)")
-  [] [].
+    (Preambule "SafePredFull" ++ Common.nl ++ elm_false_rec)
+    (main_and_test "Expect.equal safe_pred_full (Exist O)")
+    [] [].
 
   MetaCoq Run (t <- tmQuoteRecTransp safe_pred_partial false ;;
                mpath <- tmCurrentModPath tt;;
@@ -237,7 +237,7 @@ Module ElmExamples.
   (main_and_test "Expect.equal (last (Cons 1 (Cons 10 Nil)) 0) 10").
 
   Program Definition safe_head {A} (non_empty_list : {l : list A | List.length l > 0}) : A :=
-    match non_empty_list as l' return l' = non_empty_list -> A  with
+    match non_empty_list as l' return l' = non_empty_list -> A with
     | [] =>
       (* NOTE: we use [False_rect] to make the extracted code a bit nicer.
          It's totally possible to leave the whole branch as an obligation,
@@ -251,11 +251,11 @@ Module ElmExamples.
     | hd :: tl => fun _ => hd
     end eq_refl.
   Next Obligation.
-    intros;cbn in*; lia.
+    intros; cbn in*; lia.
   Qed.
 
-  Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A
-    := safe_head (repeat a (1+n)).
+  Program Definition head_of_repeat_plus_one {A} (n : nat) (a : A) : A :=
+    safe_head (repeat a (1+n)).
   Next Obligation.
     intros. cbn. lia.
   Qed.

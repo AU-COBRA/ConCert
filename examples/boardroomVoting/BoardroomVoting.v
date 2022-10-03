@@ -29,10 +29,15 @@ End BoardroomParams.
 
 Module BoardroomVoting (Params : BoardroomParams).
   Import Params.
+  #[local]
   Existing Instance ser.
+  #[local]
   Existing Instance axioms.
+  #[local]
   Existing Instance gen.
+  #[local]
   Existing Instance discr_log.
+  #[local]
   Existing Instance Base.
 
   (* Allow us to automatically derive Serializable instances *)
@@ -670,7 +675,7 @@ Module BoardroomVoting (Params : BoardroomParams).
           split; [tauto|].
           split.
           unfold AddressMap.add.
-          {  rewrite FMap.size_add_existing by congruence; tauto. }
+          { rewrite FMap.size_add_existing by congruence; tauto. }
           split; [tauto|].
           split; [tauto|].
           intros [_ msg_assum] order_assum num_signups_assum.

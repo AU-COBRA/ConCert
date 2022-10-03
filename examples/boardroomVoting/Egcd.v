@@ -153,14 +153,14 @@ Lemma mul_fst_egcd a n :
 Proof.
   pose proof (egcd_spec a n).
   destruct (Z.eqb_spec n 0) as [->|?].
-  { intros.  cbn in *.  rewrite !Zmod_0_r.
+  { intros. cbn in *. rewrite !Zmod_0_r.
     rewrite <- Zgcd_1_rel_prime in *.
     rewrite Z.gcd_0_r in *.
-    unfold egcd. destruct (Z.eqb_spec a 0) as [->|?];cbn;lia. }
+    unfold egcd. destruct (Z.eqb_spec a 0) as [->|?]; cbn; lia. }
   intros relprime.
   destruct (egcd a n) as [x y]; cbn.
   rewrite (proj2 (Zgcd_1_rel_prime _ _) relprime) in H.
-  replace (a * x) with (1  + (-y)*n) by lia.
+  replace (a * x) with (1 + (-y)*n) by lia.
   rewrite <- Z.add_mod_idemp_r by lia.
   now rewrite Z.mod_mul, Z.add_0_r by lia.
 Qed.

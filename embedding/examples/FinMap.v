@@ -33,7 +33,7 @@ MetaCoq Run
           mkNames mp ["Maybe"; "Map"] "Acorn").
 
 (** And constructors (just names, no module path prefix) *)
-MetaCoq Run (mkNames "" ["Nothing";"Just"; "MNil"; "MCons"] "Acorn").
+MetaCoq Run (mkNames "" ["Nothing"; "Just"; "MNil"; "MCons"] "Acorn").
 
 (** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
 
@@ -44,7 +44,7 @@ MetaCoq Run (mkNames "" ["Nothing";"Just"; "MNil"; "MCons"] "Acorn").
 (** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type. [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell. First, we define a new datatype without using notations *)
 
 Definition maybe_syn :=
-  gdInd Maybe 1 [(Nothing, []);  (Just, [(None,tyRel 0)])] false.
+  gdInd Maybe 1 [(Nothing, []); (Just, [(None,tyRel 0)])] false.
 
 MetaCoq Unquote Inductive (global_to_tc maybe_syn).
 
@@ -52,7 +52,7 @@ MetaCoq Unquote Inductive (global_to_tc maybe_syn).
 Definition map_syn :=
   [\ data Map # 2 =
        MNil [_]
-     | MCons [^1, ^0, (Map ^1 ^0), _]  \].
+     | MCons [^1, ^0, (Map ^1 ^0), _] \].
 
 MetaCoq Unquote Inductive (global_to_tc map_syn).
 
@@ -70,7 +70,7 @@ Notation " ' x " := (eTy (tyVar x))
 (** [if .. then .. else] is just a shortcut for [case] of a boolean expression *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
     (eCase (Bool,[]) ty cond
-           [(pConstr true_name [],b1);(pConstr false_name [],b2)])
+           [(pConstr true_name [],b1); (pConstr false_name [],b2)])
       (in custom expr at level 2,
           cond custom expr at level 4,
           ty custom type at level 4,
@@ -121,7 +121,7 @@ Module NatMap := FMapWeakList.Make Nat_as_OT.
 (** Conversion function from our type of finite maps to the one in the standard library *)
 Fixpoint from_amap {A} (m : MapAcorn nat A) : NatMap.Raw.t A :=
   match m with
-  | MNilAcorn  => []
+  | MNilAcorn => []
   | MConsAcorn k v m' => (k,v) :: from_amap m'
   end.
 
@@ -147,7 +147,7 @@ Section MapEval.
 
   (** Boolean equality of two natural numbers in Acorn *)
   Definition eqb_syn : expr :=
-    [| (fix "eqb" (n : Nat) : Nat ->  Bool :=
+    [| (fix "eqb" (n : Nat) : Nat -> Bool :=
            case n : Nat return Nat -> Bool of
            | Zero -> \m : Nat => (case m : Nat return Bool of
                    | Zero -> True
@@ -166,7 +166,7 @@ Section MapEval.
   Lemma nat_eqb_correct n m : nat_eqb n m = Nat.eqb n m.
   Proof.
     revert m.
-    induction n;intros m; now destruct m.
+    induction n; intros m; now destruct m.
   Qed.
 
   (** The syntactic representation of the following map [1 ~> 1; 0 ~> 0] *)

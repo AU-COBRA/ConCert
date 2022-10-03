@@ -908,7 +908,7 @@ Section Theories.
       apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
       apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
       repeat match goal with
-      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+      | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       exists new_state'.
       rewrite_environment_equiv; cbn; repeat split; eauto;
@@ -947,7 +947,7 @@ Section Theories.
       + cbn in *.
         clear contract_state slot_hit creation_min.
         update_all;
-          [rewrite queue0; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
         (* Finally we need to evaluate the new transfer action that finalize produced *)
         evaluate_transfer; try easy.
         * (* Prove that the transfer is nonnegative *)
@@ -1021,7 +1021,7 @@ Section Theories.
       apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
       apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
       repeat match goal with
-      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+      | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       eexists new_state'.
       repeat split; eauto;
@@ -1290,7 +1290,7 @@ Section Theories.
     inversion deploy_info'. subst dep_info. clear deploy_info'.
     cbn in *.
     repeat match goal with
-    | H : _ cstate =  _ setup |- _=> rewrite <- H in *; clear H
+    | H : _ cstate = _ setup |- _=> rewrite <- H in *; clear H
     end.
     update bstate0 with bstate in enough_balance_to_fund by
       (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
@@ -1481,7 +1481,7 @@ Section Theories.
       + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
         apply try_create_tokens_acts_correct in receive_some as no_new_acts.
         specialize try_create_tokens_is_some as (_ & (_ & _ & _ & funding_active & _)); eauto.
-        rewrite  <- finalized_unchanged in not_finalized.
+        rewrite <- finalized_unchanged in not_finalized.
         destruct not_finalized as [not_finalized _].
         rewrite no_new_acts, IH; auto.
       + apply try_finalize_isFinalized_correct in receive_some as finalized.
@@ -1610,7 +1610,7 @@ Section Theories.
           specialize N_sub_mod_le as ?.
           rewrite H, <- N2Z.inj_sub, N2Z.inj_add, (N2Z.inj_sub _ t); auto.
           rewrite <- Z.sub_sub_distr, <- N2Z.inj_sub, <- N2Z.inj_sub; auto.
-            all:  now eapply N.le_trans.
+            all: now eapply N.le_trans.
       + now contract_simpl.
     - now destruct facts.
     - now erewrite sumZ_permutation in IH_finalized, IH_funding by eauto.

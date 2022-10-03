@@ -143,7 +143,7 @@ Global Instance contract_reader_to_receiver
 
 Global Instance result_to_contract_receiver
         {State Msg Error : Type}
-        : MonadTrans (ContractReceiver State Msg Error) (fun T => result T Error)  :=
+        : MonadTrans (ContractReceiver State Msg Error) (fun T => result T Error) :=
   {| lift _ (opt : result _ Error) chain ctx state msg acts := (chain, ctx, state, msg, acts, opt) |}.
 
 Definition chain_height : ContractReader nat :=

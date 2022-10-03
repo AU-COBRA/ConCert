@@ -3,7 +3,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require LPretty.
+From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Execution Require Import Monad.
@@ -125,7 +125,7 @@ Section EIP20TokenExtraction.
       lmd_module_name := "liquidity_eip20token" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := LPretty.LiquidityPrelude;
+      lmd_prelude := LiquidityPretty.LiquidityPrelude;
 
       (* initial storage *)
       lmd_init := init ;
@@ -140,7 +140,7 @@ Section EIP20TokenExtraction.
                           ++ nl
                           ++ printERC20Wrapper (PREFIX ++ "receive_wrapper")
                           ++ nl
-                          ++ LPretty.printMain
+                          ++ LiquidityPretty.printMain
   |}.
 
 

@@ -69,7 +69,7 @@ Proof.
   (* set (extract_cameligo_params inline) as params. *)
   set (fun kn => existsb (eq_kername kn) ignore) as to_ignore.
   unshelve epose proof (annot_extract_pcuic_env cameligo_args Σ wfΣ include to_ignore _).
-  - subst;cbn;constructor; [|constructor].
+  - subst; cbn; constructor; [|constructor].
     apply annot_dearg_transform.
   - destruct extract_pcuic_env.
     * exact (Ok (t; X)).
@@ -77,8 +77,6 @@ Proof.
 Defined.
 
 Definition blah : Monad (fun A => result A string) := _.
-
-Print Instances Monad.
 
 Program Definition annot_extract_template_env_specalize
            (e : Ast.Env.global_env)
@@ -229,7 +227,7 @@ Section LigoExtract.
 
 Definition printCameLIGODefs {msg ctx params storage operation error : Type}
            (Σ : Ast.Env.global_env)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (extra_ignore : list kername)
            (build_call_ctx : String.string)
@@ -313,7 +311,7 @@ Definition quote_and_preprocess {Base : ChainBase}
      Σcert <- tmEval lazy (inline_globals to_inline decls) ;;
      mpath <- tmCurrentModPath tt;;
      Certifying.gen_defs_and_proofs decls Σcert mpath "_cert_pass"
-                                    (KernameSetProp.of_list [init_nm;receive_nm]);;
+                                    (KernameSetProp.of_list [init_nm; receive_nm]);;
      ret Σcert);;
   Σret <- tmEval lazy (if WITH_UNIVERSES then
                          Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
@@ -347,7 +345,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation error :
     Convenient to use, but might be slow, becase performance of [tmEval lazy] is not great. *)
 Definition CameLIGO_extract {msg ctx params storage operation error : Type}
            (inline : list kername)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (extra_ignore : list kername)
            (build_call_ctx : String.string)
@@ -393,8 +391,8 @@ Definition simple_def_print `{ChainBase} TT_defs TT_ctors seeds (prelude harness
                             |> map (fun d => match d with ConstDecl d' => d' | TyDecl d' => d' end)
                             |> filter not_empty_str in
     let defs : list String.string :=
-        ldef_const_list  |> map snd
-                         |> List.app (map snd ldef_ty_list) in
+        ldef_const_list |> map snd
+                        |> List.app (map snd ldef_ty_list) in
     Strings.String.concat (Common.nl ++ Common.nl) ((prelude :: defs ++ [harness]))%list |> inl
   | Err e => inr (bs_to_s e)
   end.
@@ -429,7 +427,7 @@ Definition quote_and_preprocess_one_def {A}
     of [storage], [main], etc.*)
 Definition CameLIGO_extract_single `{ChainBase} {A}
            (inline : list kername)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
            (harness: String.string)
@@ -438,10 +436,10 @@ Definition CameLIGO_extract_single `{ChainBase} {A}
   let seeds := KernameSetProp.of_list [def_nm] in
   tmEval lazy (unwrap_string_sum (simple_def_print TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
 
-(** Similar to [CameLIGO_prepare_extraction], but for a single definition  *)
+(** Similar to [CameLIGO_prepare_extraction], but for a single definition *)
 Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (inline : list kername)
-           (TT_defs : list (kername *  String.string))
+           (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
            (harness: String.string)

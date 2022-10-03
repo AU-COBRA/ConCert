@@ -116,9 +116,13 @@ clean-extraction-out-files:
 
 clean-extraction-sources:
 	rm -f $(ELM_DIR)/tests/*.elm
-	rm -f $(ELM_WEB_DIR)/src/*.elm
-	rm -f $(LIQUIDITY_DIR)/*.liq
-	rm -f $(LIGO_DIR)/*.mligo
+	rm -f $(ELM_WEB_APP_DIR)/src/main.elm
+	rm -f $(LIQUIDITY_DIR)/tests/*.liq
+	rm -f $(LIQUIDITY_DIR)/liquidity.log
+	rm -f $(LIGO_DIR)/tests/*.mligo
+	rm -f $(MIDLANG_DIR)/tests/*.midlang
+	find $(RUST_DIR) -name 'main.rs' -delete
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f $(dir)/src/lib.rs;)
 .PHONY:clean-extraction-sources
 
 clean-extraction-examples: clean-compiled-extraction clean-extraction-out-files clean-extraction-sources

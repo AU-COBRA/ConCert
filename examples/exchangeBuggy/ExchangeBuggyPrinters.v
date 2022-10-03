@@ -2,11 +2,12 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
-From ConCert.Examples.FA2 Require Import FA2Printers.
+From ConCert.Examples.FA2 Require Export FA2Printers.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggy.
 
 Local Open Scope string_scope.
 
+#[export]
 Instance showExchangeExchangeParam : Show ExchangeBuggy.exchange_param :=
 {|
   show t := "exchange{"
@@ -16,6 +17,7 @@ Instance showExchangeExchangeParam : Show ExchangeBuggy.exchange_param :=
           ++ "}"
 |}.
 
+#[export]
 Instance showExchangeMsgMsg : Show ExchangeBuggy.ExchangeMsg :=
 {|
   show m :=
@@ -27,11 +29,13 @@ Instance showExchangeMsgMsg : Show ExchangeBuggy.ExchangeMsg :=
     end
 |}.
 
+#[export]
 Instance showExchangeMsg : Show ExchangeBuggy.Msg :=
 {|
   show m := show m
 |}.
 
+#[export]
 Instance showExchangeState : Show ExchangeBuggy.State :=
 {|
   show t := "ExchangeState{"
@@ -40,6 +44,7 @@ Instance showExchangeState : Show ExchangeBuggy.State :=
           ++ "}"
 |}.
 
+#[export]
 Instance showExchangeSetup : Show ExchangeBuggy.Setup :=
 {|
   show t := "ExchangeSetup{"
@@ -47,6 +52,7 @@ Instance showExchangeSetup : Show ExchangeBuggy.Setup :=
           ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,

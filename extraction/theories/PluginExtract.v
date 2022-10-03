@@ -136,12 +136,12 @@ Instance RustConfig : RustPrintConfig :=
 
 Definition default_attrs : ind_attr_map := fun _ => "#[derive(Debug, Clone)]".
 
-Module T:=Ast.Env.
+Module T := Ast.Env.
 
 Definition extract_lines
            (p : T.program)
            (remaps : remaps)
-           (should_inline : kername -> bool) : result (list bytestring.string) bytestring.string  :=
+           (should_inline : kername -> bool) : result (list bytestring.string) bytestring.string :=
   entry <- match snd p with
            | T.tConst kn _ => ret kn
            | T.tInd ind _ => ret (inductive_mind ind)

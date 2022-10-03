@@ -1,4 +1,4 @@
-(** * A simply-typed version of the blockchain execution environment  *)
+(** * A simply-typed version of the blockchain execution environment *)
 (* We develop some blockchain infrastructure relevant for the contract execution. *)
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.

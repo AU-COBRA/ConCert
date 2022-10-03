@@ -41,13 +41,13 @@ Extract Constant PCUICSafeChecker.check_one_ind_body => "(fun _ _ _ _ _ _ _ -> r
 bytestrings from MetaCoq that leads to clashes. E.g. we cannot use
 [ExtrOcamlString]. *)
 
-(* Extract Constant timed => *)
-(* "(fun c x -> *)
-(*    let time = Unix.gettimeofday() in *)
-(*    let temp = x () in *)
-(*    let time = (Unix.gettimeofday() -. time) in *)
-(*    Feedback.msg_debug (Pp.str (Printf.sprintf ""%s executed in: %fs"" ((fun s-> (String.concat """" (List.map (String.make 1) s))) c) time)); *)
-(*               temp)". *)
+(* Extract Constant timed =>
+"(fun c x ->
+   let time = Unix.gettimeofday() in
+   let temp = x () in
+   let time = (Unix.gettimeofday() -. time) in
+   Feedback.msg_debug (Pp.str (Printf.sprintf ""%s executed in: %fs"" ((fun s-> (String.concat """" (List.map (String.make 1) s))) c) time));
+              temp)". *)
 
 Cd "plugin/src".
 Separate Extraction PluginExtract.extract

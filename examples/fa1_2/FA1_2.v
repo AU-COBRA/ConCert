@@ -82,7 +82,7 @@ Section FA12Types.
     should have this type as its Msg type. The contract may have other endpoints,
     as composed in the 'other_msg' constructor. *)
   Inductive FA12ReceiverMsg {Msg' : Type} :=
-  | receive_allowance : N ->  FA12ReceiverMsg
+  | receive_allowance : N -> FA12ReceiverMsg
   | receive_balance_of : N -> FA12ReceiverMsg
   | receive_total_supply : N -> FA12ReceiverMsg
   | other_msg : Msg' -> FA12ReceiverMsg.
@@ -186,16 +186,16 @@ Module FA12 (SI : FA12Serializable).
   Import SI.
 
   (* begin hide *)
-  Existing Instance callback_serializable.
-  Existing Instance transfer_param_serializable.
-  Existing Instance approve_param_serializable.
-  Existing Instance getAllowance_param_serializable.
-  Existing Instance getBalance_param_serializable.
-  Existing Instance getTotalSupply_param_serializable.
-  Existing Instance FA12ReceiverMsg_serializable.
-  Existing Instance msg_serializable.
-  Existing Instance state_serializable.
-  Existing Instance setup_serializable.
+  #[export] Existing Instance callback_serializable.
+  #[export] Existing Instance transfer_param_serializable.
+  #[export] Existing Instance approve_param_serializable.
+  #[export] Existing Instance getAllowance_param_serializable.
+  #[export] Existing Instance getBalance_param_serializable.
+  #[export] Existing Instance getTotalSupply_param_serializable.
+  #[export] Existing Instance FA12ReceiverMsg_serializable.
+  #[export] Existing Instance msg_serializable.
+  #[export] Existing Instance state_serializable.
+  #[export] Existing Instance setup_serializable.
   (* end hide *)
 
   Section FA12Defs.

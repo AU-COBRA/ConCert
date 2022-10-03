@@ -21,7 +21,7 @@ Definition Env := Environment.
 Open Scope Z_scope.
 
 (* Try to generate an account which has balance > 0.
-   Returns None whenever no such address could be found.  *)
+   Returns None whenever no such address could be found. *)
 Definition gAccountWithBalance (e : Env)
                                (gAccOpt : GOpt Address)
                                : GOpt (Address * Amount) :=

@@ -45,7 +45,7 @@ Section Theories.
       clear IH.
       unfold receive in receive_some.
       destruct_match as [[]|] in receive_some; try congruence.
-      + destruct_match in receive_some; try congruence;cbn in *.
+      + destruct_match in receive_some; try congruence; cbn in *.
         destruct_match in receive_some; cbn in *; try congruence.
         destruct_match in receive_some; cbn in *; try congruence.
         destruct_match in receive_some; cbn in *; try congruence.
@@ -257,7 +257,7 @@ Section Theories.
       + (* Some commit_money *)
         destruct (next_step prev_state); try congruence.
         unfold subAmountOption in *.
-        destruct (ctx_contract_balance ctx <? ctx_amount ctx);cbn in *; try congruence.
+        destruct (ctx_contract_balance ctx <? ctx_amount ctx); cbn in *; try congruence.
         destruct (address_eqb_spec (ctx_from ctx) (buyer prev_state)) as [->|];
           cbn in *; try congruence.
         destruct (ctx_amount ctx =? _) eqn:proper_amount in receive_some;
@@ -272,7 +272,7 @@ Section Theories.
         replace (ctx_contract_balance _) with (2 * item_worth + 2 * item_worth / 2 * 2) by lia.
         rewrite <- Z.mul_comm.
         rewrite Z.div_mul by lia.
-        repeat split;eauto.
+        repeat split; eauto.
         lia.
       + (* Some confirm_item_received *)
         destruct_match in receive_some; cbn in *; try congruence.
@@ -296,7 +296,7 @@ Section Theories.
         rewrite (Z.mul_comm 4).
         rewrite Z.div_mul by lia.
         destruct (Z.eqb_spec (2 * item_worth) 0); cbn in *; try lia.
-        repeat split; eauto;lia.
+        repeat split; eauto; lia.
       + (* Some withdraw. Can be sent while next_step is either
            commit_money or withdrawals. *)
         destruct_match eqn:prev_next_step in receive_some;

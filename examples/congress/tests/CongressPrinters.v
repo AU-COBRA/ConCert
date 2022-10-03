@@ -9,6 +9,7 @@ Arguments SerializedValue : clear implicits.
 Arguments deserialize : clear implicits.
 Arguments serialize : clear implicits.
 
+#[export]
 Instance showRules : Show Rules :=
 {|
   show r :=
@@ -25,10 +26,11 @@ Definition string_of_ca (str_of_msg : Msg -> string) ca :=
   | cact_call to amount msg => "(call: " ++ show to ++ sep ++ show amount ++ sep ++
       match @deserialize Msg _ msg with
       | Some msg => str_of_msg msg
-      | None =>  "<FAILED DESERIALIZATION>"
+      | None => "<FAILED DESERIALIZATION>"
       end ++ ")"
   end.
 
+#[export]
 Instance showSetup : Show Setup :=
 {|
   show v := show (setup_rules v)
@@ -47,34 +49,38 @@ Fixpoint string_of_Msg (fuel : nat) (m : Msg) : string :=
   | add_member addr => "add_member " ++ show addr
   | remove_member addr => "remove_member " ++ show addr
   | create_proposal actions => "create_proposal " ++ show_acts actions
-  | vote_for_proposal proposalId => "vote_for_proposal " ++  show proposalId
+  | vote_for_proposal proposalId => "vote_for_proposal " ++ show proposalId
   | vote_against_proposal proposalId => "vote_against_proposal " ++ show proposalId
   | retract_vote proposalId => "retract_vote " ++ show proposalId
   | finish_proposal proposalId => "finish_proposal " ++ show proposalId
   end.
 
+#[export]
 Instance showMsg : Show Msg :=
 {|
   show := string_of_Msg 20
 |}.
 
 (* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+#[export]
 Instance showCongressAction : Show CongressAction :=
 {|
   show := string_of_ca (string_of_Msg 20)
 |}.
 
+#[export]
 Instance showProposal : Show Proposal :=
 {|
   show p :=
     "Proposal{"
-    ++ "actions: " ++  show (actions p) ++ sep
+    ++ "actions: " ++ show (actions p) ++ sep
     ++ "votes: " ++ show (votes p) ++ sep
     ++ "vote_result: " ++ show (vote_result p) ++ sep
     ++ "proposed_in: " ++ show (proposed_in p) ++ sep
     ++ "}" ++ newline
 |}.
 
+#[export]
 Instance showState : Show Congress.State :=
 {|
   show s := "State{"
@@ -85,5 +91,6 @@ Instance showState : Show Congress.State :=
             ++ "members: " ++ show (members s) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

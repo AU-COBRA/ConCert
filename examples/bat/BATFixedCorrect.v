@@ -889,7 +889,7 @@ Section Theories.
       apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
       apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
       repeat match goal with
-      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+      | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       exists new_state'.
       rewrite_environment_equiv; cbn; repeat split; eauto;
@@ -928,7 +928,7 @@ Section Theories.
       + cbn in *.
         clear contract_state slot_hit creation_min.
         update_all;
-          [rewrite queue0; do 3 f_equal;repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
         (* Finally we need to evaluate the new transfer action that finalize produced *)
         evaluate_transfer; try easy.
         * (* Prove that the transfer is nonnegative *)
@@ -1004,7 +1004,7 @@ Section Theories.
       apply receive_total_supply_increasing in receive_some as total_supply_increasing; try (cbn; lia).
       apply receive_preserves_constants in receive_some as (? & ? & ? & ? & ? & ? & ? & ?).
       repeat match goal with
-      | H : _ prev_state' =  _ new_state' |- _=> rewrite H in *; clear H
+      | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       eexists new_state'.
       repeat split; eauto;
@@ -1283,7 +1283,7 @@ Section Theories.
     inversion deploy_info'. subst dep_info. clear deploy_info'.
     cbn in *.
     repeat match goal with
-    | H : _ cstate =  _ setup |- _=> rewrite <- H in *; clear H
+    | H : _ cstate = _ setup |- _=> rewrite <- H in *; clear H
     end.
     update (initSupply cstate) with (total_supply cstate) in enough_balance_to_fund by
       (eapply N.le_trans; [apply N.sub_le_mono_l, N.eq_le_incl | apply enough_balance_to_fund]; now rewrite Heqcstate).
@@ -1656,7 +1656,7 @@ Section Theories.
 
 
 
-  (** **  Contract balance bound *)
+  (** ** Contract balance bound *)
 
   Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
     let effective_balance := (env_account_balances bstate caddr - (sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr)))%Z in

@@ -17,6 +17,7 @@ Import MCMonadNotation.
 Local Open Scope string_scope.
 Open Scope Z.
 
+#[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Module Counter.
@@ -95,6 +96,7 @@ Module Counter.
     |}.
 
 End Counter.
+
 Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
@@ -116,28 +118,28 @@ Section CounterExtraction.
     ].
 
   (** We run the extraction procedure inside the [TemplateMonad]. *)
-  (*       It uses the certified erasure from [MetaCoq] and the certified deboxing procedure *)
-  (*       that removes application of boxes to constants and constructors. *)
+  (*  It uses the certified erasure from [MetaCoq] and the certified deboxing procedure *)
+  (*  that removes application of boxes to constants and constructors. *)
 
   (** NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
 
   (* Time MetaCoq Run *)
-  (*     (t <- CameLIGO_extract [] TT_remap_counter [] [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
-  (*       tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
+  (*   (t <- CameLIGO_extract [] TT_remap_counter [] [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
+  (*     tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
 
 
   (*  If we first prepare the environment for erasure in [TemplateMonad] *)
-  (*      and run erasure/prining outside of it, it works ~4 times faster for this example *)
+  (*  and run erasure/prining outside of it, it works ~4 times faster for this example *)
 
   (** This command adds [cameLIGO_counter_prepared] to the environment, *)
-  (*       which can be evaluated later *)
+  (*  which can be evaluated later *)
   Time MetaCoq Run
        (CameLIGO_prepare_extraction [] TT_remap_counter TT_rename_ctors_default [] "cctx_instance" LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertifiedExtraction.mligo"
+  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterCertified.mligo"
   MetaCoq Run (tmMsg (String.of_string cameLIGO_counter_1)).
 
 End CounterExtraction.

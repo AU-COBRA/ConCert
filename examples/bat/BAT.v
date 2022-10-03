@@ -16,6 +16,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
@@ -79,7 +80,7 @@ Section BAT.
     do _ <- throwIf (state.(tokenCreationCap) <? checkedSupply) default_error;
     let new_token_state : EIP20Token.State := {|
       EIP20Token.total_supply := checkedSupply;
-      EIP20Token.balances := FMap.partial_alter (fun balance => 
+      EIP20Token.balances := FMap.partial_alter (fun balance =>
         Some (with_default 0 balance + tokens)) sender (balances state);
       EIP20Token.allowances := allowances state;
     |} in

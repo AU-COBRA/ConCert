@@ -5,11 +5,13 @@ From ConCert.Examples.EIP20 Require Import EIP20Token.
 
 Local Open Scope string_scope.
 
+#[export]
 Instance showTokenValue : Show TokenValue :=
 {|
   show v := show v
 |}.
 
+#[export]
 Instance showMsg : Show Msg :=
 {|
   show m :=
@@ -23,6 +25,7 @@ Instance showMsg : Show Msg :=
     end
 |}.
 
+#[export]
 Instance showTokenSetup : Show Setup :=
 {|
   show setup := "Setup{owner: "
@@ -33,6 +36,7 @@ Instance showTokenSetup : Show Setup :=
               ++ "}"
 |}.
 
+#[export]
 Instance showTokenState : Show EIP20Token.State :=
 {|
   show s := "State{total_supply: " ++ show s.(total_supply) ++ sep
@@ -40,5 +44,6 @@ Instance showTokenState : Show EIP20Token.State :=
                ++ "allowances: " ++ show s.(allowances) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < Msg, Setup >.

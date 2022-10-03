@@ -9,11 +9,13 @@ Local Open Scope string_scope.
 
 Arguments return_addr {_ _}.
 
+#[export]
 Instance showCallback {A : Type}: Show (FA2LegacyInterface.callback A) :=
 {|
   show v := "return address: " ++ show v.(return_addr)
 |}.
 
+#[export]
 Instance showFA2InterfaceTransferDestination : Show FA2LegacyInterface.transfer_destination :=
 {|
   show t := "{"
@@ -23,6 +25,7 @@ Instance showFA2InterfaceTransferDestination : Show FA2LegacyInterface.transfer_
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2InterfaceTransfer : Show FA2LegacyInterface.transfer :=
 {|
   show t := "{"
@@ -32,6 +35,7 @@ Instance showFA2InterfaceTransfer : Show FA2LegacyInterface.transfer :=
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacebalance_of_request : Show FA2LegacyInterface.balance_of_request :=
 {|
   show t := "balance_of_request{"
@@ -40,6 +44,7 @@ Instance showFA2Interfacebalance_of_request : Show FA2LegacyInterface.balance_of
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacebalance_of_response : Show FA2LegacyInterface.balance_of_response :=
 {|
   show t := "balance_of_response{"
@@ -48,6 +53,7 @@ Instance showFA2Interfacebalance_of_response : Show FA2LegacyInterface.balance_o
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacebalance_of_param : Show FA2LegacyInterface.balance_of_param :=
 {|
   show t := "balance_of_param{"
@@ -56,6 +62,7 @@ Instance showFA2Interfacebalance_of_param : Show FA2LegacyInterface.balance_of_p
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetotal_supply_response : Show FA2LegacyInterface.total_supply_response :=
 {|
   show t := "total_supply_response{"
@@ -64,6 +71,7 @@ Instance showFA2Interfacetotal_supply_response : Show FA2LegacyInterface.total_s
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetotal_supply_param : Show FA2LegacyInterface.total_supply_param :=
 {|
   show t := "total_supply_param{"
@@ -72,6 +80,7 @@ Instance showFA2Interfacetotal_supply_param : Show FA2LegacyInterface.total_supp
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetoken_metadata : Show FA2LegacyInterface.token_metadata :=
 {|
   show t := "token_metadata{"
@@ -80,6 +89,7 @@ Instance showFA2Interfacetoken_metadata : Show FA2LegacyInterface.token_metadata
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetoken_metadata_param : Show FA2LegacyInterface.token_metadata_param :=
 {|
   show t := "token_metadata_param{"
@@ -88,6 +98,7 @@ Instance showFA2Interfacetoken_metadata_param : Show FA2LegacyInterface.token_me
             ++ "}"
 |}.
 
+#[export]
 Instance showoperator_tokens : Show operator_tokens :=
 {|
   show m := match m with
@@ -96,6 +107,7 @@ Instance showoperator_tokens : Show operator_tokens :=
             end
 |}.
 
+#[export]
 Instance showFA2Interfaceoperator_param : Show FA2LegacyInterface.operator_param :=
 {|
   show t := "operator_param{"
@@ -105,7 +117,8 @@ Instance showFA2Interfaceoperator_param : Show FA2LegacyInterface.operator_param
             ++ "}"
 |}.
 
-Global Instance showupdate_operator : Show update_operator :=
+#[export]
+Instance showupdate_operator : Show update_operator :=
 {|
   show m := match m with
             | add_operator param => "add_operator " ++ show param
@@ -113,6 +126,7 @@ Global Instance showupdate_operator : Show update_operator :=
             end
 |}.
 
+#[export]
 Instance showFA2Interfaceis_operator_response : Show FA2LegacyInterface.is_operator_response :=
 {|
   show t := "is_operator_response{"
@@ -121,6 +135,7 @@ Instance showFA2Interfaceis_operator_response : Show FA2LegacyInterface.is_opera
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfaceis_operator_param : Show FA2LegacyInterface.is_operator_param :=
 {|
   show t := "is_operator_param{"
@@ -129,6 +144,7 @@ Instance showFA2Interfaceis_operator_param : Show FA2LegacyInterface.is_operator
             ++ "}"
 |}.
 
+#[export]
 Instance showself_transfer_policy : Show self_transfer_policy :=
 {|
   show m := match m with
@@ -137,6 +153,7 @@ Instance showself_transfer_policy : Show self_transfer_policy :=
             end
 |}.
 
+#[export]
 Instance showoperator_transfer_policy : Show operator_transfer_policy :=
 {|
   show m := match m with
@@ -145,6 +162,7 @@ Instance showoperator_transfer_policy : Show operator_transfer_policy :=
             end
 |}.
 
+#[export]
 Instance showowner_transfer_policy : Show owner_transfer_policy :=
 {|
   show m := match m with
@@ -154,6 +172,7 @@ Instance showowner_transfer_policy : Show owner_transfer_policy :=
             end
 |}.
 
+#[export]
 Instance showFA2Interfacepermissions_descriptor : Show FA2LegacyInterface.permissions_descriptor :=
 {|
   show t := "permissions_descriptor{"
@@ -165,6 +184,7 @@ Instance showFA2Interfacepermissions_descriptor : Show FA2LegacyInterface.permis
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetransfer_destination_descriptor : Show FA2LegacyInterface.transfer_destination_descriptor :=
 {|
   show t := "transfer_destination_descriptor{"
@@ -174,6 +194,7 @@ Instance showFA2Interfacetransfer_destination_descriptor : Show FA2LegacyInterfa
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetransfer_descriptor : Show FA2LegacyInterface.transfer_descriptor :=
 {|
   show t := "transfer_descriptor{"
@@ -182,6 +203,7 @@ Instance showFA2Interfacetransfer_descriptor : Show FA2LegacyInterface.transfer_
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Interfacetransfer_descriptor_param : Show FA2LegacyInterface.transfer_descriptor_param :=
 {|
   show t := "transfer_descriptor_param{"
@@ -191,6 +213,7 @@ Instance showFA2Interfacetransfer_descriptor_param : Show FA2LegacyInterface.tra
             ++ "}"
 |}.
 
+#[export]
 Instance showfa2_token_receiver : Show fa2_token_receiver :=
 {|
   show m := match m with
@@ -198,6 +221,7 @@ Instance showfa2_token_receiver : Show fa2_token_receiver :=
             end
 |}.
 
+#[export]
 Instance showfa2_token_sender : Show fa2_token_sender :=
 {|
   show m := match m with
@@ -205,6 +229,7 @@ Instance showfa2_token_sender : Show fa2_token_sender :=
             end
 |}.
 
+#[export]
 Instance showFA2Interfaceset_hook_param : Show FA2LegacyInterface.set_hook_param :=
 {|
   show t := "set_hook_param{"
@@ -213,6 +238,7 @@ Instance showFA2Interfaceset_hook_param : Show FA2LegacyInterface.set_hook_param
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2ReceiverMsg {Msg : Type}
                            `{serMsg : Serializable Msg}
                            `{Show Msg}
@@ -228,6 +254,7 @@ Instance showFA2ReceiverMsg {Msg : Type}
             end
 |}.
 
+#[export]
 Instance showFA2TransferHook {Msg : Type}
                             `{serMsg : Serializable Msg}
                             `{Show Msg}
@@ -239,6 +266,7 @@ Instance showFA2TransferHook {Msg : Type}
             end
 |}.
 
+#[export]
 Instance showFA2TokenMsg : Show FA2Token.Msg :=
 {|
   show m := match m with
@@ -255,6 +283,7 @@ Instance showFA2TokenMsg : Show FA2Token.Msg :=
             end
 |}.
 
+#[export]
 Instance showFA2TokenLedger : Show FA2Token.TokenLedger :=
 {|
   show t := "Token_Ledger{"
@@ -263,7 +292,8 @@ Instance showFA2TokenLedger : Show FA2Token.TokenLedger :=
             ++ "}"
 |}.
 
-Global Instance showFA2State : Show FA2Token.State :=
+#[export]
+Instance showFA2State : Show FA2Token.State :=
 {|
   show t := "FA2TokenState{"
             ++ "fa2_owner: " ++ show t.(fa2_owner) ++ sep
@@ -275,6 +305,7 @@ Global Instance showFA2State : Show FA2Token.State :=
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2Setup : Show FA2Token.Setup :=
 {|
   show t := "FA2TokenSetup{"
@@ -285,6 +316,7 @@ Instance showFA2Setup : Show FA2Token.Setup :=
 |}.
 
 (* Printers for Test Contracts *)
+#[export]
 Instance showFA2ClientMsg : Show FA2ClientMsg :=
 {|
   show m := match m with
@@ -296,11 +328,13 @@ Instance showFA2ClientMsg : Show FA2ClientMsg :=
             end
 |}.
 
+#[export]
 Instance showFA2ClientContractMsg : Show ClientMsg :=
 {|
   show m := show m
 |}.
 
+#[export]
 Instance showFA2ClientState : Show ClientState :=
 {|
   show t := "FA2ClientState{"
@@ -309,6 +343,7 @@ Instance showFA2ClientState : Show ClientState :=
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2ClientSetup : Show ClientSetup :=
 {|
   show t := "FA2ClientSetup{"
@@ -316,6 +351,7 @@ Instance showFA2ClientSetup : Show ClientSetup :=
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2TransferHookMsg : Show FA2TransferHookMsg :=
 {|
   show m := match m with
@@ -323,12 +359,13 @@ Instance showFA2TransferHookMsg : Show FA2TransferHookMsg :=
             end
 |}.
 
+#[export]
 Instance showTransferHookMsg : Show TransferHookMsg :=
 {|
   show m := show m
 |}.
 
-
+#[export]
 Instance showFA2TransferHookContractState : Show HookState :=
 {|
   show t := "FA2TransferHookState{"
@@ -338,6 +375,7 @@ Instance showFA2TransferHookContractState : Show HookState :=
             ++ "}"
 |}.
 
+#[export]
 Instance showFA2TransferHookContractSetup : Show HookSetup :=
 {|
   show t := "FA2TransferHookSetup{"
@@ -346,6 +384,7 @@ Instance showFA2TransferHookContractSetup : Show HookSetup :=
             ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg <
     FA2Token.Msg,

@@ -4,7 +4,7 @@ From Coq Require Import ZArith.
 From Coq Require Import String.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import LiquidityExtract.
-From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
@@ -25,7 +25,7 @@ Definition PREFIX := "".
 
 (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
 Definition TT_remap : list (kername * String.string) :=
-  [  (* types *)
+  [ (* types *)
     remap <%% Z %%> "tez"
   ; remap <%% address_coq %%> "address"
   ; remap <%% time_coq %%> "timestamp"
@@ -119,7 +119,7 @@ Definition CROWDFUNDING_MODULE :
 
 
      (* the main functionality *)
-     lmd_receive := crowdfunding_receive  ;
+     lmd_receive := crowdfunding_receive ;
 
      (* code for the entry point *)
      lmd_entry_point := printWrapper (PREFIX ++ "crowdfunding_receive") ++ Common.nl

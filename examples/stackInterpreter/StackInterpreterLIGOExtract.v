@@ -18,11 +18,12 @@ Import Interpreter.
 Module CameLIGOInterp.
 
   Import CameLIGOExtract CameLIGOPretty.
+  #[local]
   Existing Instance PrintConfShortNames.PrintWithShortNames.
 
   Definition init (setup : unit)
                   : result storage Error :=
-    (* prevents optimisations from removing unused [setup]. TODO: override masks instead  *)
+    (* prevents optimisations from removing unused [setup]. TODO: override masks instead *)
     let setup0 := setup in
     Ok [].
 

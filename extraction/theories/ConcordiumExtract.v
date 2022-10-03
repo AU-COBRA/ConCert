@@ -194,8 +194,8 @@ Definition remap_string : remapped_inductive :=
 Definition remap_std_types :=
   [ (<! nat !>, remap_nat)
   ; (<! positive !>, remap_positive)
-  ; (<! Z !>,  remap_Z)
-  ; (<! N !>,  remap_N)
+  ; (<! Z !>, remap_Z)
+  ; (<! N !>, remap_N)
   ; (<! bool !>, remap_bool)
   ; (<! prod !>, remap_pair)
   ; (<! option !>, remap_option)

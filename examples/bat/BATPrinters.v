@@ -6,11 +6,13 @@ From ConCert.Examples.EIP20 Require Import EIP20TokenPrinters.
 
 Local Open Scope string_scope.
 
+#[export]
 Instance showTokenValue : Show TokenValue :=
 {|
   show v := show v
 |}.
 
+#[export]
 Instance showMsg : Show BATCommon.Msg :=
 {|
   show m := match m with
@@ -21,6 +23,7 @@ Instance showMsg : Show BATCommon.Msg :=
             end
 |}.
 
+#[export]
 Instance showBATSetup : Show BATCommon.Setup :=
 {|
   show setup := "Setup{" ++
@@ -34,6 +37,7 @@ Instance showBATSetup : Show BATCommon.Setup :=
     "tokenCreationMin: " ++ show setup.(_tokenCreationMin) ++ "}"
 |}.
 
+#[export]
 Instance showBATState : Show BATCommon.State :=
 {|
   show s := "State{" ++
@@ -49,5 +53,6 @@ Instance showBATState : Show BATCommon.State :=
     "tokenCreationMin: " ++ show s.(tokenCreationMin) ++ "}"
 |}.
 
+#[export]
 Instance showSerializedMsg : Show SerializedValue :=
   Derive Show Msg < BATCommon.Msg, BATCommon.Setup >.

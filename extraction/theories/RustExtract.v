@@ -372,7 +372,7 @@ Section print_term.
               let args := (extra ++ map bs_to_s (rev args))%list in
               print_parenthesized (0 <? #|args|)%nat (append_join ", " args);;
               append " => {";;
-              append_nl  ;;
+              append_nl ;;
               print_term Γ t
             | name :: bctx0 =>
               name <- fresh_ident name Γ;;

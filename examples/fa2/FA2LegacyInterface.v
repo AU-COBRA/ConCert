@@ -75,7 +75,7 @@ Section FA2LegacyInterface.
       metadata_callback : callback (list token_metadata);
     }.
 
-    Inductive operator_tokens  :=
+    Inductive operator_tokens :=
       | all_tokens : operator_tokens
       | some_tokens : list token_id -> operator_tokens. (* a set could be used here instead of list?*)
 

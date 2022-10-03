@@ -71,7 +71,7 @@ Module TestNotations (p : TestNotationParameters).
 
   Definition checkForAllStatesInTrace {A} Q :=
     fun (_ : A) (pre_trace post_trace : list ChainState) =>
-      checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs) ) post_trace true).
+      checker (fold_left (fun a (cs : ChainState) => a && (Q pre_trace cs)) post_trace true).
 
   Notation "cb '~~>' pf" :=
     (reachableFrom_chaintrace cb gChain_ pf) (at level 45, left associativity) : qc_test_scope.

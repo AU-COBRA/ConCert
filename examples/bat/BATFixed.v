@@ -17,6 +17,7 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.BAT Require Import BATCommon.
@@ -112,7 +113,7 @@ Section BATFixed.
                         (current_slot : nat)
                         (state : State)
                         : result (State * list ActionBody) Error :=
-    (** Early return if funding is finalized, or funding period is NOT over, 
+    (** Early return if funding is finalized, or funding period is NOT over,
         or if total supply exceeds or is equal to the minimum fund tokens. *)
     do _ <- throwIf (state.(isFinalized)
             || (Nat.leb current_slot state.(fundingEnd))

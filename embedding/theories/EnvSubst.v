@@ -43,12 +43,12 @@ Module NamelessSubst.
       end.
 
 
-   (** NOTE: assumes, that expression in [ρ] are closed! *)
+  (** NOTE: assumes, that expression in [ρ] are closed! *)
   Fixpoint subst_env_i_aux (k : nat) (ρ : env expr) (e : expr) : expr :=
     match e with
     | eRel i => if Nat.leb k i then
                  with_default (eRel i) (lookup_i ρ (i-k)) else eRel i
-    | eVar nm  => eVar nm
+    | eVar nm => eVar nm
     | eLambda nm ty b => eLambda nm (subst_env_i_ty k ρ ty) (subst_env_i_aux (1+k) ρ b)
     | eTyLam nm b => eTyLam nm (subst_env_i_aux (1+k) ρ b)
     | eLetIn nm e1 ty e2 => eLetIn nm (subst_env_i_aux k ρ e1) (subst_env_i_ty k ρ ty)
@@ -111,9 +111,9 @@ Module NamelessSubst.
     lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (of_val_i v).
   Proof.
     revert dependent n.
-    induction ρ;intros n0 Hρ.
+    induction ρ; intros n0 Hρ.
     + easy.
-    + destruct a;simpl in *.
+    + destruct a; simpl in *.
       destruct n0.
       * simpl in *. inversion Hρ. subst. reflexivity.
       * simpl in *. replace (n0 - 0) with n0 in * by lia. easy.
@@ -126,7 +126,7 @@ Module NamelessSubst.
   Proof.
     intros Hlt.
     revert dependent n.
-    induction ρ;intros n1 Hlt.
+    induction ρ; intros n1 Hlt.
     + easy.
     + destruct (Nat.eqb n1 0) eqn:Hn1.
       * destruct a. eexists. split.
@@ -162,7 +162,7 @@ Module NamedSubst.
  Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=
   match e with
   | eRel i as e' => e'
-  | eVar nm  => match lookup ρ nm with
+  | eVar nm => match lookup ρ nm with
                     | Some v => v
                     | None => e
                     end
@@ -225,42 +225,49 @@ Module Equivalence.
    Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
    Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
 
+   #[export]
    Instance val_equiv_reflexive : Reflexive val_equiv.
    Proof.
      intros v. induction v using val_ind_full.
      + constructor.
-       induction l;constructor; inversion H; easy.
-     + destruct cm;constructor;reflexivity.
+       induction l; constructor; inversion H; easy.
+     + destruct cm; constructor; reflexivity.
      + constructor. reflexivity.
      + constructor.
    Defined.
 
-   (* TODO:  Add the rest to prove that [val_equiv] is indeed an equivalence *)
+   (* TODO: Add the rest to prove that [val_equiv] is indeed an equivalence *)
    Axiom val_equiv_symmetric : Symmetric val_equiv.
    Axiom val_equiv_transitive : Transitive val_equiv.
 
+   #[export]
    Existing Instance val_equiv_symmetric.
+   #[export]
    Existing Instance val_equiv_transitive.
 
-   (* TODO:  Define these  *)
+   (* TODO: Define these *)
    Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
    Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
    Axiom list_val_equiv_transitive : Transitive list_val_equiv.
 
+   #[export]
    Existing Instance list_val_equiv_reflexive.
+   #[export]
    Existing Instance list_val_equiv_symmetric.
+   #[export]
    Existing Instance list_val_equiv_transitive.
 
    Lemma list_val_compat v1 v2 vs1 vs2 :
      v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
    Proof.
      intros Heq Heql.
-     constructor;easy.
+     constructor; easy.
    Qed.
 
+   #[export]
    Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
    Proof.
-      cbv;intros;apply list_val_compat;assumption.
+      cbv; intros; apply list_val_compat; assumption.
     Defined.
 
     Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : ename) :
@@ -273,8 +280,9 @@ Module Equivalence.
       + constructor; assumption.
     Defined.
 
+    #[export]
     Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
     Proof.
-      cbv;intros;apply constr_cons_compat;assumption.
+      cbv; intros; apply constr_cons_compat; assumption.
     Defined.
 End Equivalence.

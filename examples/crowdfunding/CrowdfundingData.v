@@ -20,11 +20,11 @@ Open Scope list.
 Import AcornBlockchain Prelude.Maps.
 Set Nonrecursive Elimination Schemes.
 
-(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in  [Ast.v] and make use of the "custom entries" feature. *)
+(** Note that we define the deep embedding (abstract syntax trees) of the data structures and programs using notations. These notations are defined in [Ast.v] and make use of the "custom entries" feature. *)
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
-(** Generating names for the data structures. We also add a prefix, corresponsing ti the current module path.  *)
+(** Generating names for the data structures. We also add a prefix, corresponsing ti the current module path. *)
 MetaCoq Run
         ( mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
@@ -192,15 +192,15 @@ Import Prelude.
 
 (** Generating string constants for variable names *)
 
-MetaCoq Run (mkNames "" ["c";"s";"e";"m";"v";"dl"; "g"; "chain";
+MetaCoq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain";
                      "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                      "accs"; "now";
                      "newstate"; "newmap"; "cond"] "").
 
-(** A shortcut for [if .. then .. else ..]  *)
+(** A shortcut for [if .. then .. else ..] *)
 Notation "'if' cond 'then' b1 'else' b2 : ty" :=
   (eCase (Bool,[]) ty cond
-         [(pConstr true_name [],b1);(pConstr false_name [],b2)])
+         [(pConstr true_name [],b1); (pConstr false_name [],b2)])
     (in custom expr at level 4,
         cond custom expr at level 4,
         ty custom type at level 4,

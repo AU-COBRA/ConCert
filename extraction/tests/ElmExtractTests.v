@@ -18,9 +18,9 @@ Import MCMonadNotation.
 
 Local Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
 Local Notation "'s_to_bs' s" := (bytestring.String.of_string s) (at level 200).
-Local Coercion bytestring.String.of_string : string  >-> bytestring.String.t.
+Local Coercion bytestring.String.of_string : string >-> bytestring.String.t.
 
-
+#[local]
 Instance StandardBoxes : ElmPrintConfig :=
   {| term_box_symbol := "□";
      type_box_symbol := "□";
@@ -62,26 +62,26 @@ Module ex1.
 
   Example ex1_test :
     extract ex1 = Ok <$
-"type Sig a";
-"  = Exist a";
-"";
-"proj1_sig : Sig a -> a";
-"proj1_sig e =";
-"  case e of";
-"    Exist a ->";
-"      a";
-"";
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : Sig Nat";
-"foo =";
-"  Exist O";
-"";
-"bar : Nat";
-"bar =";
-"  proj1_sig foo" $>.
+      "type Sig a";
+      "  = Exist a";
+      "";
+      "proj1_sig : Sig a -> a";
+      "proj1_sig e =";
+      "  case e of";
+      "    Exist a ->";
+      "      a";
+      "";
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : Sig Nat";
+      "foo =";
+      "  Exist O";
+      "";
+      "bar : Nat";
+      "bar =";
+      "  proj1_sig foo" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex1.
 
@@ -92,26 +92,26 @@ Module ex2.
   MetaCoq Quote Recursively Definition ex2 := bar.
   Example ex2_test :
     extract ex2 = Ok <$
-"type Sig a";
-"  = Exist a";
-"";
-"proj1_sig : Sig a -> a";
-"proj1_sig e =";
-"  case e of";
-"    Exist a ->";
-"      a";
-"";
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : Sig Nat";
-"foo =";
-"  Exist O";
-"";
-"bar : Nat";
-"bar =";
-"  proj1_sig foo" $>.
+      "type Sig a";
+      "  = Exist a";
+      "";
+      "proj1_sig : Sig a -> a";
+      "proj1_sig e =";
+      "  case e of";
+      "    Exist a ->";
+      "      a";
+      "";
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : Sig Nat";
+      "foo =";
+      "  Exist O";
+      "";
+      "bar : Nat";
+      "bar =";
+      "  proj1_sig foo" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex2.
 
@@ -124,21 +124,21 @@ Module ex3.
 
   Example ex3_test :
     extract ex3 = Ok <$
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : (□ -> Nat -> Nat) -> Nat";
-"foo f =";
-"  f □ O";
-"";
-"bar : Nat -> Nat";
-"bar n =";
-"  n";
-"";
-"baz : Nat";
-"baz =";
-"  foo (\x -> bar)" $>.
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : (□ -> Nat -> Nat) -> Nat";
+      "foo f =";
+      "  f □ O";
+      "";
+      "bar : Nat -> Nat";
+      "bar n =";
+      "  n";
+      "";
+      "baz : Nat";
+      "baz =";
+      "  foo (\x -> bar)" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex3.
 
@@ -148,13 +148,13 @@ Module ex4.
 
   Example ex4_test :
     extract ex4 = Ok <$
-"type Sumbool";
-"  = Left";
-"  | Right";
-"";
-"foo : Sumbool";
-"foo =";
-"  Left" $>.
+      "type Sumbool";
+      "  = Left";
+      "  | Right";
+      "";
+      "foo : Sumbool";
+      "foo =";
+      "  Left" $>.
   Proof. now vm_compute. Qed.
 End ex4.
 
@@ -165,13 +165,13 @@ Module ex5.
 
   Example ex5_test :
     extract ex5 = Ok <$
-"type Sum a b";
-"  = Inl a";
-"  | Inr b";
-"";
-"foo : Sum □ □";
-"foo =";
-"  Inl □" $>.
+      "type Sum a b";
+      "  = Inl a";
+      "  | Inr b";
+      "";
+      "foo : Sum □ □";
+      "foo =";
+      "  Inl □" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex5.
 
@@ -184,29 +184,29 @@ Module ex6.
 
   Example ex6_test :
     extract ex6 = Ok <$
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : (□ -> □ -> Nat -> Nat) -> Nat";
-"foo f =";
-"  f □ □ O";
-"";
-"add : Nat -> Nat -> Nat";
-"add n m =";
-"  case n of";
-"    O ->";
-"      m";
-"    S p ->";
-"      S (add p m)";
-"";
-"bar : Nat -> Nat -> Nat";
-"bar m n =";
-"  add m n";
-"";
-"baz : Nat -> Nat";
-"baz =";
-"  (\m n -> foo (\x x2 -> bar (add m n))) O" $>.
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : (□ -> □ -> Nat -> Nat) -> Nat";
+      "foo f =";
+      "  f □ □ O";
+      "";
+      "add : Nat -> Nat -> Nat";
+      "add n m =";
+      "  case n of";
+      "    O ->";
+      "      m";
+      "    S p ->";
+      "      S (add p m)";
+      "";
+      "bar : Nat -> Nat -> Nat";
+      "bar m n =";
+      "  add m n";
+      "";
+      "baz : Nat -> Nat";
+      "baz =";
+      "  (\m n -> foo (\x x2 -> bar (add m n))) O" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex6.
 
@@ -218,25 +218,25 @@ Module ex7.
 
   Example ex7_test :
     extract ex7 = Ok <$
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : Nat -> Nat -> Nat";
-"foo n =";
-"  let";
-"    x =";
-"      O";
-"  in";
-"  \m -> case n of";
-"          O ->";
-"            m";
-"          S n0 ->";
-"            n";
-"";
-"bar : Nat";
-"bar =";
-"  foo (S O) O" $>.
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : Nat -> Nat -> Nat";
+      "foo n =";
+      "  let";
+      "    x =";
+      "      O";
+      "  in";
+      "  \m -> case n of";
+      "          O ->";
+      "            m";
+      "          S n0 ->";
+      "            n";
+      "";
+      "bar : Nat";
+      "bar =";
+      "  foo (S O) O" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex7.
 
@@ -249,8 +249,8 @@ Module ex8.
 
   Example ex8_test :
     extract ex8 = Ok <$
-"type ManyParamsInd a b";
-"  = MPIConstr a b" $>.
+      "type ManyParamsInd a b";
+      "  = MPIConstr a b" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex8.
 
@@ -264,16 +264,16 @@ Module ex9.
 
   Example ManyParamsIndNonArity_test:
     extract ex9 = Ok <$
-"type List a";
-"  = Nil";
-"  | Cons a (List a)";
-"";
-"type Prod a b";
-"  = Pair a b";
-"";
-"type ManyParamsIndNonArity a b";
-"  = MPINAConstr1 a b";
-"  | MPINAConstr2 (List □) (Prod a b)" $>.
+      "type List a";
+      "  = Nil";
+      "  | Cons a (List a)";
+      "";
+      "type Prod a b";
+      "  = Pair a b";
+      "";
+      "type ManyParamsIndNonArity a b";
+      "  = MPINAConstr1 a b";
+      "  | MPINAConstr2 (List □) (Prod a b)" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex9.
 
@@ -284,16 +284,16 @@ Module ex10.
 
   Example ex10_test :
     general_extract ex10 [<%% @proj1_sig %%>] [] = Ok <$
-"type Sig a";
-"  = Exist a";
-"";
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"foo : Sig Nat -> Nat";
-"foo x =";
-"  proj1_sig x" $>.
+      "type Sig a";
+      "  = Exist a";
+      "";
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "foo : Sig Nat -> Nat";
+      "foo x =";
+      "  proj1_sig x" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex10.
 
@@ -301,8 +301,8 @@ Module ex11.
   MetaCoq Quote Recursively Definition ex11 := Monad.
   Example Monad_test :
     extract ex11 = Ok <$
-"type Monad m";
-"  = Build_Monad (□ -> 𝕋 -> m) (□ -> □ -> m -> (𝕋 -> m) -> m)" $>.
+    "type Monad m";
+    "  = Build_Monad (□ -> 𝕋 -> m) (□ -> □ -> m -> (𝕋 -> m) -> m)" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex11.
 
@@ -312,11 +312,11 @@ Module ex12.
   MetaCoq Quote Recursively Definition ex := @weird_id.
   Example test :
     extract ex = Ok <$
-"type alias IdT t = t";
-"";
-"weird_id : IdT t -> IdT t";
-"weird_id i =";
-"  i" $>.
+    "type alias IdT t = t";
+    "";
+    "weird_id : IdT t -> IdT t";
+    "weird_id i =";
+    "  i" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex12.
 
@@ -329,23 +329,23 @@ Module ex13.
   MetaCoq Quote Recursively Definition ex := unwrap.
   Example test :
     extract ex = Ok <$
-"type Option a";
-"  = Some a";
-"  | None";
-"";
-"type alias Opt a = Option a";
-"";
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"unwrap : Opt Nat -> Nat";
-"unwrap o =";
-"  case o of";
-"    Some x ->";
-"      x";
-"    None ->";
-"      O" $>.
+      "type Option a";
+      "  = Some a";
+      "  | None";
+      "";
+      "type alias Opt a = Option a";
+      "";
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "unwrap : Opt Nat -> Nat";
+      "unwrap o =";
+      "  case o of";
+      "    Some x ->";
+      "      x";
+      "    None ->";
+      "      O" $>.
   Proof. vm_compute. reflexivity. Qed.
 End ex13.
 
@@ -361,19 +361,20 @@ Module ex_infix1.
 
   Example test :
     general_extract ex (map fst TT) TT = Ok <$
-"";
-"";
-"map : (a -> b) -> List a -> List b";
-"map f =";
-"  let";
-"    map2 l =";
-"      case l of";
-"        [] ->";
-"          []";
-"        a :: t ->";
-"          (::) (f a) (map2 t)";
-"  in";
-"  map2" $>. vm_compute. reflexivity. Qed.
+      "";
+      "";
+      "map : (a -> b) -> List a -> List b";
+      "map f =";
+      "  let";
+      "    map2 l =";
+      "      case l of";
+      "        [] ->";
+      "          []";
+      "        a :: t ->";
+      "          (::) (f a) (map2 t)";
+      "  in";
+      "  map2" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End ex_infix1.
 
 Module recursor_ex.
@@ -381,14 +382,34 @@ Module recursor_ex.
   Program Definition test {A B : Type} (f : A -> B) (xs : list A) : list B :=
     list_rect (fun x => list B) [] (fun x _ rec => f x :: rec) xs.
 
-  Lemma test_is_map : @test = @map.
+  Lemma test_is_map :
+    @test = @map.
   Proof. reflexivity. Qed.
-
-  Print test.
 
   MetaCoq Quote Recursively Definition ex := @test.
 
-  Compute general_extract ex [] [].
+  Example ex_test :
+    general_extract ex [] [] = Ok <$
+      "type List a";
+      "  = Nil";
+      "  | Cons a (List a)";
+      "";
+      "list_rect : p -> (a -> List a -> p -> p) -> List a -> p";
+      "list_rect f f0 =";
+      "  let";
+      "    f2 l =";
+      "      case l of";
+      "        Nil ->";
+      "          f";
+      "        Cons y l2 ->";
+      "          f0 y l2 (f2 l2)";
+      "  in";
+      "  f2";
+      "";
+      "test : (a -> b) -> List a -> List b";
+      "test f xs =";
+      "  list_rect Nil (\x l rec -> Cons (f x) rec) xs" $>.
+  Proof. vm_compute. reflexivity. Qed.
 End recursor_ex.
 
 Module type_scheme_ex.
@@ -424,7 +445,8 @@ Module type_scheme_ex.
   MetaCoq Quote Recursively Definition Arrow_syn := Arrow.
 
   Example Arrow_test :
-    general_extract Arrow_syn [] [] = Ok "type alias Arrow a b = a -> b".
+    general_extract Arrow_syn [] [] =
+    Ok "type alias Arrow a b = a -> b".
   Proof. vm_compute. reflexivity. Qed.
 
   Definition Triple (A B C : Type) := A * B * C.
@@ -435,18 +457,21 @@ Module type_scheme_ex.
 
   Example Triple_test :
     general_extract Triple_syn [] [] = Ok <$
-"type Prod a b";
-"  = Pair a b";
-"";
-"type alias Triple a b c = Prod (Prod a b) c" $>.
+      "type Prod a b";
+      "  = Pair a b";
+      "";
+      "type alias Triple a b c = Prod (Prod a b) c" $>.
   Proof. vm_compute. reflexivity. Qed.
 
   Module LetouzeyExample.
   (* An example from Letouzey's thesis, Section 3.3.4 *)
 
-  Definition P (b : bool) : Set := if b then nat else bool.
-  Definition Sch3 : (bool -> Set) -> Set := fun X => X true -> X false.
-  Definition Sch3_applied := (fun X => X true -> X false) (fun b => if b then nat else bool).
+  Definition P (b : bool) : Set :=
+    if b then nat else bool.
+  Definition Sch3 : (bool -> Set) -> Set :=
+    fun X => X true -> X false.
+  Definition Sch3_applied :=
+    (fun X => X true -> X false) (fun b => if b then nat else bool).
 
   MetaCoq Quote Recursively Definition Sch3_syn := Sch3.
 
@@ -459,15 +484,15 @@ Module type_scheme_ex.
   (* In this case, the application reduces to a type with no type parameters *)
   Example Sch3_applied_test :
     general_extract Sch3_applied_syn [] [] = Ok <$
-"type Bool";
-"  = True";
-"  | False";
-"";
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"type alias Sch3_applied = Nat -> Bool" $>.
+      "type Bool";
+      "  = True";
+      "  | False";
+      "";
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "type alias Sch3_applied = Nat -> Bool" $>.
   Proof. vm_compute. reflexivity. Qed.
 
   End LetouzeyExample.
@@ -485,22 +510,22 @@ Module type_scheme_ex.
 
   Example singleton_vec_test:
     general_extract singleton_vec_syn [] [] = Ok <$
-"type Nat";
-"  = O";
-"  | S Nat";
-"";
-"type Sig a";
-"  = Exist a";
-"";
-"type List a";
-"  = Nil";
-"  | Cons a (List a)";
-"";
-"type alias Vec a = Sig (List a)";
-"";
-"singleton_vec : Nat -> Vec Nat";
-"singleton_vec n =";
-"  Exist (Cons n Nil)" $>.
+      "type Nat";
+      "  = O";
+      "  | S Nat";
+      "";
+      "type Sig a";
+      "  = Exist a";
+      "";
+      "type List a";
+      "  = Nil";
+      "  | Cons a (List a)";
+      "";
+      "type alias Vec a = Sig (List a)";
+      "";
+      "singleton_vec : Nat -> Vec Nat";
+      "singleton_vec n =";
+      "  Exist (Cons n Nil)" $>.
   Proof. vm_compute. reflexivity. Qed.
 
 End type_scheme_ex.

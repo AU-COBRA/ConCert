@@ -65,6 +65,7 @@ Proof.
 Qed.
 End ChainedList.
 
+Declare Scope clist_scope.
 Delimit Scope clist_scope with trace.
 Bind Scope clist_scope with ChainedList.
 Infix "++" := clist_app (right associativity, at level 60) : clist_scope.

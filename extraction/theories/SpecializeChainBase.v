@@ -13,7 +13,7 @@
    Definition b (addr : Foo) (n : N) :=
      a (N.to_nat n).
 
-   Note: Only specializes ChainBase when it is the very first abstraction.  *)
+   Note: Only specializes ChainBase when it is the very first abstraction. *)
 (* From Coq Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
@@ -57,8 +57,6 @@ Section ChainBaseSpecialization.
     | true, _ => Err ("Expected product in " ++ name ++ ", got" ++ nl ++ string_of_term t)
     | false, _ => specialize_term Γ t
     end.
-
-  Compute (rev (List.fold_right (fun e '(l,y) => ((l ++ [(e, y)] ), 0 :: y ))%list ([],[]) ([1;2;3])).1).
 
   Definition specialize_term
             (specialized : list kername) : list VarInfo -> term -> result_string term :=

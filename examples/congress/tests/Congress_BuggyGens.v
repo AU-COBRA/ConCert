@@ -19,11 +19,13 @@ Definition gRulesSized (n : nat) : G Rules :=
   margin <- choose(1%Z, 1000%Z) ;;
   liftM (build_rules vote_count margin) arbitrary.
 
+#[export]
 Instance genRulesSized : GenSized Rules :=
 {|
   arbitrarySized := gRulesSized
 |}.
 
+#[export]
 Instance genSetupSized : GenSized Setup :=
 {|
   arbitrarySized n := liftM build_setup (arbitrarySized n)
@@ -50,12 +52,12 @@ Definition gCongressMember_without_caller (state : Congress_Buggy.State)
   let members_without_caller := List.remove address_eqdec calling_addr members in
   match members_without_caller with
   | [] => returnGen None
-  | m::ms => liftM Some (elems_ m members_without_caller)
+  | m ::ms => liftM Some (elems_ m members_without_caller)
   end.
 
-Fixpoint try_newCongressMember_fix (members : list Address)
+Definition try_newCongressMember_fix (members : list Address)
                                    nr_attempts curr_nr
-                                   : option Address  :=
+                                   : option Address :=
   let fix aux nr_attempts curr_nr :=
   match nr_attempts with
   | 0 => None
@@ -92,7 +94,7 @@ Definition try_gNewOwner state calling_addr contract_addr : GOpt Address :=
   bindCallerIsOwnerOpt state calling_addr contract_addr
     (gCongressMember_without_caller state calling_addr contract_addr).
 
-Fixpoint validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
+Definition validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
   match (Bool.bool_dec (address_is_contract a) true ) with
   | left _ => ret None
   | right p => ret (Some (Bool.not_true_is_false _ p))
@@ -145,7 +147,7 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress_Buggy.
                                                         : FMap Address (list ProposalId) :=
     let members : list Address := (map fst o FMap.elements) (members state) in
     let proposals_map : FMap nat Proposal :=
-      filter_FMap (fun p => 0 =? (FMap.size (votes (snd p))))  (proposals state) in
+      filter_FMap (fun p => 0 =? (FMap.size (votes (snd p)))) (proposals state) in
     if (0 <? length members) && (0 =? (FMap.size proposals_map))
     then (
       let propIds : list ProposalId := (map fst o FMap.elements) proposals_map in

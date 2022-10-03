@@ -3,7 +3,7 @@
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From ConCert.Extraction Require Import LPretty.
+From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
@@ -37,7 +37,7 @@ Module Counter.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)
                   : result storage Error :=
-    let ctx' := ctx in (* prevents optimisations from removing unused [ctx]  *)
+    let ctx' := ctx in (* prevents optimisations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg :=
@@ -126,7 +126,7 @@ Proof.
   eexists.
   split.
   - simpl.
-    destruct ?; propify;auto;lia.
+    destruct ?; propify; auto; lia.
   - simpl.
     congruence.
 Qed.
@@ -141,7 +141,7 @@ Proof.
   eexists.
   split.
   - simpl.
-    destruct ?; propify;auto;lia.
+    destruct ?; propify; auto; lia.
   - simpl.
     congruence.
 Qed.
@@ -185,4 +185,4 @@ Time MetaCoq Run
 (* Print liquidity_counter. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterCertifiedExtraction.liq" Compute liquidity_counter.
+Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterCertifiedLiquidity.liq" Compute liquidity_counter.
