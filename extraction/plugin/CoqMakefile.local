@@ -1,7 +1,6 @@
 COQ_SRC_SUBDIRS+=user-contrib/MetaCoq/Template
-OPENS+=-open Metacoq_template_plugin
-OPENS+=-open Extraction_plugin
-CAMLFLAGS+=$(OPENS)
+CAMLPKGS+=-package coq-metacoq-template-ocaml.plugin,coq-core.plugins.extraction
+CAMLFLAGS+=-open Metacoq_template_plugin
 CAMLFLAGS+=-w -20 # Unused arguments
 CAMLFLAGS+=-w -32 # Unused values
 CAMLFLAGS+=-w -33 # Unused opens
@@ -12,7 +11,7 @@ CAMLFLAGS+=-w -8  # not exhaustive pattern-matching
 # It seems there is either an infinite loop or some kind of exponential blowup
 # when using flambda that makes ocamlopt hang. It seems -Oclassic works around
 # this.
-CAMLOPTC=ocamlopt -c -Oclassic
+CAMLOPTC="$(OCAMLFIND)" opt      -c -Oclassic
 
 merlin-hook::
 		$(HIDE)echo 'FLG $(OPENS)' >> .merlin

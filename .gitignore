@@ -42,6 +42,7 @@ doc/
 docs/
 _opam/
 .merlin
+META.*
 
 ## extraction output
 *.liq
