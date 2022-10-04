@@ -133,13 +133,13 @@ Module NamelessSubst.
         ** simpl. rewrite Hn1.
            reflexivity.
         ** simpl in *. unfold inst_env_i,subst_env_i. simpl.
-           assert (n1=0) by (apply EqNat.beq_nat_eq; easy).
+           assert (n1=0) by (apply Nat.eqb_eq; easy).
            subst. simpl. reflexivity.
       * destruct a.
         assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; try discriminate; exists n2; reflexivity).
         destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
         subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
-        apply Lt.lt_S_n in Hlt. rewrite <- Nat.ltb_lt in Hlt.
+        apply Nat.succ_lt_mono in Hlt. rewrite <- Nat.ltb_lt in Hlt.
         specialize (IHρ _ Hlt). destruct IHρ as [v1 HH]. destruct HH as [H1 H2].
         exists v1. split.
         ** simpl in *. replace (n2 - 0) with n2 by lia. assumption.
