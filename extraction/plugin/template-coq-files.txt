@@ -105,6 +105,8 @@ mCReflect.mli
 mCReflect.ml
 primFloat.mli
 primFloat.ml
+primitive.ml
+primitive.mli
 mCString.ml
 mCString.mli
 mCUtils.ml

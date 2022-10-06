@@ -73,6 +73,8 @@ src/pCUICPretty.ml
 src/pCUICPretty.mli
 src/pCUICProgram.ml
 src/pCUICProgram.mli
+src/pCUICPrimitive.ml
+src/pCUICPrimitive.mli
 src/pCUICSafeReduce.ml
 src/pCUICSafeReduce.mli
 src/pCUICSafeRetyping.ml
