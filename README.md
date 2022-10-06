@@ -97,6 +97,31 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 - ["Finding Smart Contract Vulnerabilities with ConCert’s Property-Based Testing Framework"](https://arxiv.org/abs/2208.00758).
   Mikkel Milo, Eske Hoy Nielsen, Danil Annenkov, and Bas Spitters.
   FMBC 2022.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    
+    ```
+    @InProceedings{milo_et_al:OASIcs.FMBC.2022.2,
+      author =	{Milo, Mikkel and Nielsen, Eske Hoy and Annenkov, Danil and Spitters, Bas},
+      title =	{{Finding Smart Contract Vulnerabilities with ConCert’s Property-Based Testing Framework}},
+      booktitle =	{4th International Workshop on Formal Methods for Blockchains (FMBC 2022)},
+      pages =	{2:1--2:13},
+      series =	{Open Access Series in Informatics (OASIcs)},
+      ISBN =	{978-3-95977-250-1},
+      ISSN =	{2190-6807},
+      year =	{2022},
+      volume =	{105},
+      editor =	{Dargaye, Zaynah and Schneidewind, Clara},
+      publisher =	{Schloss Dagstuhl -- Leibniz-Zentrum f{\"u}r Informatik},
+      address =	{Dagstuhl, Germany},
+      URL =		{https://drops.dagstuhl.de/opus/volltexte/2022/17183},
+      URN =		{urn:nbn:de:0030-drops-171834},
+      doi =		{10.4230/OASIcs.FMBC.2022.2},
+      annote =	{Keywords: Smart Contracts, Formal Verification, Property-Based Testing, Coq}
+    }
+    ```
+  </details>
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016).
   Eske Hoy Nielsen, Danil Annenkov and Bas Spitters.
   Preprint.
