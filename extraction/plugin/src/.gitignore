@@ -143,8 +143,6 @@ specFloat.ml
 specFloat.mli
 ssrbool.ml
 ssrbool.mli
-ssreflect.ml
-ssreflect.mli
 stringExtra.ml
 stringExtra.mli
 templateToPCUIC.ml

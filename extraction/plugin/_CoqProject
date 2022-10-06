@@ -101,8 +101,6 @@ src/erasureFunction.ml
 src/erasureFunction.mli
 src/ssrbool.ml
 src/ssrbool.mli
-src/ssreflect.ml
-src/ssreflect.mli
 src/stringExtra.ml
 src/stringExtra.mli
 src/templateToPCUIC.ml
