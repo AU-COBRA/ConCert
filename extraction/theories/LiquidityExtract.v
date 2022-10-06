@@ -290,9 +290,9 @@ Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
   let TT :=
     (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
   Σ <- tmEval lazy (if WITH_UNIVERSES then
-                     Ast.Env.Build_global_env (Ast.Env.universes Σ) (Ast.Env.declarations Σ)
+                     Ast.Env.mk_global_env (Ast.Env.universes Σ) (Ast.Env.declarations Σ) (Ast.Env.retroknowledge Σ)
                    else
-                     Ast.Env.Build_global_env (ContextSet.empty) (Ast.Env.declarations Σ));;
+                     Ast.Env.mk_global_env (ContextSet.empty) (Ast.Env.declarations Σ)(Ast.Env.retroknowledge Σ));;
   s <- printLiquidityDefs_ prefix Σ TT inline ignore
                          liquidity_call_ctx
                          m.(lmd_init_prelude)
@@ -333,9 +333,9 @@ Definition quote_and_preprocess {Base : ChainBase}
                                     (KernameSetProp.of_list [init_nm; receive_nm]);;
      ret Σcert);;
   Σret <- tmEval lazy (if WITH_UNIVERSES then
-                         Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
+                         Ast.Env.mk_global_env (Ast.Env.universes Σ) decls (Ast.Env.retroknowledge Σ)
                        else
-                         Ast.Env.Build_global_env (ContextSet.empty) decls);;
+                         Ast.Env.mk_global_env (ContextSet.empty) decls (Ast.Env.retroknowledge Σ));;
   ret (Σret, init_nm,receive_nm).
 
 (** Runs all the necessary steps in [TemplateMonad] and adds a definition

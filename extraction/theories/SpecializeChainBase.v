@@ -195,7 +195,7 @@ Section ChainBaseSpecialization.
                                     dbody := dbody;
                                     rarg := rarg d |}) defs;;
         ret (tCoFix defs i)
-      (* | tPrim _ => ret t *)
+      | tPrim _ => ret t
       end.
 
   Definition specialize_body
@@ -358,4 +358,4 @@ Fixpoint specialize_env_rev (Σ : global_declarations) (Σprint : global_env_ext
 (* TODO: There are many reverses here, we should improve this. *)
 Definition specialize_ChainBase_env (Σ : global_env) : result global_env string :=
   Σrev <- specialize_env_rev (List.rev (declarations Σ)) (empty_ext Σ);;
-  ret (Build_global_env (universes Σ) (List.rev Σrev)).
+  ret (mk_global_env (universes Σ) (List.rev Σrev) (retroknowledge Σ)).

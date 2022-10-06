@@ -1,5 +1,5 @@
 (* This file is based on erasure/theories/Extraction.v from MetaCoq *)
-From Coq Require Import Ascii FSets ExtrOcamlBasic ExtrOcamlZInt ExtrOCamlFloats ExtrOCamlInt63.
+From Coq Require Import Ascii FSets ExtrOcamlBasic ExtrOCamlFloats ExtrOCamlInt63.
 From MetaCoq.Template Require Import utils.
 
 (* Ignore [Decimal.int] before the extraction issue is solved:

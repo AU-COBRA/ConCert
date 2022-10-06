@@ -667,7 +667,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     | _ => "NotSupportedMutualFix"
     end
   | tCoFix l n => "NotSupportedCoFix"
-  (* | tPrim _ => "NotSupportedCoqPrimitive" *)
+  | tPrim _ => "NotSupportedCoqPrimitive"
   end.
 
 End print_term.
