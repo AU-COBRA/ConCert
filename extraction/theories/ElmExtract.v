@@ -481,7 +481,7 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
     pop_indent
 
   | tCoFix _ _ => printer_fail "Cannot handle cofix"
-  (* | tPrim _ => printer_fail "Cannot handle Coq primitive types" *)
+  | tPrim _ => printer_fail "Cannot handle Coq primitive types"
   end.
 
 Definition print_constant

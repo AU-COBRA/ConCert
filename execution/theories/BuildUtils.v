@@ -186,7 +186,7 @@ Lemma reachable_through_chain_height : forall from to,
 Proof.
   intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
-  - apply le_refl.
+  - apply Nat.le_refl.
   - destruct_chain_step;
     try destruct_action_eval;
     rewrite_environment_equiv; cbn; auto.
@@ -199,7 +199,7 @@ Lemma reachable_through_current_slot : forall from to,
 Proof.
   intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
-  - apply le_refl.
+  - apply Nat.le_refl.
   - destruct_chain_step;
     try destruct_action_eval;
     rewrite_environment_equiv; cbn; auto.
@@ -212,7 +212,7 @@ Lemma reachable_through_finalized_height : forall from to,
 Proof.
   intros * [reachable [trace]].
   induction trace as [ | from mid to trace IH step ].
-  - apply le_refl.
+  - apply Nat.le_refl.
   - destruct_chain_step;
     try destruct_action_eval;
     rewrite_environment_equiv; cbn; auto.

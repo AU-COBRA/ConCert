@@ -314,9 +314,9 @@ Definition quote_and_preprocess {Base : ChainBase}
                                     (KernameSetProp.of_list [init_nm; receive_nm]);;
      ret Σcert);;
   Σret <- tmEval lazy (if WITH_UNIVERSES then
-                         Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
+                         Ast.Env.mk_global_env (Ast.Env.universes Σ) decls (Ast.Env.retroknowledge Σ)
                        else
-                         Ast.Env.Build_global_env (ContextSet.empty) decls);;
+                         Ast.Env.mk_global_env (ContextSet.empty) decls (Ast.Env.retroknowledge Σ));;
   ret (Σret, init_nm,receive_nm).
 
 (** Runs all the necessary steps in [TemplateMonad] and adds a definition
@@ -415,9 +415,9 @@ Definition quote_and_preprocess_one_def {A}
                                        (KernameSetProp.of_list [def_nm]);;
      ret Σcert);;
   Σret <- tmEval lazy (if WITH_UNIVERSES then
-                         Ast.Env.Build_global_env (Ast.Env.universes Σ) decls
+                         Ast.Env.mk_global_env (Ast.Env.universes Σ) decls (Ast.Env.retroknowledge Σ)
                        else
-                         Ast.Env.Build_global_env (ContextSet.empty) decls);;
+                         Ast.Env.mk_global_env (ContextSet.empty) decls (Ast.Env.retroknowledge Σ));;
   ret (Σret, def_nm).
 
 (** Extraction for testing purposes.

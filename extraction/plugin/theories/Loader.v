@@ -1,3 +1,6 @@
-Declare ML Module "extraction_plugin".
-Declare ML Module "metacoq_template_plugin".
-Declare ML Module "concert_extraction_plugin".
+From Coq Require Extraction.
+From MetaCoq.Template Require ExtractableLoader.
+
+(* Declare ML Module "extraction_plugin". *)
+(* Declare ML Module "coq-metacoq-template-coq.plugin". *)
+Declare ML Module "coq-concert-extraction.plugin".

@@ -60,6 +60,8 @@ kernames.ml
 kernames.mli
 mCPrelude.ml
 mCPrelude.mli
+mCProd.ml
+MCProd.mli
 monad_utils.ml
 monad_utils.mli
 optimize.ml
@@ -121,6 +123,8 @@ pluginExtract.ml
 pluginExtract.mli
 prettyPrinterMonad.ml
 prettyPrinterMonad.mli
+primitive.ml
+primitive.mli
 primFloat.ml
 primFloat.mli
 printing.ml
@@ -139,8 +143,6 @@ specFloat.ml
 specFloat.mli
 ssrbool.ml
 ssrbool.mli
-ssreflect.ml
-ssreflect.mli
 stringExtra.ml
 stringExtra.mli
 templateToPCUIC.ml

@@ -657,9 +657,9 @@ Section ConcordiumPrinting.
   let seeds := KernameSetProp.of_list (init_nm :: receive_nm :: extra) in
   let params := extract_rust_within_coq overridden_masks should_inline in
   Σ <- tmEval lazy (if WITH_UNIVERSES then
-                     Ast.Env.Build_global_env (Ast.Env.universes Σ) (declarations Σ)
+                     Ast.Env.mk_global_env (Ast.Env.universes Σ) (declarations Σ) (Ast.Env.retroknowledge Σ)
                    else
-                     Ast.Env.Build_global_env (ContextSet.empty) (declarations Σ));;
+                     Ast.Env.mk_global_env (ContextSet.empty) (declarations Σ) (Ast.Env.retroknowledge Σ));;
   Σ <- run_transforms Σ params;;
   res <- tmEval lazy (extract_lines seeds Σ remaps params);;
   match res with

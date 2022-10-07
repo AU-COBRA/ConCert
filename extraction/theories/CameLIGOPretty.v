@@ -704,7 +704,7 @@ Section PPTerm.
     | tFix [] _ => fun _ => "FixWithNoBody"
     | tFix _ _ => fun _ => "NotSupportedMutualFix"
     | tCoFix l n => fun _ => "NotSupportedCoFix"
-    (* | tPrim _ => fun _ => "NotSupportedCoqPrimitive" *)
+    | tPrim _ => fun _ => "NotSupportedCoqPrimitive"
   end.
 
 End PPTerm.

@@ -1580,7 +1580,7 @@ Section Theories.
       + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
         apply try_refund_total_supply_correct in receive_some as new_supply.
         specialize try_refund_is_some as
-          (_ & (_ & _ & funding_over%lt_not_le & goal_not_hit & _)); eauto.
+          (_ & (_ & _ & funding_over%Nat.lt_nge & goal_not_hit & _)); eauto.
         destruct not_finalized as [_ [funding_not_over | goal_hit]].
         * now rewrite <- finalized_unchanged in funding_not_over.
         * rewrite <- new_supply, <- finalized_unchanged in goal_hit.
