@@ -37,6 +37,10 @@ jobs:
         PATH=/home/coq/.cargo/bin:$PATH
         env
         opam switch
+
+        echo "::group::Setting up problem matcher"
+        echo "::add-matcher::./.github/coq-errors.json"
+        echo "::endgroup::"
     - name: Build core
       run: |
         echo "::group::Setting up switch"
