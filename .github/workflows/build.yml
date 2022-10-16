@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: aucobra/concert:deps-8.16-with-compilers
-      options: --user root
+      options: --user 1001:116
     steps:
     - name: Checkout branch ${{ github.ref_name }}
       uses: actions/checkout@v2
