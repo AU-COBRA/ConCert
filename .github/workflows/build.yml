@@ -31,12 +31,15 @@ jobs:
         submodules: recursive
     - name: Setup environment
       run: |
+        echo "::group::Setting up switch"
         echo "HOME=/home/coq" >> $GITHUB_ENV
         export HOME=/home/coq
         echo "/home/coq/.cargo/bin" >> $GITHUB_PATH
         PATH=/home/coq/.cargo/bin:$PATH
+        eval $(opam env --switch=${COMPILER} --set-switch)
         env
         opam switch
+        echo "::endgroup::"
 
         echo "::group::Setting up problem matcher"
         echo "::add-matcher::./.github/coq-errors.json"
