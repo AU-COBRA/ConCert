@@ -26,7 +26,7 @@ jobs:
       options: --user 1001:116
     steps:
     - name: Checkout branch ${{ github.ref_name }}
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
     - name: Setup environment
@@ -143,7 +143,7 @@ jobs:
         target-branch: main
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v2
+      uses: crazy-max/ghaction-github-pages@v3
       with:
         target_branch: gh-pages
         build_dir: docs
