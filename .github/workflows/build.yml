@@ -1,6 +1,8 @@
 name: Build
 on:
   push:
+    branches:
+    - 'master'
     paths-ignore:
     - '**.md'
     - '**.gitignore'
@@ -26,17 +28,24 @@ jobs:
       options: --user root
     steps:
     - name: Checkout branch ${{ github.ref_name }}
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
     - name: Setup environment
       run: |
+        echo "::group::Setting up switch"
         echo "HOME=/home/coq" >> $GITHUB_ENV
         export HOME=/home/coq
         echo "/home/coq/.cargo/bin" >> $GITHUB_PATH
         PATH=/home/coq/.cargo/bin:$PATH
+        eval $(opam env --switch=${COMPILER} --set-switch)
         env
         opam switch
+        echo "::endgroup::"
+
+        echo "::group::Setting up problem matcher"
+        echo "::add-matcher::./.github/coq-errors.json"
+        echo "::endgroup::"
     - name: Build core
       run: |
         echo "::group::Setting up switch"
@@ -136,7 +145,7 @@ jobs:
         target-branch: main
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v2
+      uses: crazy-max/ghaction-github-pages@v3
       with:
         target_branch: gh-pages
         build_dir: docs
