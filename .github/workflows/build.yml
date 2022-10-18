@@ -142,7 +142,7 @@ jobs:
         destination-repository-name: 'extraction-results'
         user-email: danil.v.annenkov@gmail.com
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
-        target-branch: main
+        target-branch: master
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: crazy-max/ghaction-github-pages@v3
