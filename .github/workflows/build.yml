@@ -145,7 +145,7 @@ jobs:
         target-branch: master
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v3
+      uses: crazy-max/ghaction-github-pages@v2
       with:
         target_branch: gh-pages
         build_dir: docs
