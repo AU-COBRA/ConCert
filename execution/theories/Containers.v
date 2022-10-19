@@ -6,6 +6,7 @@ From stdpp Require gmap.
 Import ListNotations.
 
 Notation FMap := gmap.gmap.
+Notation FSet := gmap.gset.
 
 Module FMap.
   Generalizable All Variables.
@@ -40,6 +41,13 @@ Module FMap.
     | Some n => FMap.add key n map
     | None => FMap.remove key map
     end.
+
+  Definition get_and_update {K V : Type} `{countable.Countable K}
+                            (k : K) (v : option V) (m : FMap K V)
+                            : (option V * FMap K V) :=
+    let prev_v := FMap.find k m in
+    let new_m := FMap.update k v m in
+    (prev_v, new_m).
 
   Section Theories.
     Context {K V : Type} `{countable.Countable K}.
@@ -279,5 +287,8 @@ Module FMap.
     Qed.
   End Theories.
 End FMap.
+
+Section FSet.
+End FSet.
 
 #[export] Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.

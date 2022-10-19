@@ -2126,7 +2126,7 @@ Section LiftTransactionProp.
          `{Serializable State}
          `{Serializable Error}.
 
-(** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachabile states. *)
+(** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachable states. *)
 Lemma lift_outgoing_acts_prop
         {P : ActionBody -> Prop}
         (contract : Contract Setup Msg State Error)
@@ -2179,7 +2179,7 @@ Proof.
 Qed.
 
 (** If some property [P] holds for all contract states in the output of the receive function,
-  the property can be lifted to all contract states for all reachabile states. *)
+  the property can be lifted to all contract states for all reachable states. *)
 Lemma lift_contract_state_prop
         {P : State -> Prop}
         (contract : Contract Setup Msg State Error)
