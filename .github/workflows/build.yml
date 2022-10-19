@@ -20,9 +20,14 @@ on:
     - 'LICENSE'
     - 'papers/**'
     - 'extra/docker/**'
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
     container:
       image: aucobra/concert:deps-8.16-with-compilers
       options: --user root
@@ -145,7 +150,7 @@ jobs:
         target-branch: master
     - name: Deploy the documentation to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v2
+      uses: crazy-max/ghaction-github-pages@v3
       with:
         target_branch: gh-pages
         build_dir: docs
