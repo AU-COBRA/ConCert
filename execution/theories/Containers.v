@@ -6,7 +6,9 @@ From stdpp Require gmap.
 Import ListNotations.
 
 Notation FMap := gmap.gmap.
-Notation FSet := gmap.gset.
+Definition FSet (K : Type) {H : base.RelDecision eq}
+       {H' : countable.Countable K} : Type :=
+  @gmap.gmap K H H' unit.
 
 Module FMap.
   Generalizable All Variables.
@@ -15,20 +17,22 @@ Module FMap.
   Notation add := stdpp.base.insert.
   Notation lookup := stdpp.base.lookup.
   Notation find := stdpp.base.lookup.
-  Definition mem `{base.Lookup K V M} (i : K) (m : M) :=
-    match base.lookup i m with
-    | Some _ => true
-    | None => false
-    end.
-
   Notation remove := stdpp.base.delete.
   Notation elements := fin_maps.map_to_list.
   Notation size := stdpp.base.size.
   Notation of_list := fin_maps.list_to_map.
   Notation union := stdpp.base.union.
+  Notation intersection := stdpp.base.intersection.
+  Notation difference := stdpp.base.difference.
   Notation alter := stdpp.base.alter.
   Notation partial_alter := stdpp.base.partial_alter.
 
+  Definition mem `{base.Lookup K V M} (i : K) (m : M) :=
+    match base.lookup i m with
+    | Some _ => true
+    | None => false
+    end.
+  
   Definition keys {K V : Type} `{countable.Countable K} (m : FMap K V) : list K :=
     map fst (elements m).
 
@@ -289,21 +293,37 @@ Module FMap.
 End FMap.
 
 Section FSet.
+  Generalizable All Variables.
+
   Notation empty := stdpp.base.empty.
+  Notation add := (fun k s => stdpp.base.insert k tt s).
+  Notation remove := stdpp.base.delete.
+  Notation elements := (fun s => map fst (fin_maps.map_to_list s)).
+  Notation size := stdpp.base.size.
+  Notation of_list := (fun l => fin_maps.list_to_map (map (fun v => (v, tt)) l)).
   Notation union := stdpp.base.union.
   Notation intersection := stdpp.base.intersection.
   Notation difference := stdpp.base.difference.
-  Notation elements := stdpp.base.elements.
-  Notation of_list := fin_maps.list_to_map.
-  Notation size := stdpp.base.size.
-  Notation add := stdpp.base.insert.
-  Notation remove := stdpp.base.delete.
 
-(*   Definition mem `{base.Lookup K V M} (i : K) (m : M) :=
-    match base.lookup i m with
+  Global Instance fset_union {K : Type} `{countable.Countable K} : base.Union (FSet K) :=
+    @fin_maps.map_union (FMap K) _ unit.
+  Global Instance fset_intersection {K : Type} `{countable.Countable K} : base.Intersection (FSet K) :=
+    @fin_maps.map_intersection (FMap K) _ unit.
+  Global Instance fset_difference {K : Type} `{countable.Countable K} : base.Difference (FSet K) :=
+    @fin_maps.map_difference (FMap K) _ unit.
+
+  Definition mem `{base.Lookup K V M} (k : K) (m : M) : bool :=
+    match base.lookup k m with
     | Some _ => true
     | None => false
-    end. *)
+    end.
+
+  Definition update {K: Type} `{countable.Countable K}
+                    (k : K) (b: bool) (s : FSet K) : FSet K :=
+    if b
+    then FSet.add k s
+    else FSet.remove k s.
 End FSet.
 
-#[export] Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.
+#[export]
+Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.
