@@ -25,7 +25,7 @@ Section Theories.
   Context {BaseTypes : ChainBase}.
   Open Scope N_scope.
   (* Tactics to simplify proof steps *)
-  Tactic Notation "contract_simpl" := unfold init in *; cbn in *; contract_simpl receive init.
+  Tactic Notation "contract_simpl" := contract_simpl @receive @init.
 
   Ltac destruct_message :=
     repeat match goal with

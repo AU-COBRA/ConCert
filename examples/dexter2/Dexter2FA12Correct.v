@@ -75,7 +75,7 @@ Section Theories.
   Qed.
 
   (* begin hide *)
-  Tactic Notation "contract_simpl" := contract_simpl receive_lqt init_lqt.
+  Tactic Notation "contract_simpl" := contract_simpl @receive_lqt @init_lqt.
 
   Ltac destruct_message :=
     repeat match goal with
