@@ -289,6 +289,21 @@ Module FMap.
 End FMap.
 
 Section FSet.
+  Notation empty := stdpp.base.empty.
+  Notation union := stdpp.base.union.
+  Notation intersection := stdpp.base.intersection.
+  Notation difference := stdpp.base.difference.
+  Notation elements := stdpp.base.elements.
+  Notation of_list := fin_maps.list_to_map.
+  Notation size := stdpp.base.size.
+  Notation add := stdpp.base.insert.
+  Notation remove := stdpp.base.delete.
+
+(*   Definition mem `{base.Lookup K V M} (i : K) (m : M) :=
+    match base.lookup i m with
+    | Some _ => true
+    | None => false
+    end. *)
 End FSet.
 
 #[export] Hint Resolve FMap.find_add FMap.find_add_ne FMap.find_remove : core.
