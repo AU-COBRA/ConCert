@@ -292,7 +292,7 @@ Module FMap.
   End Theories.
 End FMap.
 
-Section FSet.
+Module FSet.
   Generalizable All Variables.
 
   Notation empty := stdpp.base.empty.
