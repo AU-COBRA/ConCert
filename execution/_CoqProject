@@ -15,6 +15,7 @@ theories/ResultMonad.v
 theories/ContractMonads.v
 theories/Serializable.v
 theories/ContractCommon.v
+theories/ContractMorphisms.v
 
 -R test ConCert.Execution.Test
 test/LocalBlockchain.v
