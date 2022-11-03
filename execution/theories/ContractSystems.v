@@ -275,3 +275,9 @@ End ContractTransformations.
 
 
 (* TODO: an example of a system => one contract, equivalent environments post deploy *)
+Section ContractSystem.
+
+(* TODO: define a ** weak bisimulation ** *)
+
+
+End ContractSystem.
