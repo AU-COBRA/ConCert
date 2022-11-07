@@ -394,6 +394,14 @@ Definition is_iso_cm
     composition_cm g f = id_cm C /\ 
     composition_cm f g = id_cm C'.
 
+Definition contracts_isomorphic 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        (C : Contract Setup Msg State Error) (C' : Contract Setup' Msg' State' Error') := 
+    exists (f : ContractMorphism C C') (g : ContractMorphism C' C),
+    is_iso_cm f g.
+
 Lemma iso_cm_components 
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
@@ -507,9 +515,25 @@ Qed.
     Together, these results show that deploying isomorphic contracts results two separate chains, along with a bisimulation of chains. Functionally, then, the chains behave in equivalent ways.
 *)
 
+Definition weak_contracts_isomorphic (W1 W2 : option WeakContract) : Prop := todo "".
+Definition serialized_state_isomorphic (s1 s2 : option SerializedValue) : Prop := todo "".
+
 (* we define a (functional) equivalence of environments via a function : this is a bisimulation *)
-Definition EnvironmentBisimulation (e1 e2 : Environment) : Prop := 
-    todo "".
+Record EnvironmentBisimulation (e1 e2 : Environment) : Prop := {
+    chain_eq : env_chain e1 = env_chain e2 ; 
+    account_balances_eq :
+        forall a, env_account_balances e1 a = env_account_balances e2 a;
+    contracts_eq :
+        forall a, weak_contracts_isomorphic (env_contracts e1 a) (env_contracts e2 a);
+    contract_states_eq :
+        forall a, serialized_state_isomorphic (env_contract_states e1 a) (env_contract_states e2 a);
+}.
+    
+(* should rely on environment bisimulation *)
+Record ChainStateBisimulation (b1 b2 : ChainState) : Prop := {
+    env_eq : EnvironmentBisimulation b1 b2 ; 
+    queue_eq : chain_state_queue b1 = chain_state_queue b2 ;
+}.
 
 (* every environment is a bisimulation of itself *)
 Lemma env_equiv_then_bisimulation:
@@ -524,8 +548,7 @@ Definition isomorphic_contracts_to_bisimulation
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
         `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
         {C : Contract Setup Msg State Error} {C' : Contract Setup' Msg' State' Error'} : 
-    forall (f : ContractMorphism C C') (g : ContractMorphism C' C),
-    is_iso_cm f g -> 
+    contracts_isomorphic C C' ->
     (* start with equivalent, reachable environments *)
     forall env1 env2, 
     reachable env1 ->
@@ -549,9 +572,11 @@ Definition isomorphic_contracts_to_bisimulation
     act_deploy_C.(act_from) = act_deploy_C'.(act_from) ->
     act_deploy_C.(act_origin) = act_deploy_C'.(act_origin) ->
     (* the isomorphisms f and g lift to a bisimulation of env' and env'' *)
-    EnvironmentBisimulation env1' env2' := todo "".
+    EnvironmentBisimulation env1' env2'
+    := todo "".
 
 (* if C and C' are isomorphic, then deploying  *)
+(* base case *)
 Lemma iso_cm_then_iso_env_init 
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
@@ -581,7 +606,8 @@ Lemma iso_cm_then_iso_env_init
 Proof. Admitted.
 (* get a witness that env bisimulates itself, apply function above *)
 
-Lemma act_preserves_equiv : 
+(* inductive step *)
+Lemma iso_cm_then_iso_env_recv : 
     forall bstate1  bstate2,  EnvironmentBisimulation bstate1 bstate2 -> 
     forall bstate1' bstate2' act1 act2 new_acts,
         ActionEvaluation bstate1 act1 bstate1' new_acts -> 
@@ -589,6 +615,68 @@ Lemma act_preserves_equiv :
         (* the act should be equivalent, not identical *)
         act1 = act2 -> (* TODO *)
         EnvironmentBisimulation bstate1' bstate2'.
+Proof. Admitted.
+
+(* Main result for isomorphisms *)
+Theorem iso_cm_then_iso_bstate
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
+    forall (f : ContractMorphism C1 C2) (g : ContractMorphism C2 C1),
+    is_iso_cm f g -> 
+    (* for all reachable states *)
+    forall bstate, reachable bstate -> 
+    forall bstate1 bstate2 (* the new blockchain states *)
+           acts new_acts s amt (* queued actions, actions emitted by C1 and C2, setup, and amt *)
+           act_deploy_C1 act_deploy_C2 (* the actions of deploying C1 and C2 *)
+           actneval1 actneval2 (* the inhabitants of ActionEvaluation *)
+           state_queue1 state_queue1' (* proof that the state queues evolve correctly *)
+           state_queue2 state_queue2'
+           cstep1 cstep2, (* the chainstep *)
+    (* the bstate we get by deploying C  *)
+    cstep1 = step_action bstate bstate1 act_deploy_C1 acts new_acts state_queue1 actneval1 state_queue1' -> 
+    act_deploy_C1.(act_body) = act_deploy amt C1  s ->
+    (* the bstate we get by deploying C'  *)
+    cstep2 = step_action bstate bstate2 act_deploy_C2 acts new_acts state_queue2 actneval2 state_queue2' -> 
+    act_deploy_C2.(act_body) = act_deploy amt C2 s ->
+    (* they are deployed to the same address *)
+    forall caddr1 caddr2,
+        env_contracts bstate1 caddr1 = Some (C1 : WeakContract) -> 
+        env_contracts bstate2 caddr2 = Some (C2 : WeakContract) ->
+        caddr1 = caddr2 ->
+    (* they are deployed BY the same address (and origin) *)
+    act_deploy_C1.(act_from)   = act_deploy_C2.(act_from) ->
+    act_deploy_C1.(act_origin) = act_deploy_C2.(act_origin) ->
+    (* for any state reachable through env1, we have a corresponding isomorphic state reachable through env2 *)
+    forall bstate1', reachable_through bstate1 bstate1' -> 
+    exists bstate2', 
+        reachable_through bstate2 bstate2' /\
+        ChainStateBisimulation bstate1' bstate2'.
+Proof. Admitted.
+
+
+(* for any reachable state with C1 deployed, we have an isomorphic reachable state with C2 deployed at the same address *)
+Definition iso_trace bstate bstate1 bstate2 :
+    ChainTrace bstate bstate1 -> ChainTrace bstate bstate2 := todo "".
+
+Definition iso_bstate (bstate1 bstate2 : ChainState) : Prop := todo "".
+
+Theorem iso_cm_then_iso_bstate2 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
+    contracts_isomorphic C1 C2 -> 
+    (* forall reachable states *)
+    forall bstate1 caddr (trace1 : ChainTrace empty_state bstate1), 
+    reachable bstate1 -> 
+    env_contracts bstate1 caddr = Some (C1 : WeakContract) -> 
+    (* we can produce an isomorphic trace *)
+    exists (bstate2 : ChainState) (trace2 : ChainTrace empty_state bstate2),
+    env_contracts bstate2 caddr = Some (C2 : WeakContract) /\ 
+    iso_bstate bstate1 bstate2 /\ (* todo : perhaps produce the isomorphism *)
+    trace2 = iso_trace empty_state bstate1 bstate2 trace1.
 Proof. Admitted.
 
 End Isomorphisms.
@@ -611,19 +699,28 @@ Definition is_inj_cm
     is_inj (recv_inputs  C C' (recv_cm f)) /\
     is_inj (recv_outputs C C' (recv_cm f)).
 
+Definition contract_embeds 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        (C1 : Contract Setup Msg State Error) (C2 : Contract Setup' Msg' State' Error') := 
+    exists (f : ContractMorphism C1 C2), is_inj_cm f.
+
 (* results about monomorphisms *)
 (* an EMBEDDING of traces *)
 
 Definition embed_trace bstate bstate1 bstate2 :
     ChainTrace bstate bstate1 -> ChainTrace bstate bstate2 := todo "".
 
-Definition trace_embedding 
+Definition bstate_embeds (bstate1 bstate2 : ChainState) : Prop := todo "".
+
+(* base case *)
+Definition trace_embedding_init 
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
         `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
         {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
-    forall (f : ContractMorphism C1 C2), 
-    is_inj_cm f -> 
+    contract_embeds C1 C2 -> 
     (* start with a reachable state *)
     forall bstate, reachable bstate -> 
     (* compare deploying C vs C' *)
@@ -649,6 +746,27 @@ Definition trace_embedding
         reachable_through bstate2 bstate2' /\ 
         trace2 = embed_trace bstate bstate1' bstate2' trace1.
 Proof. Admitted.
+    (* trace2 is given by the embed_trace function *)
+
+(* inductive step *)
+(* TODO *)
+
+Theorem inj_cm_then_trace_embedding 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
+    contract_embeds C1 C2 -> 
+    (* for all reachable states where C1 is deployed *)
+    forall bstate1 caddr (trace1 : ChainTrace empty_state bstate1),
+    reachable bstate1 -> 
+    env_contracts bstate1 caddr = Some (C1 : WeakContract) ->
+    (* we can produce a trace *)
+    exists (bstate2 : ChainState) (trace2 : ChainTrace empty_state bstate2),
+    env_contracts bstate2 caddr = Some (C2 : WeakContract) /\ 
+    bstate_embeds bstate1 bstate2 /\
+    trace2 = embed_trace empty_state bstate1 bstate2 trace1.
+Proof. Admitted.    
 
 End Monomorphisms.
 
