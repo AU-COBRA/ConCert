@@ -10,6 +10,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractSystems.
 From ConCert.Execution Require Import BuildUtils.
+From ConCert.Execution Require Import InterContractCommunication.
 
 Axiom todo : string -> forall {A}, A.
 
@@ -28,8 +29,10 @@ Definition uncurry_fun4 {A B C D E : Type} (f : A -> B -> C -> D -> E) : A * B *
         let (x'', c) := x' in 
         let (a, b) := x'' in f a b c d.
 
+
 Section ContractMorphisms.
 Context { Base : ChainBase }.
+
 
 Section MorphismDefinition.
 
@@ -50,6 +53,7 @@ Record InitCM
     `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
     `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
     (C : Contract Setup Msg State Error) (C' : Contract Setup' Msg' State' Error') 
+    (* takes input a state morphism *)
     := build_initcm {
         init_inputs : Chain * ContractCallContext * Setup -> 
             Chain * ContractCallContext * Setup' ;
@@ -78,6 +82,7 @@ Record RecvCM
     { Setup Setup' Msg Msg' State State' Error Error' : Type }
     `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
     `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    (* takes input a state morphism and an actionbody morphism *)
     (C : Contract Setup Msg State Error) (C' : Contract Setup' Msg' State' Error') := {
         recv_inputs : Chain * ContractCallContext * State * option Msg -> 
             Chain * ContractCallContext * State' * option Msg' ;
@@ -93,6 +98,7 @@ Record ContractMorphism
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
         `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    (* uses the same state morphism (and same actionbody morphism) *)
     (C  : Contract Setup  Msg  State  Error) 
     (C' : Contract Setup' Msg' State' Error') := {
         cm_init : InitCM C C' ;
@@ -100,7 +106,6 @@ Record ContractMorphism
     }.
 
 End MorphismDefinition.
-
 
 
 Section MorphismUtilities.
@@ -178,7 +183,6 @@ Definition id_cm
     |}.
 
 End IdentityMorphism.
-
 
 (* Deriving Equality of Contract Morphisms *)
 Section EqualityOfMorphisms.
@@ -375,6 +379,179 @@ Qed.
 End MorphismComposition.
 
 
+(* 
+    In what follows we prove the fundamental theorems for using contract morphisms in proofs.
+    The main result of this section is that contract morphisms lift to morphisms of ChainState and of ChainTrace.
+*)
+Section ContractMorphismsLift.
+
+(* we first define morphisms of chainstates and traces *)
+Definition EnvContractMorphisms (op_W1 op_W2 : option WeakContract) := 
+    (* gives us morphisms of (strong) contracts *)
+    match op_W1 with 
+    | None => op_W2 = None 
+    | Some W1 => 
+        exists C1 C2 (f : ContractMorphism C1 C2), 
+        (contract_to_weak_contract C1) = W1 /\
+        Some (contract_to_weak_contract C2) = op_W2
+        (* possibly *)
+    end.
+
+Record EnvironmentMorphism (e1 e2 : Environment) := {
+    chain_eq' : env_chain e1 = env_chain e2 ; (* yes *)
+    account_balances_eq' :
+      forall a, env_account_balances e1 a = env_account_balances e2 a ; (* yes *)
+    contract_morphisms : (* also relates the state morphisms *)
+      forall a, EnvContractMorphisms (env_contracts e1 a) (env_contracts e2 a) ;
+}.
+
+(* TODO queue needs to be transformed too; queue can't be the same *)
+Record chainstate_morphism (cstate1 cstate2 : ChainState) := {
+    env_morph : EnvironmentMorphism (chain_state_env cstate1) (chain_state_env cstate2) ;
+    queue_eq  : chain_state_queue cstate1 = chain_state_queue cstate2 ;
+}.
+
+Definition trivial_chainstate_morphism (cstate : ChainState) : chainstate_morphism cstate cstate := todo "".
+
+Definition trace_morphism {bstate1 bstate1' bstate2 bstate2'} 
+    (trace1 : ChainTrace bstate1 bstate1') 
+    (trace2 : ChainTrace bstate2 bstate2') : Type := todo "".
+
+Definition trivial_trace_morphism (cstate : ChainState) : 
+    trace_morphism (ChainedList.clnil : ChainTrace cstate cstate) (ChainedList.clnil : ChainTrace cstate cstate) := todo "".
+
+Definition bstate_transform_step
+    (bstate1 bstate2 bstate1' : ChainState)
+    (c_morph : chainstate_morphism bstate1 bstate2) 
+    (step : ChainStep bstate1 bstate1') : ChainState := 
+    match step with 
+    | step_block _ _ _ _ _ _ _ _ => 
+        todo "" (* add the block, nothing more *)
+    | step_action _ _ act _ _ _ some_act _ => 
+        todo "" (* execute the analogous action *)
+    | step_action_invalid _ _ _ _ _ _ _ _ _ => todo ""
+    | step_permute _ _ _ _ => todo ""
+    end.
+    (* inducts over the step, produces a new chainstate *)
+
+Definition action_transform_step
+    (bstate1 bstate2 bstate1' : ChainState)
+    (c_morph : chainstate_morphism bstate1 bstate2) 
+    (step : ChainStep bstate1 bstate1') : 
+        (ChainStep bstate2 (bstate_transform_step bstate1 bstate2 bstate1' c_morph step)) := todo "".
+
+(* LEMMA : if eq, exists morphism *)
+Definition bstate_morphism_lift_step
+    (bstate1 bstate2 bstate1' : ChainState)
+    (c_morph : chainstate_morphism bstate1 bstate2) 
+    (step : ChainStep bstate1 bstate1') : 
+    chainstate_morphism bstate1' (bstate_transform_step bstate1 bstate2 bstate1' c_morph step) := todo "".
+
+Definition trace_morphism_lift_step
+    (bstate0 bstate1 bstate2 bstate1' : ChainState)
+    (c_morph : chainstate_morphism bstate1 bstate2) 
+    (trace1 : ChainTrace bstate0 bstate1)
+    (trace2 : ChainTrace bstate0 bstate2)
+    (trace_morph : trace_morphism trace1 trace2) 
+    (step : ChainStep bstate1 bstate1') : 
+    trace_morphism 
+        (ChainedList.snoc trace1 step)
+        (ChainedList.snoc trace2 (action_transform_step bstate1 bstate2 bstate1' c_morph step)) := todo "".
+
+Definition caddr_implication_step
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'}
+    (f : ContractMorphism C1 C2)
+    (bstate1 bstate2 bstate1' : ChainState)
+    (c_morph : chainstate_morphism bstate1 bstate2) 
+    (step : ChainStep bstate1 bstate1') 
+    (caddr : Address)
+    (caddr_impl : env_contracts bstate1 caddr = Some (C1 : WeakContract) -> 
+        env_contracts bstate2 caddr = Some (C2 : WeakContract))
+    : env_contracts bstate1' caddr = Some (C1 : WeakContract) -> 
+    env_contracts (bstate_transform_step bstate1 bstate2 bstate1' c_morph step) caddr = Some (C2 : WeakContract) := todo "".
+
+(* Theorem: A contract morphism can be lifted into morphisms of chain states and chain traces *)
+Theorem cm_lift 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
+    forall (f : ContractMorphism C1 C2) bstate1 caddr (trace1 : ChainTrace empty_state bstate1),
+    exists  (* a new bstate related to the old *)
+            (bstate2 : ChainState) 
+            (bstate_morph : chainstate_morphism bstate1 bstate2)
+            (* a new trace related to the old *)
+            (trace2 : ChainTrace empty_state bstate2)
+            (trace_morph : trace_morphism trace1 trace2),
+            (* with C2 swapped out for C1 *)
+            env_contracts bstate1 caddr = Some (C1 : WeakContract) -> 
+            env_contracts bstate2 caddr = Some (C2 : WeakContract).
+Proof.
+    (* we induct over the trace *)
+    intros.
+    remember empty_state eqn:genesis_empty. induction trace1.
+    - rewrite genesis_empty. 
+        exists empty_state. exists (trivial_chainstate_morphism empty_state). 
+        exists ChainedList.clnil. exists (trivial_trace_morphism empty_state).
+        intro. assert (env_contracts empty_state caddr = None); auto. 
+        rewrite H8 in H7. congruence.
+    - apply IHtrace1 in genesis_empty. clear IHtrace1.
+        (* destruct IHtrace1 as [bstate2 H']. auto. admit. *)
+        destruct genesis_empty as [bstate2 genesis_empty]. 
+        destruct genesis_empty as [bstate_morph genesis_empty]. 
+        destruct genesis_empty as [trace2 genesis_empty].
+        destruct genesis_empty as [trace_morph addr_implication].
+        (* construct the new bstate and trace *)
+        set (bstate2' := bstate_transform_step mid bstate2 to bstate_morph l).
+        set (l' := action_transform_step mid bstate2 to bstate_morph l).
+        set (trace2' := ChainedList.snoc trace2 l').
+        (* construct the relationships *)
+        set (bstate_morph' := bstate_morphism_lift_step mid bstate2 to bstate_morph l).
+        set (trace_morph' := trace_morphism_lift_step from mid bstate2 to bstate_morph trace1 trace2 trace_morph l).
+        set (caddr_impl := caddr_implication_step f mid bstate2 to bstate_morph l caddr addr_implication).
+        exists bstate2'. 
+        exists bstate_morph'. 
+        exists trace2'.
+        exists trace_morph'. 
+        exact caddr_impl.
+Qed.
+
+
+
+(* Some useful results about the lifted morphism *)
+(*
+Lemma id_lifts_to_id 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : todo "".
+Proof. exact (todo ""). Qed.
+
+Lemma morphisms_lift_compose
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : todo "".
+
+Lemma inj_lifts_to_inj
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : todo "".
+
+Lemma surj_lifts_to_surj
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : todo "".
+*)
+
+End ContractMorphismsLift.
+
+
 Section Isomorphisms.
 
 Definition is_iso {A B : Type} (f : A -> B) (g : B -> A) : Prop := 
@@ -531,8 +708,8 @@ Record EnvironmentBisimulation (e1 e2 : Environment) : Prop := {
     
 (* should rely on environment bisimulation *)
 Record ChainStateBisimulation (b1 b2 : ChainState) : Prop := {
-    env_eq : EnvironmentBisimulation b1 b2 ; 
-    queue_eq : chain_state_queue b1 = chain_state_queue b2 ;
+    env_eq' : EnvironmentBisimulation b1 b2 ; 
+    queue_eq' : chain_state_queue b1 = chain_state_queue b2 ;
 }.
 
 (* every environment is a bisimulation of itself *)
@@ -711,45 +888,7 @@ Definition contract_embeds
 
 Definition embed_trace bstate bstate1 bstate2 :
     ChainTrace bstate bstate1 -> ChainTrace bstate bstate2 := todo "".
-
 Definition bstate_embeds (bstate1 bstate2 : ChainState) : Prop := todo "".
-
-(* base case *)
-Definition trace_embedding_init 
-        { Setup Setup' Msg Msg' State State' Error Error' : Type }
-        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
-    contract_embeds C1 C2 -> 
-    (* start with a reachable state *)
-    forall bstate, reachable bstate -> 
-    (* compare deploying C vs C' *)
-    forall (bstate1 bstate2 : ChainState) act_deploy_C1 act_deploy_C2 new_acts s1 s2 amt1 amt2,
-    (* the environment we get by deploying C  *)
-    ActionEvaluation bstate act_deploy_C1 bstate1 new_acts -> 
-        act_deploy_C1.(act_body) = act_deploy amt1 C1  s1 ->
-    (* the environment we get by deploying C'  *)
-    ActionEvaluation bstate act_deploy_C2 bstate2 new_acts -> 
-        act_deploy_C2.(act_body) = act_deploy amt2 C2 s2 ->
-    (* they are deployed to the same address *)
-    forall caddr1 caddr2,
-        env_contracts bstate1 caddr1 = Some (C1 : WeakContract) -> 
-        env_contracts bstate2 caddr2 = Some (C2 : WeakContract) ->
-        caddr1 = caddr2 ->
-    (* they are deployed BY the same address (and origin) *)
-    act_deploy_C1.(act_from)   = act_deploy_C2.(act_from)   ->
-    act_deploy_C1.(act_origin) = act_deploy_C2.(act_origin) ->
-    (* any state reachable through bstate1 has a corresponding state reachable through bstate2 *)
-    forall bstate1', reachable_through bstate1 bstate1' ->
-    forall (trace1 : ChainTrace bstate bstate1'),
-    exists bstate2' (trace2 : ChainTrace bstate bstate2'),
-        reachable_through bstate2 bstate2' /\ 
-        trace2 = embed_trace bstate bstate1' bstate2' trace1.
-Proof. Admitted.
-    (* trace2 is given by the embed_trace function *)
-
-(* inductive step *)
-(* TODO *)
 
 Theorem inj_cm_then_trace_embedding 
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
@@ -761,11 +900,11 @@ Theorem inj_cm_then_trace_embedding
     forall bstate1 caddr (trace1 : ChainTrace empty_state bstate1),
     reachable bstate1 -> 
     env_contracts bstate1 caddr = Some (C1 : WeakContract) ->
-    (* we can produce a trace *)
+    (* we can produce a trace in the case that C2 was deployed rather than C1 *)
     exists (bstate2 : ChainState) (trace2 : ChainTrace empty_state bstate2),
     env_contracts bstate2 caddr = Some (C2 : WeakContract) /\ 
-    bstate_embeds bstate1 bstate2 /\
-    trace2 = embed_trace empty_state bstate1 bstate2 trace1.
+    bstate_embeds bstate1 bstate2 /\ (* exists an embedding morphism *)
+    trace2 = embed_trace empty_state bstate1 bstate2 trace1. (* we can construct a trace to reachable bstate2 *)
 Proof. Admitted.    
 
 End Monomorphisms.
@@ -789,8 +928,35 @@ Definition is_surj_cm
     is_surj (recv_inputs C C' (recv_cm f)) /\
     is_surj (recv_outputs C C' (recv_cm f)).
 
-(* TODO : Result about surjections : possibly about rectacts, splitting C into C + C' via a retract *)
+(* TODO : Result about surjections : possibly about retracts, splitting C into C + C' via a retract *)
 (*                                 : possibly about upgradeability too *)
+
+Definition contract_surjects 
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        (C1 : Contract Setup Msg State Error) (C2 : Contract Setup' Msg' State' Error') := 
+    exists (f : ContractMorphism C1 C2), is_surj_cm f.
+
+Definition bstate_surjects (bstate1 bstate2 : ChainState) : Prop := todo "".
+Definition quotient_trace bstate bstate1 bstate2 :
+    ChainTrace bstate bstate1 -> ChainTrace bstate bstate2 := todo "".
+
+Theorem surj_cm_surj_bstate
+        { Setup Setup' Msg Msg' State State' Error Error' : Type }
+        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+        {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'} : 
+    contract_surjects C1 C2 -> 
+    (* for all reachable states where C1 is deployed *)
+    forall bstate1 caddr (trace1 : ChainTrace empty_state bstate1),
+    env_contracts bstate1 caddr = Some (C1 : WeakContract) ->
+    (* we can produce a trace in the case that C2 was deployed rather than C1 *)
+    exists (bstate2 : ChainState) (trace2 : ChainTrace empty_state bstate2),
+    env_contracts bstate2 caddr = Some (C2 : WeakContract) /\ 
+    bstate_surjects bstate1 bstate2 /\ (* exists a surjection morphism *)
+    trace2 = quotient_trace empty_state bstate1 bstate2 trace1. (* we can compress trace1 into trace2 *)
+Proof. Admitted.
 
 End Epimorphisms.
 
@@ -908,14 +1074,17 @@ Definition null_morphism : ContractMorphism C null_contract :=
         cm_recv := morph_recv ;
     |}.
 
-(* TODO: this is more nuanced *)
+(* TODO: this is more nuanced 
 Lemma null_morphism_unique : forall (f : ContractMorphism C null_contract), f = null_morphism.
 Proof. 
     intro. apply is_eq_cm; try apply is_eq_cm_init; try apply is_eq_cm_recv; apply functional_extensionality; intro.
     -   destruct x as [x' s]. destruct x' as [c ctx].
         admit.
-    -   destruct x. Admitted.
+    -   destruct x. Admitted.*)
 
 End TerminalContract.
+
+
+
 
 End ContractMorphisms.
