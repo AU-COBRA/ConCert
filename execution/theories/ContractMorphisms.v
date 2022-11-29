@@ -11,7 +11,6 @@ From Coq Require Import RelationClasses.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From ConCert.Execution Require Import ContractSystems.
 From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Utils Require Import RecordUpdate.

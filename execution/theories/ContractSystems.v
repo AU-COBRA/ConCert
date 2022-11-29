@@ -3,7 +3,7 @@ From Coq Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-
+From ConCert.Execution Require Import ContractMorphisms.
 
 Definition pair_fun {S T S' T' : Type} 
     (f : S -> S') (g : T -> T') (x : S * T) : S' * T' :=
@@ -13,13 +13,9 @@ Definition pair_fun2 {S T S' T' S'' T'' : Type}
     let (s,t) := x in let (s', t') := y in (f s s', g t t').
 
 Section ContractTransformations.
-(* we abstract over the choice of ChainBase, Chain, and ContractCallContext *)
 Context { Base : ChainBase }.
 
-(* 
-    * The Product Operation of Smart Contracts:
-        Given two smart contracts C and C', we can take its product contract := C * C'.
-*)
+(** We define the product of two contracts *)
 Section ContractProducts.
 Definition init_product 
         { Setup Setup' State State' Error Error' : Type}
@@ -54,9 +50,9 @@ Definition recv_product
         end).
 
 Definition product_contract 
-        { Setup Setup' Msg Msg' State State' Error Error' : Type }
-        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
     (C  : Contract Setup  Msg  State  Error) 
     (C' : Contract Setup' Msg' State' Error') : 
     Contract (Setup * Setup') (Msg * Msg') (State * State') (Error + Error') := 
@@ -64,30 +60,26 @@ Definition product_contract
         (init_product C.(init) C'.(init))
         (recv_product C.(receive) C'.(receive)).
 
-(* Notation "C * C'" := (product_contract C C') (at level 40). 
 Lemma product_contract_associative
-    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' : Type }
-    `{Serializable Msg}    `{Serializable Setup}    `{Serializable State}
-    `{Serializable Msg'}   `{Serializable Setup'}   `{Serializable State'}
-    `{Serializable Msg''}  `{Serializable Setup''}  `{Serializable State''}
-    { C : Contract Setup Msg State } 
-    { C' : Contract Setup' Msg' State' }
-    { C'' : Contract Setup'' Msg'' State'' } : 
-    product_contract C (product_contract C' C'') = 
-    product_contract (product_contract C C') C''.*)
-
-(* 
-    * The Direct Sum, or Disjoint Union, of Smart Contracts:
-        Given two smart contracts C and C', we can take its sum/disjoint union := C + C'.
-*)
+    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    `{Serializable Msg''} `{Serializable Setup''} `{Serializable State''} `{Serializable Error''}
+    { C : Contract Setup Msg State Error } 
+    { C' : Contract Setup' Msg' State' Error' }
+    { C'' : Contract Setup'' Msg'' State'' Error'' } : 
+    contracts_isomorphic
+        (product_contract C (product_contract C' C''))  
+        (product_contract (product_contract C C') C'').
+Proof. Admitted.
 
 End ContractProducts.
 
-
+(** We define the disjoint sum of two contracts *)
 Section ContractSums.
 
 Definition init_sum 
-        { Setup Setup' State State' Error Error' : Type}
+    { Setup Setup' State State' Error Error' : Type}
     (init  : Chain -> ContractCallContext -> Setup  -> result State Error)
     (init' : Chain -> ContractCallContext -> Setup' -> result State' Error') : 
     (Chain -> ContractCallContext -> Setup + Setup' -> result (State + State') (Error + Error' + unit)) := 
@@ -106,7 +98,7 @@ Definition init_sum
         end).
 
 Definition recv_sum 
-        { Msg Msg' State State' Error Error' : Type }
+    { Msg Msg' State State' Error Error' : Type }
     (recv  : Chain -> ContractCallContext -> State  -> option Msg  -> result (State  * list ActionBody) Error)
     (recv' : Chain -> ContractCallContext -> State' -> option Msg' -> result (State' * list ActionBody) Error') : 
     Chain -> ContractCallContext -> State + State' -> option (Msg + Msg') -> result ((State + State') * list ActionBody) (Error + Error' + unit) :=
@@ -149,9 +141,9 @@ Definition recv_sum
         end).
 
 Definition sum_contract 
-        { Setup Setup' Msg Msg' State State' Error Error' : Type }
-        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
     (C : Contract Setup Msg State Error) 
     (C' : Contract Setup' Msg' State' Error') : 
     Contract (Setup + Setup') (Msg + Msg') (State + State') (Error + Error' + unit) := 
@@ -159,47 +151,64 @@ Definition sum_contract
         (init_sum C.(init) C'.(init))
         (recv_sum C.(receive) C'.(receive)).
 
-(*Notation "C + C'" := (sum_contract C C') : type_scope.
 Lemma sum_contract_associative
-    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' : Type }
-    `{Serializable Msg}    `{Serializable Setup}    `{Serializable State}
-    `{Serializable Msg'}   `{Serializable Setup'}   `{Serializable State'}
-    `{Serializable Msg''}  `{Serializable Setup''}  `{Serializable State''}
-    { C : Contract Setup Msg State } 
-    { C' : Contract Setup' Msg' State' }
-    { C'' : Contract Setup'' Msg'' State'' } : 
-    sum_contract C (sum_contract C' C'') = 
-    sum_contract (sum_contract C C') C''.*)
+    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    `{Serializable Msg''} `{Serializable Setup''} `{Serializable State''} `{Serializable Error''}
+    { C : Contract Setup Msg State Error } 
+    { C' : Contract Setup' Msg' State' Error' }
+    { C'' : Contract Setup'' Msg'' State'' Error'' } :  
+    contracts_isomorphic
+        (sum_contract C (sum_contract C' C'')) 
+        (sum_contract (sum_contract C C') C'').
+Proof. Admitted.
 
-(* Some results about direct sums 
-NO: THE SUM PROJECTS ONTO C + *, or * + C', but NOT ONTO C or C'!
-    YOU HAVE EMBEDDINGS INTO IT THOUGH; YOU DON'T HAVE EMBEDDINGS INTO C * C' ... !
 Theorem sum_contract_projects_left
-    { Setup Setup' Msg Msg' State State' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'}
-    {C : Contract Setup Msg State}
-    {C' : Contract Setup' Msg' State'} : 
-    exists (f : ContractMorphism (sum_contract C C') C),
-    is_surj_cm f.
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error}
+    {C' : Contract Setup' Msg' State' Error'} : 
+    exists (f : ContractMorphism (sum_contract C C') (sum_contract C null_contract)),
+        is_surj_cm f.
+Proof. Admitted.
 
 Theorem sum_contract_projects_right
-    { Setup Setup' Msg Msg' State State' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'}
-    {C : Contract Setup Msg State}
-    {C' : Contract Setup' Msg' State'} : 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error}
+    {C' : Contract Setup' Msg' State' Error'} : 
+    exists (f : ContractMorphism (sum_contract C C') (sum_contract null_contract C')),
+        is_surj_cm f.
+Proof. Admitted.
+
+Theorem sum_contract_embeds_left
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error}
+    {C' : Contract Setup' Msg' State' Error'} : 
+    exists (f : ContractMorphism C (sum_contract C C')),
+        is_inj_cm f.
+Proof. Admitted.
+
+Theorem sum_contract_embeds_right
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error}
+    {C' : Contract Setup' Msg' State' Error'} : 
     exists (f : ContractMorphism (sum_contract C C') C'),
-    is_surj_cm f.*)
+        is_inj_cm f.
+Proof. Admitted.
 
 End ContractSums.
 
 
-
-(* 
-    * A *joined* direct sum:
-        This is like the disjoint union, except that it takes in both states.
-*)
+(** We define the joined sum of two contracts, which will be useful for reasoning about 
+    systems of contracts *)
 Section JoinedContractSum.
 
 Definition init_joined_sum 
@@ -270,14 +279,4 @@ Definition joined_sum_contract
 
 End JoinedContractSum.
 
-
 End ContractTransformations.
-
-
-(* TODO: an example of a system => one contract, equivalent environments post deploy *)
-Section ContractSystem.
-
-(* TODO: define a ** weak bisimulation ** *)
-
-
-End ContractSystem.
