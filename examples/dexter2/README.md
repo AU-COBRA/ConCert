@@ -23,5 +23,13 @@ This contract is an implementation of a Constant Product Market Maker (CPMM), th
 
 # Code extraction to CameLIGO
 
-See [the extraction setup](Dexter2Extract.v)
+See the extraction setup for [CPMM](Dexter2CPMMExtractLIGO.v) and [Liquidity Token](Dexter2FA12ExtractLIGO.v)
 
+Main Contract code [extracted/dexter2CPMM.mligo](extracted/dexter2CPMM.mligo)
+
+Liquidity Token code [extracted/dexter2Lqt.mligo](extracted/dexter2Lqt.mligo)
+
+# Property-based Testing
+This folder also contains some property-based tests for the Dexter2 decentralized exchange.
+The tests can be found in [Dexter2Tests.v](Dexter2Tests.v).
+Generators for the contract are located in [Dexter2Gens.v](Dexter2Gens.v).
