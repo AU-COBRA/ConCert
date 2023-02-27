@@ -19,7 +19,7 @@ RUN curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/b
     && sudo chmod +x elm \
     && sudo mv elm /usr/local/bin/ \
     && sudo apt install --no-install-recommends npm -y \
-    && sudo npm install -g elm-test
+    && sudo npm install -g elm-test@0.19.1-revision9
 
 # install Rust and cargo-concordium
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
