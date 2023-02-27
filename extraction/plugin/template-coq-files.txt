@@ -57,6 +57,8 @@ extractable.ml
 extractable.mli
 hexadecimal.ml
 hexadecimal.mli
+hexadecimalString.ml
+hexadecimalString.mli
 primInt63.ml
 primInt63.mli
 uint0.ml
