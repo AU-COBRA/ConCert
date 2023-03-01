@@ -20,8 +20,8 @@ Definition circulation (env : Environment) :=
   sumZ (env_account_balances env) (elements Address).
 
 (* We prove first that over any single action, the circulation is preserved.
-The idea behind this proof is that addrs contain from and to so
-we can move them to the beginning of the sum and it easily follows that
+The idea behind this proof is that addrs contain from and to, so
+we can move them to the beginning of the sum, and it easily follows that
 the sum of their balances is the same as before. For the rest of the
 list the total balance will then not be affected which follows by induction. *)
 

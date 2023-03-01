@@ -148,7 +148,7 @@ Section TraceGens.
     acts <- optToVector max_acts_per_block (gActOptFromChainSized cb act_depth) ;;
     returnGen (add_block cb acts).
 
-  (* Given a function from nat to a generator, try the generator on decreasing number until one returns Ok *)
+  (* Given a function from [nat] to a generator, try the generator on decreasing number until one returns Ok *)
   Fixpoint try_decreasing {T E} (default : E) (n : nat) (g : nat -> G (result T E)) : G (result T E) :=
       match n with
       | 0 => returnGen (Err default)

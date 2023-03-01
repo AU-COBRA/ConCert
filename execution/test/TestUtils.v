@@ -243,7 +243,7 @@ Definition sample2UniqueFMapOpt
   ).
 
 Section AddressGenerators.
-  (* Although the type is GOpt ...) it will never generate None values.
+  (* Although the type is GOpt ... it will never generate None values.
     Perhaps this is where we should use generators with property proof relevance? Future work... *)
   Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
     n <- arbitrarySized (N.to_nat bound) ;; (* we exploit that arbitrarySized n on nats automatically bounds the value by <= n *)
@@ -264,7 +264,7 @@ Section AddressGenerators.
 
   #[export]
   Instance genAddress : Gen (@Address LocalChainBase) := {|
-      (* I could have just written 'arbitrary' here, but this is more explicit; and i like explicit code *)
+      (* I could have just written 'arbitrary' here, but this is more explicit; and I like explicit code *)
       arbitrary := @arbitrary (BoundedN.BoundedN AddrSize) genBoundedN
     |}.
 
@@ -295,7 +295,7 @@ Section AddressGenerators.
     bindGen (choose ((@ContractAddrBase AddrSize), AddrSize-1)%N) (fun n => ret (@BoundedN.of_N AddrSize n)).
 
   (* Generator that returns random addresses from [addrs] that are not in [ws].
-     Returns [zero_address] if the are no such addresses *)
+     Returns [zero_address] if there are no such addresses *)
   Definition gAddrWithout (ws addrs : list Address) :=
     let addrs_ := filter (fun a => negb (existsb (address_eqb a) ws)) addrs in
     elems_ zero_address addrs_.
@@ -357,7 +357,7 @@ match a with
   | None => false ==> true
 end.
 
-(* A shallow way of embedding 'exists' in QC. Currently not very general, since we cant properly nest existPs
+(* A shallow way of embedding 'exists' in QC. Currently not very general, since we can't properly nest existPs
    because the predicate function returns a bool, and not a Checker. Need to review if this is even possible. *)
 Local Open Scope string_scope.
 Definition existsP {A prop : Type}
@@ -437,7 +437,7 @@ Definition repeatWith {A prop : Type}
 Definition repeatn (n : nat) (c : Checker) :=
   repeatWith (seq 0 n) (fun _ => c).
 
-(* Converts a discarded test into a succesful test *)
+(* Converts a discarded test into a successful test *)
 Definition discardToSuccess {prop} `{Checkable prop} (p : prop) : Checker :=
   mapTotalResult (fun res => match res.(ok) with
                              | None => updOk res (Some true)
@@ -456,7 +456,7 @@ Definition discardToSuccess {prop} `{Checkable prop} (p : prop) : Checker :=
 (* *** Failed after 1 tests and 0 shrinks. (0 discards) *)
 
 (* discard-friendly variant of conjoin where discarded tests will NOT cause the conjoin
-   combinator to also result in a discard. Specifically, conjoin_no_discard [false==>true] tests succesfully,
+   combinator to also result in a discard. Specifically, conjoin_no_discard [false==>true] tests successfully,
    whereas conjoin [false==>true] results in a discarded test. *)
 Definition conjoin_no_discard {prop} `{Checkable prop} (l : list prop) : Checker :=
   conjoin_map discardToSuccess l.

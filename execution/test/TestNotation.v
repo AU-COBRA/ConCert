@@ -15,7 +15,7 @@ From Coq Require Import Bool.
     - DepthFirst: A boolean value denoting whether actions are executed in a depth first order (true) or breadth first order (false).
       Default value is true.
     - AddrSize: The total number of valid addresses in the blockchain. The first half of the address space is reserved
-      for user accounts while the secound half is reserved for smart contracts. Default value is 256 (overwriting this value is not recommended).
+      for user accounts while the second half is reserved for smart contracts. Default value is 256 (overwriting this value is not recommended).
     - BlockReward: The reward given to the address adding a block to the chain. Default value is 50.
     - BlockCreator: The address used when adding new blocks to the chain. Default value is "creator" (address 10).
     - MaxGenAttempts: The maximum attempts at generating a valid action in a block.

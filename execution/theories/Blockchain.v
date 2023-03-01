@@ -14,7 +14,7 @@ The most important types are:
   interact with the blockchain. We allow transfers, calls and deployment
   of contracts.
 
-- The [WeakContract] type describes a "weak" or "stringly" typed
+- The [WeakContract] type describes a "weak" or "strongly" typed
   version of smart contracts. Contracts are just two functions init and
   receive to respectively initialize the state on deployment and update
   the state when receiving messages. The weak version of contracts means that
@@ -50,7 +50,7 @@ The next types deal with semantics.
 - The [ChainTrace] type. This just represents a sequence of steps. If a trace ends
   in a state it means that the state is [reachable] and there is a "semantically correct"
   way of executing to get to this state. This type records the full history of a
-  blockchain's execution and it would thus be unrealistic to extract.
+  blockchain's execution, and it would thus be unrealistic to extract.
 
 - The [ChainBuilderType] type. This is a typeclass for implementations of blockchains,
   where these implementations need to prove that they satisfy our semantics.
@@ -1948,7 +1948,7 @@ End Semantics.
 Inductive ActionEvaluationError :=
 | amount_negative (amount : Amount) (* amount is negative *)
 | amount_too_high (amount : Amount) (* sender does not have enough money *)
-| no_such_contract (addr : Address) (* there is not contract at that address *)
+| no_such_contract (addr : Address) (* there is no contract at that address *)
 | too_many_contracts (* cannot generate fresh address for new contract *)
 | init_failed (err : SerializedValue) (* contract init function failed *)
 | receive_failed (err : SerializedValue) (* contract receive function failed *)

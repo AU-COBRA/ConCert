@@ -37,7 +37,7 @@ Definition lookup_with_ind {A} (ρ : env A) (key : string) : option (nat * A) :=
   lookup_with_ind_rec 0 ρ key.
 
 
-(** Lookup by index (similar to [List.nth_error], but defined by recursion on env *)
+(** Lookup by index (similar to [List.nth_error]), but defined by recursion on env *)
 Fixpoint lookup_i {A} (ρ : env A) (i : nat) : option A :=
   match ρ with
   | [] => None
