@@ -43,8 +43,8 @@ Some highlights from [theories](theories/):
 * [ErasureCorrectness.v](theories/ErasureCorrectness.v) -- Correctness lemmas for definitions from [Erasure.v](theories/Erasure.v), proving that our erasure produces a well-formed erased environment.
 * [Extraction.v](theories/Extraction.v) -- High-level interface to extraction. Provides different pipelines for doing extraction with different trusted computing bases.
 * [ExtractionCorrectness.v](theories/ExtractionCorrectness.v) -- Top-level correctness theorem relating the stages.
-* [Optimize.v](theories/Optimize.v) -- Optimisations (dead argument elimination, logical parameters elimination) on `λ□` terms.
-* [OptimizeCorrectness.v](theories/OptimizeCorrectness.v) -- Correctness of optimisation (dead argument elimination).
+* [Optimize.v](theories/Optimize.v) -- Optimizations (dead argument elimination, logical parameters elimination) on `λ□` terms.
+* [OptimizeCorrectness.v](theories/OptimizeCorrectness.v) -- Correctness of optimization (dead argument elimination).
 * [CertifyingEta.v](theories/CertifyingEta.v) -- An eta-expansion procedure.
 * [CertifyingInlinig.v](theories/CertifyingInlinig.v) -- An inlining procedure.
 * [CertifyingBeta.v](theories/ertifyingBeta.v) -- A procedure that finds an evalues redexes (if the reduction leads to new redexes, these are not reduced further)
