@@ -151,7 +151,7 @@ Section Theories.
   Tactic Notation "math_convert" := repeat math_convert_step.
 
   Tactic Notation "contract_simpl" :=
-    repeat (unfold call_to_token,call_to_other_token; contract_simpl_step receive_cpmm init_cpmm).
+    repeat (unfold call_to_token,call_to_other_token; contract_simpl_step @receive_cpmm @init_cpmm).
 
   Ltac destruct_message :=
     repeat match goal with

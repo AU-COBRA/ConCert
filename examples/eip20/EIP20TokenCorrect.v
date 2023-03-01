@@ -146,7 +146,7 @@ Section Theories.
     repeat (
       try eip_simpl;
       try address_map_convert;
-      try contract_simpl_step receive init).
+      try contract_simpl_step @receive @init).
 
   Ltac FMap_simpl_step :=
     match goal with
