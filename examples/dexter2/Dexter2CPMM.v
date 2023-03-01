@@ -398,7 +398,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                          : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
       do _ <- throwIf (state.(freezeBaker)) default_error; (* error_BAKER_PERMANENTLY_FROZEN *)
         Ok (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
 
@@ -410,7 +410,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                            : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
         Ok (state<| manager := new_manager |>, []).
 
     (** ** Set liquidity address *)
@@ -421,8 +421,8 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-      do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) default_error; (* error_LQT_ADDRESS_ALREADY_SET *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
+      do _ <- throwIf (address_neqb state.(lqtAddress) null_address) default_error; (* error_LQT_ADDRESS_ALREADY_SET *)
         Ok (state<| lqtAddress := new_lqt_address |>, []).
 
     (** ** Update token pool *)
@@ -430,7 +430,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                  (ctx : ContractCallContext)
                                  (state : State)
                                  : Result :=
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) default_error; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) ctx.(ctx_origin)) default_error; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
       let balance_of_request :=
@@ -447,7 +447,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                           (token_pool : update_token_pool_internal_)
                                           : Result :=
       do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
-                        (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) default_error; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
+                        (address_neqb ctx.(ctx_from) state.(tokenAddress))) default_error; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do token_pool <-
         match token_pool with

@@ -35,11 +35,11 @@ Module BATGens (Info : BATGensInfo).
 
   Definition get_refundable_accounts state : list (G (option Address)) :=
     let balances_list := FMap.elements (balances state) in
-    let filtered_balances := filter (fun x => (bat_addr_refundable || (negb (address_eqb bat_addr (fst x)))) && (0 <? (snd x))%N) balances_list in
+    let filtered_balances := filter (fun x => (bat_addr_refundable || (address_neqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
       map returnGen (map Some (map fst filtered_balances)).
 
   Definition get_fundable_accounts env : G (option Address) :=
-    let freq_accounts := map (fun addr => (if bat_addr_fundable || (negb (address_eqb addr bat_addr)) then Z.to_nat (account_balance env addr) else 0, returnGenSome addr)) accounts in
+    let freq_accounts := map (fun addr => (if bat_addr_fundable || (address_neqb addr bat_addr) then Z.to_nat (account_balance env addr) else 0, returnGenSome addr)) accounts in
       freq_ (returnGen None) freq_accounts.
 
   Definition gFund_amount env state addr : G Z :=

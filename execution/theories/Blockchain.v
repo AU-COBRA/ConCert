@@ -96,6 +96,12 @@ Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
 Infix "=?" := address_eqb (at level 70) : address_scope.
 
+Definition address_neqb `{ChainBase} (x y : Address) : bool :=
+  negb (address_eqb x y).
+
+Definition address_not_contract `{ChainBase} (x : Address) : bool :=
+  negb (address_is_contract x).
+
 Lemma address_eq_refl `{ChainBase} x :
   address_eqb x x = true.
 Proof. destruct (address_eqb_spec x x); auto; congruence. Qed.
@@ -120,6 +126,10 @@ Global Ltac destruct_address_eq :=
       try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
     | [|- context[address_eqb ?a ?b]] =>
       try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
+    | [H: context[address_neqb ?a ?b] |- _] =>
+      try unfold address_neqb in *; destruct (address_eqb_spec a b)
+    | [|- context[address_neqb ?a ?b]] =>
+      try unfold address_neqb in *; destruct (address_eqb_spec a b)
     end.
 
 Section Blockchain.

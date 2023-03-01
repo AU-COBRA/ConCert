@@ -389,7 +389,7 @@ Section FA2Token.
     let exec_add params (state_opt : result State Error) : result State Error :=
       do state_ <- state_opt ;
       (* only the owner of the token is allowed to update their operators *)
-      if (negb (address_eqb caller params.(op_param_owner)))
+      if (address_neqb caller params.(op_param_owner))
       then Err default_error
       else
         let operator_tokens : FMap Address operator_tokens :=
@@ -447,7 +447,7 @@ Section FA2Token.
                                    (state : State)
                                    : result State Error :=
     (* only owner can set transfer hook *)
-    do _ <- throwIf (negb (address_eqb caller state.(fa2_owner))) default_error;
+    do _ <- throwIf (address_neqb caller state.(fa2_owner)) default_error;
     Ok (state<| transfer_hook_addr := Some params.(hook_addr)|>
               <| permission_policy := params.(hook_permissions_descriptor) |>).
 

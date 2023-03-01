@@ -303,7 +303,7 @@ Section AddressGenerators.
   (* Generator that returns unique pairs of addresses from [addrs] *)
   Definition gUniqueAddrPair (addrs : list Address) : GOpt (Address * Address) :=
     addr1 <- elems_opt addrs ;;
-    let addrs_ := filter (fun a => negb (address_eqb addr1 a)) addrs in
+    let addrs_ := filter (fun a => address_neqb addr1 a) addrs in
     addr2 <- elems_opt addrs_ ;;
     returnGenSome (addr1, addr2).
 End AddressGenerators.

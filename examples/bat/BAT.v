@@ -130,7 +130,7 @@ Section BAT.
         Note: the last requirement makes it possible to end a funding early if the cap has been reached.
     *)
     do _ <- throwIf (state.(isFinalized) ||
-                    (negb (address_eqb sender state.(fundDeposit))) ||
+                    (address_neqb sender state.(fundDeposit)) ||
                     ((total_supply state) <? state.(tokenCreationMin))) default_error;
     do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) &&
                       negb ((total_supply state) =? state.(tokenCreationCap)))

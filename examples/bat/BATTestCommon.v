@@ -191,8 +191,8 @@ Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
     match act.(act_body) with
     | Blockchain.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
-      | Some (tokenMsg (EIP20Token.transfer _ _)) => negb (address_eqb act.(act_from) batFund)
-      | Some (tokenMsg (EIP20Token.transfer_from from _ _)) => negb (address_eqb from batFund)
+      | Some (tokenMsg (EIP20Token.transfer _ _)) => address_neqb act.(act_from) batFund
+      | Some (tokenMsg (EIP20Token.transfer_from from _ _)) => address_neqb from batFund
       | _ => true
       end
     | _ => true
@@ -206,7 +206,7 @@ Definition no_batfund_create_tokens (cs : ChainState) : bool :=
     match act.(act_body) with
     | Blockchain.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
-      | Some (create_tokens) => negb (address_eqb act.(act_from) batFund)
+      | Some (create_tokens) => address_neqb act.(act_from) batFund
       | _ => true
       end
     | _ => true
@@ -221,9 +221,9 @@ Definition no_transfers_to_batfund (cs : ChainState) : bool :=
     | Blockchain.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (tokenMsg (EIP20Token.transfer to _)) =>
-          negb (address_eqb to batFund)
+          address_neqb to batFund
       | Some (tokenMsg (EIP20Token.transfer_from _ to _)) =>
-          negb (address_eqb to batFund)
+          address_neqb to batFund
       | _ => true
       end
     | _ => true

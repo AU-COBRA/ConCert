@@ -404,7 +404,7 @@ Section LocalBlockchain.
     && (current_slot chain <? block_slot header)
     && (finalized_height chain <=? block_finalized_height header)
     && (block_finalized_height header <? block_height header)
-    && negb (address_is_contract (block_creator header))
+    && address_not_contract (block_creator header)
     && (block_reward header >=? 0)%Z.
 
   Lemma validate_header_valid header chain :
@@ -420,7 +420,7 @@ Section LocalBlockchain.
       | [H: context[Nat.leb ?a ?b] |- _] => destruct (Nat.leb_spec a b)
       | [H: context[Z.geb ?a ?b] |- _] => destruct (Z.geb_spec a b)
       end; [|repeat rewrite Bool.andb_false_r in valid; cbn in valid; congruence]).
-    destruct (negb (address_is_contract (block_creator header))) eqn:to_acc;
+    destruct (address_not_contract (block_creator header)) eqn:to_acc;
       [|cbn in valid; congruence].
     apply Bool.negb_true_iff in to_acc.
     apply build_is_valid_next_block; cbn; auto.
@@ -428,7 +428,7 @@ Section LocalBlockchain.
   Defined.
 
   Definition find_origin_neq_from (actions : list Action) : option Action :=
-    find (fun act => negb (address_eqb (act_origin act) (act_from act))) actions.
+    find (fun act => address_neqb (act_origin act) (act_from act)) actions.
 
   Lemma validate_origin_neq_from_valid actions :
     find_origin_neq_from actions = None ->

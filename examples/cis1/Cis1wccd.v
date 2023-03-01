@@ -183,7 +183,7 @@ Section WccdToken.
         ret (next_st, [])
     | Some (wccd_msg_mint receiver) =>
         (* Check that the sender is not the receiver *)
-        do requireTrue (negb (address_eqb receiver ctx.(ctx_from)));
+        do requireTrue (address_neqb receiver ctx.(ctx_from));
         let next_st := increment_balance prev_st receiver (Z.to_nat ctx.(ctx_amount)) in
         (* NOTE: we only update the state and do not notify the receiver *)
         ret (next_st,[])

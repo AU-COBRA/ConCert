@@ -204,7 +204,7 @@ Module FA2Gens (Info : FA2TestsInfo).
         ) ;
         (* create tokens *)
         (1, let has_balance amount := Z.ltb 0 amount in
-            let is_not_contract_addr addr := negb (address_is_contract addr) in
+            let is_not_contract_addr addr := address_not_contract addr in
             caller <- liftOptGen (gAddress accounts) ;;
             (* caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                                 (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;; *)

@@ -397,7 +397,7 @@ Section Theories.
       propify;
       destruct_or_hyps;
       try easy;
-      now destruct_address_eq.
+      try now destruct_address_eq.
   Qed.
 
   Lemma try_finalize_acts_correct : forall prev_state new_state chain ctx new_acts,

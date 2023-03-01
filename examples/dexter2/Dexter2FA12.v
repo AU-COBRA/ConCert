@@ -324,7 +324,7 @@ Module Dexter2Lqt (SI : Dexter2LqtSerializable).
                                 (param : mintOrBurn_param)
                                 (state : State)
                                 : result State Error :=
-      do _ <- throwIf (negb (address_eqb sender state.(admin))) default_error;
+      do _ <- throwIf (address_neqb sender state.(admin)) default_error;
       let tokens_ := state.(tokens) in
       let old_balance := with_default 0 (AddressMap.find param.(target) tokens_) in
       let new_balance := (Z.of_N old_balance + param.(quantity))%Z in

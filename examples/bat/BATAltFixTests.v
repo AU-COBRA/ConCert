@@ -320,7 +320,7 @@ Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallCont
     let action_to_correct := address_eqb to ethFund in
     (* The transfer action produced should transfer the entire contract balance *)
     let action_amount_correct := Z.eqb amount contract_balance in
-    let action_to_valid := negb (address_is_contract to) in
+    let action_to_valid := address_not_contract to in
     let action_amount_valid := Z.leb amount contract_balance in
     (* The token balance of batFund should be increased by initSupply *)
     let balance_correct :=
@@ -415,7 +415,7 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
     let action_to_correct := address_eqb from to in
     (* Refund should pay account_balance / exchange_rate *)
     let action_amount_correct := Z.eqb amount eth_to_refund in
-    let action_to_valid := negb (address_is_contract to) in
+    let action_to_valid := address_not_contract to in
     (* Contract should have enough money to refund *)
     let action_amount_valid := Z.leb amount contract_balance in
     whenFail (show old_state ++ nl ++ show cctx ++ nl ++ show result_opt)
@@ -827,7 +827,7 @@ Success - found witness satisfying the predicate!
 
 Definition can_always_fully_refund (cs : ChainState) :=
   let no_actions_from_contract :=
-    fold_left (fun b action => b && (negb (address_is_contract (act_from action))))
+    fold_left (fun b action => b && (address_not_contract (act_from action)))
               (chain_state_queue cs) true in
   let contract_balance := env_account_balances cs contract_base_addr in
   match get_contract_state State cs contract_base_addr with
