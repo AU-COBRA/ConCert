@@ -1,5 +1,6 @@
 .hidden
 *.tmp
+.DS_Store
 
 # dpd-graph outputs
 *.dpd
