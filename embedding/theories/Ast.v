@@ -1,4 +1,4 @@
-(** * λsmart language definition  *)
+(** * λsmart language definition *)
 From MetaCoq.Template Require All.
 From Coq Require Import String.
 From Coq Require Import List.
@@ -175,7 +175,7 @@ Open Scope string.
 Example number_vars_xyz : number_vars 0 ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)].
 Proof. reflexivity. Qed.
 
-(** ** Convertion from named representation to De Bruijn indices *)
+(** ** Conversion from named representation to De Bruijn indices *)
 
 (** Converting variable names to De Bruijn indices in types *)
 Fixpoint indexify_type (l : list (ename * nat)) (ty : type) : type :=

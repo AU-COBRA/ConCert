@@ -7,9 +7,9 @@
     This contract is an implementation of a Constant Product Market Maker (CPMM).
     When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,
     this contract serves as a decentralized exchange allowing users to trade between
-    XTZ and tokens. Additionally users can also add or withdraw funds from the
+    XTZ and tokens. Additionally, users can also add or withdraw funds from the
     exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
-    of the trading reserves, this way user are incentivised to add funds to the reserves.
+    of the trading reserves, this way user are incentivized to add funds to the reserves.
 *)
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
@@ -187,7 +187,7 @@ Module Type NullAddress.
     (** Null address that will newer contain contracts *)
     Parameter null_address : Address.
 
-    (** Place holder for tezos set delegate operation *)
+    (** Placeholder for Tezos set delegate operation *)
     Parameter set_delegate_call : baker_address -> list ActionBody.
     Axiom delegate_call : forall addr, Forall (fun action =>
       match action with
@@ -225,7 +225,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
     (** ** Helper functions *)
 
-    (** [Amount] is defined as an alias to [Z]. We use these conversion function to mark
+    (** [Amount] is defined as an alias to [Z]. We use these conversion functions to mark
         the places explicitly where the conversion from amounts happens. *)
     Definition amount_to_N : Amount -> N := Z.to_N.
     Definition N_to_amount : N -> Amount := Z.of_N.
@@ -258,7 +258,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                     : ActionBody :=
       act_call addr (N_to_amount amt) (serialize msg).
 
-    (** Note that [quantity] is allowed to be negative. In this case it correspons to burning *)
+    (** Note that [quantity] is allowed to be negative. In this case it corresponds to burning *)
     Definition mint_or_burn (state : State)
                             (target : Address)
                             (quantitiy : Z)
@@ -546,7 +546,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 End Dexter2.
 
 Module DSInstances <: Dexter2Serializable.
-  (* Serialisation instances (omitted).
+  (* Serialization instances (omitted).
 
       NOTE: we use [<:] to make the definitions transparent, so the
       implementation details can be revealed, if needed *)

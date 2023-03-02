@@ -1,4 +1,4 @@
-(** * Extensinos for Prelude from Embedding *)
+(** * Extensions for Prelude from Embedding *)
 
 (** Extends Prelude from Embedding with new definitions required for extraction *)
 

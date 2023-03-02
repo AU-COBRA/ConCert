@@ -20,7 +20,7 @@ Definition is_type e : bool :=
 Definition constr_ok (nparam : nat) (c : constr) : bool :=
   forallb (iclosed_ty nparam) (map snd c.2).
 
-(** Well-formed global geclarations *)
+(** Well-formed global declarations *)
 Definition global_dec_ok (gd : global_dec) : bool :=
   match gd with
   | gdInd _ nparam cs _ => forallb (constr_ok nparam) cs

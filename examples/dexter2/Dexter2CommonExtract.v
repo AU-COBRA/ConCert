@@ -64,8 +64,8 @@ Definition divN_res_ligo : String.string :=
   "let divN_res (n : nat) (m : nat) : (nat, nat) result = match ediv n m with | Some (q,_) -> Ok q | None -> Err 0n".
 
 (** Remapping arithmetic operations. *)
-(** We override the default remappings of aritmetic operations since it remaps [Z] to
-    [tez], and [N] to [int], which is not sutable for our purposes. *)
+(** We override the default remappings of arithmetic operations since it remaps [Z] to
+    [tez], and [N] to [int], which is not suitable for our purposes. *)
 Definition TT_remap_dexter2_arith : list (kername * String.string) :=
   [ remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"

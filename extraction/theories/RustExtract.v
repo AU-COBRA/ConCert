@@ -233,7 +233,7 @@ Fixpoint print_type_aux (Γ : list ident) (t : box_type) (args : list (PrettyPri
 
 Definition print_type Γ t := print_type_aux Γ t [].
 
-(* Get number of arguments that a constant expects when we print it *)
+(* Get the number of arguments that a constant expects when we print it *)
 Definition get_num_inline_args (kn : kername) : PrettyPrinter nat :=
   cst <- wrap_option
            (Ex.lookup_constant Σ kn)
@@ -364,7 +364,7 @@ Section print_term.
               (* In Coq, parameters are not part of branches. But
             erasure adds the parameters to each constructor, so we
             need to get those out of the way first. These won't have
-            any uses so we just print _. In addition, we add a phantom
+            any uses, so we just print _. In addition, we add a phantom
             data when not remapped to make it valid to always have
             lifetimes. That gives another underscores. *)
               let nextra := if rem then npars else S npars in
@@ -556,8 +556,8 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
        where we recurse through the heap: we first create a cell on the heap
        that will point to the closure. Then, we create the closure that unwraps
        the heap location to get itself. Finally, we put the closure into that heap
-       location and it is ready to use. It is complicated by the fact that fix points
-       are also mutual and we must create many heap cells before assigning the closures,
+       location, and it is ready to use. It is complicated by the fact that fix points
+       are also mutual, and we must create many heap cells before assigning the closures,
        and each closure also needs its own clone of each cell. *)
     col <- get_current_line_length;;
     push_indent col;;
@@ -704,7 +704,7 @@ Definition print_ind_ctor_definition
   append "(";;
 
   (* All constructors take a PhantomData as their first argument which ensures that
-     Rust does not complained about unused lifetimes/type parameters.
+     Rust does not complain about unused lifetimes/type parameters.
      This phantom type is a 'a lifetimed reference to a tuple of all the type args. *)
   let print_phantom :=
       append "PhantomData<&'a ";;

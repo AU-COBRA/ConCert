@@ -100,7 +100,7 @@ Section ChainBaseSpecialization.
         vi <- result_of_option (nth_error Γ i) "Unbound applied tRel";;
         match vi with
         | replace => Err "Unexpected application"
-        | specialize => ret (tRel (i - 1)) (* removed chain base inbetween, hacky *)
+        | specialize => ret (tRel (i - 1)) (* removed chain base in between, hacky *)
         | none => arg <- f Γ arg;;
                   ret (tApp head arg)
         end

@@ -21,8 +21,8 @@ Local Open Scope string_scope.
 (** * Extracting the Main Contract *)
 Module Dexter2Extraction.
 
-  (** Serialisation plays no role in the extraction result, therfore we defining instances
-      using the opaque ascription of module types to speedup the extraction *)
+  (** Serialization plays no role in the extraction result. Therefore, we define instances
+      using the opaque ascription of module types to speed up the extraction *)
   Module DSInstancesOpaque : Dexter2CPMM.Dexter2Serializable := Dexter2CPMM.DSInstances.
 
   Module DEX2Extract := Dexter2CPMM.Dexter2 DSInstancesOpaque Dexter2CPMM.NullAddressAxiom.

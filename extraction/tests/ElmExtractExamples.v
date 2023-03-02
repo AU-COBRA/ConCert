@@ -1,6 +1,6 @@
 (** * Examples for extraction to Elm *)
 
-(** The examples are writen into files that are later processed and passed to the Elm compiler as part of the building process. *)
+(** The examples are written into files that are later processed and passed to the Elm compiler as part of the building process. *)
 
 (** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect].
     We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
@@ -242,11 +242,11 @@ Module ElmExamples.
       (* NOTE: we use [False_rect] to make the extracted code a bit nicer.
          It's totally possible to leave the whole branch as an obligation,
          the extraction will handle it.
-         However, if the whole branch is an abligation, the proof it should
+         However, if the whole branch is an obligation, the proof it should
          be left transparent (using [Defined]), so the extraction could
-         produce reasonable code for it. If left opaque, it the body of
+         produce reasonable code for it. If left opaque, the body of
          the obligation will be ignored by extraction producing no
-         corresponding definiton*)
+         corresponding definition *)
       fun _ => False_rect _ _
     | hd :: tl => fun _ => hd
     end eq_refl.

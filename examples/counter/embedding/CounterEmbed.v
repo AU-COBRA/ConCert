@@ -32,7 +32,7 @@ Module Counter.
   (** ** Definitions of data structures for the contract *)
 
   (** The contract's state. We use the product type directly, because records are not yet supported by extraction *)
-  (* TODO: make address a separate data type (say, a wrapper around nat) to be able to recognise it in the extraction *)
+  (* TODO: make address a separate data type (say, a wrapper around nat) to be able to recognize it in the extraction *)
   Notation "'CounterState'" := [! money × address !] (in custom type).
 
   Notation "'balance' a" :=
@@ -118,7 +118,7 @@ Extract Inductive prod => "(*)" [ "(,)" ].
 Extract Inductive Z => "tez" ["0DUN" "id" "negate"].
 Extract Inlined Constant Z.add => "addTez".
 
-(** In Liquidify, [+] is overloaded and thus requires type annotations. We can overcome this issue by un-overloading the operations and providing specialised versions (not infix anymore). *)
+(** In Liquidify, [+] is overloaded and thus requires type annotations. We can overcome this issue by un-overloading the operations and providing specialized versions (not infix anymore). *)
 
 (** Essentially, we need to prepend the follwing "prelude" before our contracts: *)
 (** let[@inline] fst (p : 'a * 'b) : 'a = p.(0)

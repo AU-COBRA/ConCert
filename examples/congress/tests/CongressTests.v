@@ -74,7 +74,7 @@ Definition num_cacts_in_state state :=
   sumnat (fun '(k, v) => length (actions v)) (FMap.elements (proposals state)).
 
 (* This property states that the number of actions to be performed by the congress never increases
-   more than the actions that are added in proposals, ie. actions can't appear out of nowhere. *)
+   more than the actions that are added in proposals, i.e. actions can't appear out of nowhere. *)
 (* If we replace '<=' with '<' QC finds a counterexample - a proposal can contain an empty list of actions, so they are equal before/after add_proposal *)
 Definition receive_state_well_behaved state msg new_state (resp_acts : list ActionBody) :=
   num_cacts_in_state new_state + length resp_acts <=

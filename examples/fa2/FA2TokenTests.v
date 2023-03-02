@@ -11,9 +11,9 @@ From Coq Require Import ZArith.
 From Coq Require Import List.
 Import ListNotations.
 
-(** example policies *)
+(** Example policies *)
 
-(* the policy which allows only token owners to transfer their own tokens. *)
+(* The policy which allows only token owners to transfer their own tokens. *)
 Definition policy_self_only : permissions_descriptor := {|
   descr_self := self_transfer_permitted;
   descr_operator := operator_transfer_denied;
@@ -22,7 +22,7 @@ Definition policy_self_only : permissions_descriptor := {|
   descr_custom := None;
 |}.
 
-(* the policy which allows only operators to transfer tokens. *)
+(* The policy which allows only operators to transfer tokens. *)
 Definition policy_operators_only : permissions_descriptor := {|
   descr_self := self_transfer_denied;
   descr_operator := operator_transfer_permitted;
@@ -31,7 +31,7 @@ Definition policy_operators_only : permissions_descriptor := {|
   descr_custom := None;
 |}.
 
-(* non-transferable token (neither token owner, nor operators can transfer tokens. *)
+(* Non-transferable token (neither token owner, nor operators can transfer tokens. *)
 Definition policy_no_transfers : permissions_descriptor := {|
   descr_self := self_transfer_denied;
   descr_operator := operator_transfer_denied;
@@ -40,7 +40,7 @@ Definition policy_no_transfers : permissions_descriptor := {|
   descr_custom := None;
 |}.
 
-(* the policy which allows both owners and operators to transfer tokens. *)
+(* The policy which allows both owners and operators to transfer tokens. *)
 Definition policy_all : permissions_descriptor := {|
   descr_self := self_transfer_permitted;
   descr_operator := operator_transfer_permitted;

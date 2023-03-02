@@ -42,7 +42,7 @@ Arguments lmd_receive {_ _ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _ _}.
 
 (* We override masks for *some* constants that have only logical parameters, like
-   [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
+   [@AddressMap.empty]. Our optimization conservatively keeps one parameter
    if all the parameters are logical. This is necessary because such definitions
    might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
    on how the elimination from the empty types is implemented.
@@ -131,9 +131,9 @@ Definition printLiquidityDefs_
     | None => tmFail "Error: No init found"
   end.
 
-(* standard printing of definitions *without* chainbase specialization *)
+(* standard printing of definitions *without* ChainBase specialization *)
 Definition printLiquidityDefs := printLiquidityDefs_ extract.
-(* printing *with* chainbase specialization *)
+(* printing *with* ChainBase specialization *)
 Definition printLiquidityDefs_specialize := printLiquidityDefs_ extract_specialize.
 
 Definition liquidity_ignore_default :=
@@ -207,7 +207,7 @@ Definition TT_remap_default : list (kername * String.string) :=
   ].
 
 (* We assume the structure of the context from the [PreludeExt]:
-  current_time , sender_addr, sent_amount, acc_balance *)
+  current_time, sender_addr, sent_amount, acc_balance *)
 Definition liquidity_call_ctx : String.string :=
   "(Current.time (),
    (Current.sender (),
@@ -229,7 +229,7 @@ Definition liquidity_extract_args :=
 
 (** Extraction for testing purposes.
     Simply prints the definitions and allows for appending a prelude and a
-    hand-written harness code to run the extracted definition.
+    handwritten harness code to run the extracted definition.
     The harness is just a piece of code with definitions
     of [storage], [main], etc.*)
 Definition liquidity_extract_single
@@ -266,7 +266,7 @@ Definition liquidity_extract_single
 Definition wrap_in_delimiters (s : String.string) : String.string :=
   Strings.String.concat Common.nl [bs_to_s ""; bs_to_s "(*START*)"; s; bs_to_s"(*END*)"].
 
-(** A flag that controls whether info abou universes is preserved after quoting *)
+(** A flag that controls whether info about universes is preserved after quoting *)
 Definition WITH_UNIVERSES := false.
 
 
@@ -362,10 +362,10 @@ Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params stora
                                     [m.(lmd_prelude); s; m.(lmd_entry_point)]) in
   tmDefinition (bytestring.String.of_string m.(lmd_module_name) ++ "_prepared") res.
 
-(* Liquidity extraction *without* chainbase specialization *)
+(* Liquidity extraction *without* ChainBase specialization *)
 Definition liquidity_extraction {msg ctx params storage operation error : Type} :=
   @liquidity_extraction_ msg ctx params storage operation error printLiquidityDefs.
 
-(* Liquidity extraction *with* chainbase specialization *)
+(* Liquidity extraction *with* ChainBase specialization *)
 Definition liquidity_extraction_specialize {msg ctx params storage operation error : Type} :=
   @liquidity_extraction_ msg ctx params storage operation error printLiquidityDefs_specialize.

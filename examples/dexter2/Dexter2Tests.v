@@ -135,8 +135,8 @@ Module TN := TestNotations NotationInfo. Import TN.
 (** Dexter2 uses call to balance_of entrypoint on the token contract
     to sync the token reserves. It is key that there is no way for an
     attacker to manipulate the reserve by interfering with this sync.
-    Therefore we test in both execution orders that there will never be
-    callbacks with someone elses balance / incorrect balance.
+    Therefore, we test in both execution orders that there will never be
+    callbacks with someone else's balance / incorrect balance.
 *)
 Definition msg_is_balance_of_callback (cstate : Dexter2CPMM.State)
                                       (msg : Dexter2CPMM.Msg)

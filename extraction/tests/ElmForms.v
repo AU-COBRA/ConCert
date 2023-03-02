@@ -71,7 +71,7 @@ Record Model :=
     currentEntry : Entry }.
 
 
-(** We derive setters for the records in order to use conveninet record update syntax *)
+(** We derive setters for the records in order to use convenient record update syntax *)
 MetaCoq Run (make_setters Entry).
 MetaCoq Run (make_setters StoredEntry).
 MetaCoq Run (make_setters Model).
@@ -114,7 +114,7 @@ Inductive StorageMsg :=
 
 
 (** We translate the user input to the stored representation.
-Note that the transation only works for valid entries *)
+Note that the translation only works for valid entries *)
 Program Definition toValidStoredEntry : ValidEntry -> ValidStoredEntry :=
   fun entry =>
     {| seName := entry.(name); sePassword := entry.(password) |}.
@@ -125,7 +125,7 @@ Qed.
 Local Hint Resolve -> eqb_neq : core.
 Local Hint Unfold nonEmptyString : core.
 
-(** This tactic notation allows to extract information from the fact
+(** This tactic notation allows extracting information from the fact
 that the validation succeeded *)
 Tactic Notation "destruct_validation" :=
   unfold validateModel in *;
@@ -270,7 +270,7 @@ Definition TT :=
   ; remap <%% filter %%> "List.filter"
   ; remap <%% map %%> "List.map"
 
-  (* Elm infrastructure*)
+  (* Elm infrastructure *)
   ; remap <%% Cmd %%> "Cmd"
   ; remap_ctor "none" of Cmd to "Cmd.none"
   ].

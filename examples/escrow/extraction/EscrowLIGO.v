@@ -1,4 +1,4 @@
-(** * Extraction of Escrow to CameLIGO and liquidity*)
+(** * Extraction of Escrow to CameLIGO and liquidity *)
 
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.

@@ -113,7 +113,7 @@ Section iTokenBuggy.
     then Err default_error
     else let new_allowances := FMap.add delegate (delegate_allowance - amount) from_allowances_map in
         let new_balances := FMap.add from (from_balance - amount) state.(balances) in
-        (* Bug here! new balance of 'to' is calculated from to_balance.
+        (* Bug here! New balance of 'to' is calculated from to_balance.
            The commented line below is the correct implementation. *)
         let new_balances := FMap.add to (to_balance + amount) new_balances in
         Ok (state<|balances := new_balances|><|allowances ::= FMap.add from new_allowances|>).
@@ -150,7 +150,7 @@ Section iTokenBuggy.
         without_actions (try_mint sender amount state)
     | Some (burn amount) =>
         without_actions (try_burn sender amount state)
-    (* transfer actions to this contract are not allowed *)
+    (* Transfer actions to this contract are not allowed *)
     | None => Err default_error
    end.
   Close Scope Z_scope.

@@ -26,7 +26,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
 (** ** The deep embedding of data structures for finite maps *)
 
-(** We generate names for inductives and constants (preffixed with a module path) *)
+(** We generate names for inductives and constants (prefixed with a module path) *)
 MetaCoq Run
         (mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
@@ -113,7 +113,7 @@ MetaCoq Unquote Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn))
 
 (** ** Correctness *)
 
-(** We can prove correctness of "library" definitions like finite maps by comparing the to Coq's standard library definitions *)
+(** We can prove correctness of "library" definitions like finite maps by comparing them to Coq's standard library definitions *)
 
 (** Since Coq's [FMap] is a module, we fix the type of keys to be [nat] *)
 Module NatMap := FMapWeakList.Make Nat_as_OT.

@@ -223,7 +223,7 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   | _ => None
   end.
 
-(* TODO: port the pretty-printers to use bytestring and use metacoq's MCString utils *)
+(* TODO: port the pretty-printers to use bytestring and use MetaCoq's MCString utils *)
 
 Definition parens (top : bool) (s : String.string) : String.string :=
   if top then s else "(" ++ s ++ ")".

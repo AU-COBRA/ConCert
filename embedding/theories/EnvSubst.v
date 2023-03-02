@@ -1,4 +1,4 @@
-(** * Convertion from values back to expressions through the environment substitution *)
+(** * Conversion from values back to expressions through the environment substitution *)
 From Coq Require Import List.
 From Coq Require Import Relations.
 From Coq Require Import Morphisms.
@@ -156,7 +156,7 @@ End NamelessSubst.
 (** ** Substitution for the named representation *)
 Module NamedSubst.
 
-  (** Currenlty we do not use named substitution in our soundness proof. *)
+  (** Currently we do not use named substitution in our soundness proof. *)
 
   (** NOTE: assumes, that expression in [ρ] are closed! *)
  Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=

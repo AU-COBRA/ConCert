@@ -3,13 +3,13 @@
 
 (** ** Features/limitations *)
 
-(** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or some times, lack of proper support.
+(** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or sometimes, lack of proper support.
 
 Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied.
 
 Another issue: constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
 
-Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
+Pattern-matching: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
  *)
 From Coq Require Import Basics.
 From Coq Require Import Ascii.
@@ -260,7 +260,7 @@ Section print_term.
 
   (* Certain names in Liquidity are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
-     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+     they are also reserved names in Coq, hence we can't write Coq programs with these names anyway. *)
   Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (eqb id) reserved.
 
@@ -280,7 +280,7 @@ Section print_term.
       (fun decl =>
          match decl.(decl_name) with
          | nNamed id' =>
-           (* NOTE: we compare the identifiers up to the capitalisation of the first letters *)
+           (* NOTE: we compare the identifiers up to the capitalization of the first letters *)
            negb (eqb (uncapitalize id) (uncapitalize id'))
          | nAnon => true
          end) Γ.
@@ -458,7 +458,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
                       (t : term) {struct t} :=
   let print_term := print_term projs in
   match t with
-  | tBox => "()" (* boxes become the contructor of the [unit] type *)
+  | tBox => "()" (* boxes become the constructor of the [unit] type *)
   | tRel n =>
     match nth_error Γ n with
     | Some {| decl_name := na |} =>
@@ -531,7 +531,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
       (* is it a transfer *)
       else if (uncapitalize nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
-          (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+          (* if it is an inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
       else match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
       | Some oib => (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
                     if is_one_constructor_inductive_and_not_record oib then
@@ -557,7 +557,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     let cst_name := string_of_kername c in
     with_default (prefix ++ c.2) (look TT cst_name)
   | tConstruct ind l [] =>
-    (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+    (* if it is an inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
     | Some oib => if is_one_constructor_inductive_and_not_record oib then ""
@@ -638,7 +638,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the projection *)
+      | Some (na, _) => (* if it is an inductive with one constructor, and not a record, then it is an alias, so we don't print the projection *)
                         if is_one_constructor_inductive_and_not_record oib then
                           print_term prefix FT TT Γ false false c
                         else print_term prefix FT TT Γ false false c ++ "." ++ na
@@ -687,7 +687,7 @@ Fixpoint get_fix_names (t : term) : list BasicAst.name :=
   end.
 
 Definition print_decl (prefix : string)
-           (TT : env string) (* tranlation table *)
+           (TT : env string) (* translation table *)
            (Σ : ExAst.global_env)
            (projs : list (Kernames.ident * ExAst.one_inductive_body))
            (decl_name : string)
@@ -712,9 +712,9 @@ Definition print_decl (prefix : string)
 Definition print_init (prefix : string)
            (TT : env string) (* tranlation table *)
            (projs : list (Kernames.ident * ExAst.one_inductive_body)) (* record projections and the record names they project *)
-           (build_call_ctx : string) (* a string that corresponds to a call contex *)
+           (build_call_ctx : string) (* a string that corresponds to a call context *)
            (init_prelude : string) (* operations available in the [init] as local definitions.
-                                      Liquidity does not allow to refer to global definitions in [init]*)
+                                      Liquidity does not allow referring to global definitions in [init]*)
            (Σ : ExAst.global_env)
            (cst : ExAst.constant_body) : option string :=
   b <- cst.(ExAst.cst_body) ;;
@@ -747,7 +747,7 @@ Definition print_init (prefix : string)
 
 
 Definition print_cst (prefix : string)
-           (TT : env string) (* tranlation table *)
+           (TT : env string) (* translation table *)
            (Σ : ExAst.global_env)
            (kn : Kernames.kername)
            (cst : ExAst.constant_body)

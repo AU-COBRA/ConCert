@@ -53,7 +53,7 @@ Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
                    (state : iTokenBuggy.State)
                    : GOpt (Address * Msg) :=
     addr <- gAccount ;;
-    (* fix nr of minted tokens to 0, 1, or 2*)
+    (* fix the number of minted tokens to 0, 1, or 2*)
     amount <- choose (0, 2) ;;
     returnGenSome (addr, mint amount ).
 

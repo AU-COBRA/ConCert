@@ -1,6 +1,6 @@
-(** * Interpreter for the λsmart langage *)
+(** * Interpreter for the λsmart language *)
 
-(** This version of the interpreter supports polymorhic types *)
+(** This version of the interpreter supports polymorphic types *)
 From ConCert.Embedding Require Import Ast.
 From ConCert.Utils Require Import Env.
 
@@ -70,7 +70,7 @@ Inductive val : Type :=
 
 Definition AllEnv {A} (P: A -> Type) : env A -> Type := All (P ∘ snd).
 
-(** An induction principle that takes into account nested occurences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
+(** An induction principle that takes into account nested occurrences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
 Definition val_ind_full
    (P : val -> Prop)
    (Hconstr : forall (i : inductive) (n : ename) (l : list val), Forall P l -> P (vConstr i n l))
@@ -95,7 +95,7 @@ Definition val_ind_full
   + apply Hty.
 Defined.
 
-(** An elimination principle (on a predicate to [Type]) that takes into account nested occurences of elements of [val]
+(** An elimination principle (on a predicate to [Type]) that takes into account nested occurrences of elements of [val]
    in the list of arguments of [vConstr] and in the environment of [vClos] *)
 Definition val_elim_full
    (P : val -> Type)
@@ -127,7 +127,7 @@ Definition ind_name (v : val) :=
   | _ => None
   end.
 
-(** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterised inductives *)
+(** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterized inductives *)
 Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
            (constr_args : list A) (bs : list (pat * expr)) :=
   pe <- option_to_res (find (fun x => (fst x).(pName) =? cn)%string bs) (cn ++ ": not found");;
@@ -233,7 +233,7 @@ Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type): bool :=
   | tyVar _ => false
   | tyRel i => if Nat.leb n i then
                 match lookup_i ρ (i-n) with
-                | Some e => is_type_val e (* if there is somethig in [ρ], it must be a type *)
+                | Some e => is_type_val e (* if there is something in [ρ], it must be a type *)
                 | None => true (* if nothing there, that's ok *)
                 end
               else true

@@ -3,29 +3,29 @@
 (** See the original CIS1 standard: https://proposals.concordium.software/CIS/cis-1.html *)
 
 (**
- The formalisation defines module types that specify what functionality should be
+ The formalization defines module types that specify what functionality should be
  provided by a function that implements the standard.
 
-Covered by the formalisation:
+Covered by the formalization:
 
 - Specifications of [transfer], [balanceOf] and [operatorUpdate].
 
 - Simple properties of [operatorUpdate].
 
-- Our main result: we prove that [transfer], [balanceOf] and [operatorUpdate] preserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalisation.
+- Our main result: we prove that [transfer], [balanceOf] and [operatorUpdate] preserve the sum of all balances for all token ids. The properties hold for any contract that satisfies the CIS1 specification defined in this formalization.
 
-Not covered by the formalisation:
+Not covered by the formalization:
 
-- Concordium serialisation.
+- Concordium serialization.
 - The spec of [operatorOf].
 - Logging the events (logs are currently not supported by ConCert).
 - Metadata.
 
 Other differences:
 
-- updateOperator is a bit more strict than in the actual standard: it does not allow for updating non-existing accounts.
+- updateOperator is a bit stricter than in the actual standard: it does not allow for updating non-existing accounts.
 
-The approach to formalisation is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. "Money grows on (proof-)trees: the formal FA1.2 ledger standard."
+The approach to formalization is inspired by Murdoch Gabbay, Arvid Jakobsson, Kristina Sojakova. "Money grows on (proof-)trees: the formal FA1.2 ledger standard."
 
 
 The CIS1 standard is, however, more general:
@@ -376,7 +376,7 @@ the given token type between balances. *)
                      compose_uptadeOperator_specs ctx next_st final_st ps
     end.
 
-  (** A specification of the batch operatior update *)
+  (** A specification of the batch operator update *)
   Record updateOperator_spec `{ChainBase}
          (ctx : ContractCallContext)
          (params : CIS1_updateOperator_params)
@@ -455,7 +455,7 @@ Module Type CIS1ReceiveSpec (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_
   Module cis1_axioms := CIS1Axioms cis1_types cis1_view.
   Import cis1_axioms.
 
-  (** We require that it is possible to convert betwee the entry point and the input data specified
+  (** We require that it is possible to convert between the entry point and the input data specified
       by the standard and the actual type of messages accepted by a particular contract *)
   Parameter get_CIS1_entry_point : forall `{ChainBase}, Msg -> option CIS1_entry_points.
   Parameter get_contract_msg : forall `{ChainBase}, CIS1_entry_points -> Msg.
@@ -710,7 +710,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       inversion H; try congruence.
   Qed.
 
-  (** The owners are the same in two states if the balances agree. We generalise the statement to cover the case when we ignore certain addresses given by [ignore_addrs]. *)
+  (** The owners are the same in two states if the balances agree. We generalize the statement to cover the case when we ignore certain addresses given by [ignore_addrs]. *)
   Lemma same_owners_remove_all `{ChainBase} token_id ignore_addrs next_st prev_st :
     (forall addr1, ~ In addr1 ignore_addrs ->
     get_balance_opt next_st token_id addr1 = get_balance_opt prev_st token_id addr1) ->
@@ -911,7 +911,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
 
   (** *** Main result *)
 
-  (** The prove our main result about the CIS1 standard with relation to the token balances.
+  (** We prove our main result about the CIS1 standard with relation to the token balances.
       Namely, we prove that all the supported entry points preserve the sum of balances for all
       token types. The results hold for any contract that complies with the abstract interface
       of the CIS1 standard. *)

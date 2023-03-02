@@ -1,4 +1,4 @@
-(** * Auxillary lemmas for the soundness proof. *)
+(** * Auxiliary lemmas for the soundness proof. *)
 From MetaCoq.Template Require Import MCList.
 From MetaCoq.Template Require Import utils.
 From MetaCoq.PCUIC Require Import PCUICAst.
@@ -51,7 +51,7 @@ Module PcbvCurr := PCUICWcbvEval.
 
 Notation "Σ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ t1 t2) (at level 50).
 
-(** All contructors of inductives available in the λ-smart environment are available in
+(** All constructors of inductives available in the λ-smart environment are available in
     the PCUIC environment. *)
 (** Eventually, we can translate the whole λ-smart environment, we have a function that
     does if for inductives [trans_global_dec] and we use it precisely to unquote

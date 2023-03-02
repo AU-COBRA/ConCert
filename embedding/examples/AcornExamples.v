@@ -63,7 +63,7 @@ End AcornProd.
 
 (** ** Acorn [List] module *)
 
-(** We consider the example of verifying certain functions on Acorn lists in in the paper. We provide a full source code for the Acorn [ListBase] we translated *)
+(** We consider the example of verifying certain functions on Acorn lists in the paper. We provide a full source code for the Acorn [ListBase] we translated *)
 
 (*
 module ListBase where

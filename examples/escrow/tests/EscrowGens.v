@@ -38,8 +38,8 @@ Definition gEscrowMsg (e : Env) : GOpt Action :=
   state <- returnGen (get_contract_state Escrow.State e contract_addr) ;;
   let buyer := state.(buyer) in
   let seller := state.(seller) in
-  (* pick one generator uniformly at random from the given list.
-     backtrack if one fails. *)
+  (* Pick one generator uniformly at random from the given list.
+     Backtrack if one fails. *)
   backtrack [
     (* commit money *)
     (1%nat,

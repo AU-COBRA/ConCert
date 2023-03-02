@@ -30,7 +30,7 @@ Fixpoint mdots (prefix : modpath) (l : list MCString.string) :=
   | h :: tl => mdots (MPdot prefix h) tl
   end.
 
-(** Parses a string containig a file path and a module path separated in a way that helps to recover the kername structure.
+(** Parses a string containing a file path and a module path separated in a way that helps to recover the kername structure.
  E.g. "Path/To/File#ModuleName.NestedModuleName" *)
 Definition modpath_of_string (s : string) : modpath :=
   let fpath_mod := StringExtra.str_split "#" s in
@@ -42,7 +42,7 @@ Definition modpath_of_string (s : string) : modpath :=
   if module =? "" then fp
   else mdots fp mod_items.
 
-(** Parses a string containig a file path, a module path separated and a name in a way that helps to recover the kername structure.
+(** Parses a string containing a file path, a module path separated and a name in a way that helps to recover the kername structure.
  E.g. "Path/To/File#ModuleName.NestedModuleName@FunctionName" *)
 Definition kername_of_string (s : string) : kername :=
   let qualified_name := StringExtra.str_split "@" s in
@@ -53,7 +53,7 @@ Definition kername_of_string (s : string) : kername :=
        let name := TCString.of_string (hd "" (tl qualified_name)) in
        (modpath_of_string path, name).
 
-(** The priting functions below are similar to the ones from MetaCoq, but we use different separators for different parts of the [kername] *)
+(** The printing functions below are similar to the ones from MetaCoq, but we use different separators for different parts of the [kername] *)
 
 Definition string_of_dirpath (dp : dirpath) : string :=
   TCString.to_string (String.concat "/" (rev dp)).
@@ -185,7 +185,7 @@ Definition of_ename (e : option ename) : aname :=
   | None => aRelevant nAnon
   end.
 
-(** Translation of constructors of parameterised inductive types requires
+(** Translation of constructors of parameterized inductive types requires
     non-trivial manipulation of De Bruijn indices. *)
 Definition mkArrows_rec (ind_name : ename) (nparam : nat) :=
   fix rec (n : nat) (proj_tys : list (option ename * type)) :=
@@ -350,8 +350,8 @@ Module StdLib.
     [gdInd Unit 0 [("tt", [])] false;
      gdInd Bool 0 [("true", []); ("false", [])] false;
      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
-     gdInd Int 0 [("Z0", [])] false ; (* we ommit other construtors for now, since in general integer literals are not supported yet *)
-     gdInd String 0 [] false; (* just for remapping string to Coq string, construtors are not necessary *)
+     gdInd Int 0 [("Z0", [])] false ; (* we omit other constructors for now, since in general integer literals are not supported yet *)
+     gdInd String 0 [] false; (* just for remapping string to Coq string, constructors are not necessary *)
      gdInd List 1 [("nil", []); ("cons", [(None,tyRel 0);
                                          (None,tyApp (tyInd List) (tyRel 0))])] false;
      gdInd Prod 2 [("pair", [(None,tyRel 1); (None,tyRel 0)])] false].

@@ -81,8 +81,8 @@ Section ExchangeBuggyContract.
                                              : result (State * (list ActionBody)) Error :=
     (* Send out callbacks to check owner token balance, and exchange contract token balance
       to determine if:
-      1. owner has sufficient tokens to exchange
-      2. exchange rate (based off this contract's token balance)
+      1. Owner has sufficient tokens to exchange
+      2. Exchange rate (based off this contract's token balance)
     *)
     let owner_balance_param := {|
       owner := params.(exchange_owner);

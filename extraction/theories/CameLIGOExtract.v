@@ -40,7 +40,7 @@ Arguments lmd_receive_prelude {_ _ _ _ _ _ _}.
 Arguments lmd_entry_point {_ _ _ _ _ _ _}.
 
 (* We override masks for *some* constants that have only logical parameters, like
-   [@AddressMap.empty]. Our optimisation conservatively keeps one parameter
+   [@AddressMap.empty]. Our optimization conservatively keeps one parameter
    if all the parameters are logical. This is necessary because such definitions
    might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
    on how the elimination from the empty types is implemented.
@@ -112,7 +112,7 @@ Definition TT_remap_default : list (kername * String.string) :=
   [
     (* types *)
     remap <%% Z %%> "tez"
-  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use trancated subtraction *)
+  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use truncated subtraction *)
   (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
      [int]. However, [Z] is also used as the type of currency, that could lead to clashes
      in the extracted code. *)
@@ -342,7 +342,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation error :
   tmDefinition (bytestring.String.of_string m.(lmd_module_name) ^ "_prepared") res.
 
 (** Bundles together quoting, inlining, erasure and pretty-printing.
-    Convenient to use, but might be slow, becase performance of [tmEval lazy] is not great. *)
+    Convenient to use, but might be slow, because performance of [tmEval lazy] is not great. *)
 Definition CameLIGO_extract {msg ctx params storage operation error : Type}
            (inline : list kername)
            (TT_defs : list (kername * String.string))
@@ -368,7 +368,7 @@ Definition CameLIGO_extract {msg ctx params storage operation error : Type}
   | inr s => tmFail (bytestring.String.of_string s)
   end.
 
-(** A simplified erasure/prinitng intended moslty for testing purposes *)
+(** A simplified erasure/printing intended mostly for testing purposes *)
 Definition simple_def_print `{ChainBase} TT_defs TT_ctors seeds (prelude harness : String.string) Σ
   : String.string + String.string :=
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
@@ -422,7 +422,7 @@ Definition quote_and_preprocess_one_def {A}
 
 (** Extraction for testing purposes.
     Simply prints the definitions and allows for appending a prelude and a
-    hand-written harness code to run the extracted definition.
+    handwritten harness code to run the extracted definition.
     The harness is just a piece of code with definitions
     of [storage], [main], etc.*)
 Definition CameLIGO_extract_single `{ChainBase} {A}

@@ -21,8 +21,8 @@ Local Open Scope string_scope.
 
 Module Dexter2LqtExtraction.
 
-  (** Serialisation plays no role in the extraction result, therfore we defining instances
-      using the opaque ascription of module types to speedup the extraction *)
+  (** Serialization plays no role in the extraction result. Therefore, we define instances
+      using the opaque ascription of module types to speed up the extraction *)
   Module DLqtSInstancesOpaque : Dexter2FA12.Dexter2LqtSerializable := Dexter2FA12.D2LqtSInstances.
 
   Module DEX2LQTExtract := Dexter2FA12.Dexter2Lqt DLqtSInstancesOpaque.
@@ -50,7 +50,7 @@ Module Dexter2LqtExtraction.
       ].
 
     (** We redefine the init function, because in the Tezos blockchain
-        there is no concept of initialisation function. However, it's common
+        there is no concept of initialization function. However, it's common
         to provide a function that computes a valid initial storage that can
         be used for deployment. *)
     Definition init (setup : Setup) : result State Error :=

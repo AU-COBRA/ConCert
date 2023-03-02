@@ -37,7 +37,7 @@ Module Counter.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z * address)
                   : result storage Error :=
-    let ctx' := ctx in (* prevents optimisations from removing unused [ctx] *)
+    let ctx' := ctx in (* prevents optimizations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg :=

@@ -65,7 +65,7 @@ Module CrowdfundingProperties.
   Qed.
 
   (** This lemma states that the only relevant part of the blockchain state is the current slot,
-      because we check if the deadline have passed by comparing the deadline recoded in the
+      because we check if the deadline have passed by comparing the deadline recorded in the
       internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 msg st ctx :
     Receive.receive (Build_chain_coq height1 cur_slot fheight1) ctx msg st =
@@ -245,7 +245,7 @@ Module CrowdfundingProperties.
     + simpl. now erewrite IHm; eauto.
   Qed.
 
-  (** The contract does no leak funds: the overall balance before the
+  (** The contract does not leak funds: the overall balance before the
       deadline is always equal to the sum of individual donations *)
 
   Definition consistent_balance_deadline current_slot state :=
@@ -406,7 +406,7 @@ Module CrowdfundingProperties.
         now propify.
   Qed.
 
-  (** All the entries in the table of contributions contain non-negative amounts *)
+  (** All the entries in the table of contributions contains non-negative amounts *)
   Lemma contract_state_donation_non_neg BC CallCtx msg :
     (0 <= CallCtx.(Ctx_amount))%Z ->
 
@@ -479,7 +479,7 @@ Module CrowdfundingProperties.
     now constructor.
   Qed.
 
-  (** Backers cannot claim their money if the campaign have succeed (but owner haven't claimed the money yet, so the "done" flag is not set to [true]) *)
+  (** Backers cannot claim their money if the campaign have succeeded (but owner haven't claimed the money yet, so the "done" flag is not set to [true]) *)
   Lemma no_claim_if_succeeded BC CallCtx the_state:
     {{ fun init =>
          funded BC.(Current_slot) init

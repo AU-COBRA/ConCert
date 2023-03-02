@@ -152,7 +152,7 @@ Definition translateDefs (deps : env string) (Σ : Ast.global_env) (es : list (s
   let ps := prefixes es deps mp in
   print_nf ("Exported definitions: " ++ Strings.String.concat ", " (map fst ps))%string;;
   tmDefinition "exported"%bs ps ;;
-  (* NOTE: it is important that we first put [stdlib_prefixes] otherweise they might be shadowed by some definitions from [ps] *)
+  (* NOTE: it is important that we first put [stdlib_prefixes] otherwise they might be shadowed by some definitions from [ps] *)
   let Σ := (StdLib.Σ ++ add_prefix_genv Σ (stdlib_prefixes ++ deps ++ ps))%list in
   translateDefs_ (stdlib_prefixes ++ deps ++ ps) Σ es.
 
