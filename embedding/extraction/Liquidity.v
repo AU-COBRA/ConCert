@@ -16,7 +16,8 @@ Module TCString := bytestring.String.
 
 Coercion TCString.to_string : TCString.t >-> string.
 
-(* Names for two mandatory arguments for the main function. Used when generating code for [wrapper] and for the entrypoint *)
+(* Names for two mandatory arguments for the main function.
+   Used when generating code for [wrapper] and for the entrypoint *)
 Definition MSG_ARG := "msg".
 Definition STORAGE_ARG := "st".
 
@@ -36,7 +37,8 @@ Record LiquidityModule :=
     main_extra_args : list string;
   }.
 
-Definition newLine := String (Ascii.Ascii false true false true false false false false) EmptyString.
+Definition newLine :=
+  String (Ascii.Ascii false true false true false false false false) EmptyString.
 Definition inParens s := "(" ++ s ++ ")".
 Definition inCurly s := "{" ++ s ++ "}".
 Definition ofType e ty := e ++ " : " ++ ty.
@@ -154,7 +156,8 @@ Definition isTruePat (p : pat) :=
 Definition isFalsePat (p : pat) :=
   let '(pConstr nm v) := p in nm =? "false".
 
-(** We assume that before printing the Liquidity code [erase] has been applied to the expression *)
+(** We assume that before printing the Liquidity code
+    [erase] has been applied to the expression *)
 
 Definition liquidify (TT TTty : env string ) : expr -> string :=
   fix go (e : expr) : string :=
@@ -292,7 +295,8 @@ Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type)
                                   ++ " " ++ _extra_args).
 
 (* NOTE: Polymorphic definitions might not behave well in Liquidity *)
-Definition print_glob TT TTty (def_clause : string) (def_name : string) (gd : (list (ename * type)) * expr) : string :=
+Definition print_glob TT TTty (def_clause : string) (def_name : string)
+                      (gd : (list (ename * type)) * expr) : string :=
   def_clause ++ " " ++ def_name ++ " "
              ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) (fst gd))
              ++" = " ++ liquidify TT TTty (snd gd).

@@ -135,10 +135,11 @@ Module SafeHead.
   Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
     match l as l' return l' = l -> nat with
     | [] => (* this is an impossible case *)
-      (* NOTE: we use [False_rect] to have more control over the extracted code. *)
-      (* Leaving a hole for the whole branch potentially leads to polymorphic *)
-      (* definitions in the extracted code and type like [eq], since we would have to leave the whole goal branch transparent (use [Defined] instead of [Qed] ). *)
-      (* In this case, one has to inspect the extracted code and inline such definitions *)
+      (* NOTE: we use [False_rect] to have more control over the extracted code.
+         Leaving a hole for the whole branch potentially leads to polymorphic
+         definitions in the extracted code and type like [eq], since we would have to
+         leave the whole goal branch transparent (use [Defined] instead of [Qed] ).
+         In this case, one has to inspect the extracted code and inline such definitions *)
       fun _ => ex_falso _ _
     | hd :: tl => fun _ => hd
     end eq_refl.
@@ -151,7 +152,8 @@ Module SafeHead.
     intros. cbn. lia.
   Qed.
 
-  (** We inline [False_rect] and [False_rec] to make sure that no polymorphic definitions are left *)
+  (** We inline [False_rect] and [False_rec] to make sure
+      that no polymorphic definitions are left *)
   Definition safe_head_inline :=
     [<%%ex_falso %%>; <%% False_rect %%>; <%% False_rec %%>].
 

@@ -1,9 +1,12 @@
 (** * Examples for extraction to Elm *)
 
-(** The examples are written into files that are later processed and passed to the Elm compiler as part of the building process. *)
+(** The examples are written into files that are later processed
+    and passed to the Elm compiler as part of the building process. *)
 
-(** Warning: this file does not work in the interactive mode due to the problems with paths for [Redirect].
-    We have to stick to the path, relative to the project root and in the interactive mode current directory is different. *)
+(** Warning: this file does not work in the interactive mode due to
+    the problems with paths for [Redirect]. We have to stick to the path,
+    relative to the project root and in the interactive mode current
+    directory is different. *)
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
 From MetaCoq.TypedExtraction Require Import Extraction.
@@ -61,7 +64,8 @@ Module ElmExamples.
             "import Expect exposing (Expectation)"].
 
   Definition main_and_test (test : string) :=
-    ("main = Html.text "++ Common.parens false ("Debug.toString " ++ Common.parens false test) ++ Common.nl ++
+    ("main = Html.text "++
+      Common.parens false ("Debug.toString " ++ Common.parens false test) ++ Common.nl ++
     "suite = Test.test (Debug.toString 1)" ++ Common.parens false ("\ _ -> " ++ test))%string.
 
   (* [safe_pred] example is inspired by Letozey's A New Extraction for Coq *)

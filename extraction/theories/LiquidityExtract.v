@@ -1,4 +1,3 @@
-
 From MetaCoq.Template Require Import Kernames.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From ConCert.Execution Require Import Blockchain.
@@ -44,9 +43,11 @@ Arguments lmd_entry_point {_ _ _ _ _ _}.
 (* We override masks for *some* constants that have only logical parameters, like
    [@AddressMap.empty]. Our optimization conservatively keeps one parameter
    if all the parameters are logical. This is necessary because such definitions
-   might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
+   might use something like [false_rect] and removing all the arguments will force
+   evaluating their bodies, which can lead to an exception or looping depending
    on how the elimination from the empty types is implemented.
-   However, for [AddressMap.empty] is completely safe to remove all arguments, since it's an abbreviation for a constructor.*)
+   However, for [AddressMap.empty] is completely safe to remove all arguments,
+   since it's an abbreviation for a constructor. *)
 Definition overridden_masks (kn : kername) : option bitmask :=
   if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
   else None.
@@ -77,7 +78,8 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
      pcuic_args :=
        {| optimize_prop_discr := true;
           extract_transforms :=
-            (* TODO: a 'false' second-last arg disables fully expanded environments - only for boardroomvoting *)
+            (* TODO: a 'false' second-last arg disables fully
+               expanded environments - only for boardroomvoting *)
             [dearg_transform overridden_masks true true true true true ]
        |}
   |}.

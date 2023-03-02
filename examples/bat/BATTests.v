@@ -14,7 +14,7 @@ From Coq Require Import ZArith_base.
 Import ListNotations.
 
 
-(* -------------------------- Tests of the BAT Implementation -------------------------- *)
+(* ------------------------ Tests of the BAT Implementation ------------------------ *)
 
 Definition fundingStart_ := 0.
 Definition fundingEnd_ := 5.
@@ -30,8 +30,9 @@ Definition bat_setup := BATCommon.build_setup initSupply_
                                               tokenCap_
                                               tokenMin_.
 
-(* In the initial chain we transfer some assets to a few accounts, just to make the addresses
-   present in the chain state. The amount transferred is irrelevant. *)
+(* In the initial chain we transfer some assets to a few accounts,
+   just to make the addresses present in the chain state.
+   The amount transferred is irrelevant. *)
 Definition token_cb :=
   ResultMonad.unpack_result (TraceGens.add_block empty_chain
   [
@@ -102,7 +103,8 @@ Definition not_enough_balance_to_refund (cb : ChainBuilder) (act : Action) :=
         checker (negb enough_balance)
     | None => checker true
     end.
-(* This test shows that all failed acts are because there isn't enough balance to refund *)
+(* This test shows that all failed acts are because there isn't
+   enough balance to refund. *)
 (* QuickChick (forAllInvalidActions gBATActionValid not_enough_balance_to_refund). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
@@ -204,8 +206,9 @@ Local Open Scope N_scope.
 (* +++ Passed 10000 tests (0 discards) *)
 
 (* Checker failing if any constants in BAT states are changed *)
-Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition constants_unchanged (chain : Chain) (cctx : ContractCallContext)
+                               (old_state : State) (msg : Msg)
+                               (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), _) =>
     (* batFund and ethFund addresses should be constants *)
@@ -326,8 +329,9 @@ Definition post_create_tokens_safe (chain : Chain) (cctx : ContractCallContext) 
 
 
 (* -------------------- finalize -------------------- *)
-Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                                        (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallContext)
+                                        (old_state : State) (msg : Msg)
+                                        (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   (* finalize should produce a transfer action *)
   | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
@@ -384,8 +388,9 @@ Definition finalize_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
 (* QuickChick ({{msg_is_finalize}} contract_base_addr {{finalize_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_finalize_safe (chain : Chain) (cctx : ContractCallContext)
+                              (old_state : State) (msg : Msg)
+                              (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), finalize) =>
     (* Finalize should not change allowances *)
@@ -447,8 +452,9 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{post_refund_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                        (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition refund_valid (chain : Chain) (cctx : ContractCallContext)
+                        (old_state : State) (msg : Msg)
+                        (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
     let current_slot := chain.(current_slot) in
@@ -478,8 +484,9 @@ Definition refund_valid (chain : Chain) (cctx : ContractCallContext) (old_state 
 (* QuickChick ({{msg_is_refund}} contract_base_addr {{refund_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                            (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_refund_safe (chain : Chain) (cctx : ContractCallContext)
+                            (old_state : State) (msg : Msg)
+                            (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), refund) =>
     let from := cctx.(ctx_from) in
@@ -538,8 +545,9 @@ Definition post_transfer_update_correct (chain : Chain) (cctx : ContractCallCont
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{post_transfer_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                          (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_valid (chain : Chain) (cctx : ContractCallContext)
+                          (old_state : State) (msg : Msg)
+                          (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -560,8 +568,9 @@ Definition transfer_valid (chain : Chain) (cctx : ContractCallContext) (old_stat
 (* QuickChick ({{msg_is_transfer}} contract_base_addr {{transfer_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                              (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_safe (chain : Chain) (cctx : ContractCallContext)
+                              (old_state : State) (msg : Msg)
+                              (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer to tokens)) =>
     let from := cctx.(ctx_from) in
@@ -633,8 +642,9 @@ Definition post_transfer_from_update_correct (chain : Chain) (cctx : ContractCal
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{post_transfer_from_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                               (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext)
+                               (old_state : State) (msg : Msg)
+                               (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -661,8 +671,9 @@ Definition transfer_from_valid (chain : Chain) (cctx : ContractCallContext) (old
 (* QuickChick ({{msg_is_transfer_from}} contract_base_addr {{transfer_from_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                                   (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_transfer_from_safe (chain : Chain) (cctx : ContractCallContext)
+                                   (old_state : State) (msg : Msg)
+                                   (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.transfer_from from to tokens)) =>
     let delegate := cctx.(ctx_from) in
@@ -721,8 +732,9 @@ Definition post_approve_update_correct (chain : Chain) (cctx : ContractCallConte
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{post_approve_update_correct}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                         (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition approve_valid (chain : Chain) (cctx : ContractCallContext)
+                         (old_state : State) (msg : Msg)
+                         (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let amount := cctx.(ctx_amount) in
@@ -738,8 +750,9 @@ Definition approve_valid (chain : Chain) (cctx : ContractCallContext) (old_state
 (* QuickChick ({{msg_is_approve}} contract_base_addr {{approve_valid}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
 
-Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext) (old_state : State)
-                             (msg : Msg) (result_opt : option (State * list ActionBody)) :=
+Definition post_approve_safe (chain : Chain) (cctx : ContractCallContext)
+                             (old_state : State) (msg : Msg)
+                             (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   | (Some (new_state, _), tokenMsg (EIP20Token.approve delegate tokens)) =>
     let from := cctx.(ctx_from) in
@@ -788,12 +801,13 @@ Definition contract_balance_lower_bound (cs : ChainState) :=
       else checker contract_balance_correct
   | None => checker true
   end.
-(* Contract balance should always be at least as big as the number of refundable tokens
-    divided by the exchange rate unless the token was successfully funded.
-   If this property does not hold then it implies that there can be cases where a user
-    will not be able to get a refund should the funding fail.
-   The number of refundable tokens is the total_supply - init_supply, i.e. all tokens created
-    by users funding the project.
+(* Contract balance should always be at least as big as the number of
+   refundable tokens divided by the exchange rate unless the token was
+   successfully funded. If this property does not hold then it implies
+   that there can be cases where a user will not be able to get a refund
+   should the funding fail.
+   The number of refundable tokens is the total_supply - init_supply, i.e.
+   all tokens created by users funding the project.
 *)
 (* QuickChick ({{contract_balance_lower_bound}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
@@ -809,13 +823,15 @@ Definition contract_balance_lower_bound' (cs : ChainState) :=
         (Z.of_N (((total_supply cstate) - bat_fund_balance) / cstate.(tokenExchangeRate))))
   | None => checker true
   end.
-(* Since the initial supply belonging to the batFund address is not supposed to be refundable
-    we should have a stronger lower bound saying that the contract balance should always be
-    at least as big as the (total_supply - batFund_balance) / exhange_rate
-    unless the token was successfully funded.
-   If this property does not hold but the previous property holds then it implies that
-    there is a way that some of the initial supply can be refunded, which then it implies
-    that there can be cases where a real user will not be able to get a refund should the funding fail.
+(* Since the initial supply belonging to the batFund address is not supposed
+   to be refundable we should have a stronger lower bound saying that the
+   contract balance should always be at least as big as the
+   (total_supply - batFund_balance) / exhange_rate
+   unless the token was successfully funded.
+   If this property does not hold but the previous property holds then it
+   implies that there is a way that some of the initial supply can be refunded,
+   which then it implies that there can be cases where a real user will not
+   be able to get a refund should the funding fail.
 *)
 (* QuickChick (expectFailure ({{contract_balance_lower_bound'}})). *)
 (*
@@ -837,15 +853,15 @@ ChainState{
 (*
   We can see from the above counter example that this property does not hold.
   It breaks because batFund transfers tokens away from its account and those
-    tokens are not associated with any balance in the contract, and therefore
-    the recipient of those tokens will not be able to refund if all other accounts
-    have already refunded since there then won't be enough balance in the contract
-    to refund.
+  tokens are not associated with any balance in the contract, and therefore
+  the recipient of those tokens will not be able to refund if all other
+  accounts have already refunded since there then won't be enough balance
+  in the contract to refund.
 *)
 
-(* As shown above if a transfer from batFund occurs then
-    there are not always enough tokens to refund all users tokens.
-   We now test if the above property holds when no such transfers occur
+(* As shown above if a transfer from batFund occurs then there are not
+   always enough tokens to refund all users tokens.
+   We now test if the above property holds when no such transfers occur.
 *)
 (*
 Extract Constant defNumTests => "3000".
@@ -867,12 +883,11 @@ Definition partially_funded_cb :=
     build_deploy creator 0 BAT.contract bat_setup;
     build_call person_1 contract_base_addr 1 create_tokens
   ]).
-(* Check that it is possible to fully refund from a state
-    where at least one token was created
-    i.e. contract balance = 0 and token not funded.
-   Note that this does not mean that the correct people got refunds
-   the tests only states that all money put into the contract was
-   refunded, i.e. no money get stuck in the contract *)
+(* Check that it is possible to fully refund from a state where at least
+   one token was created i.e. contract balance = 0 and token not funded.
+   Note that this does not mean that the correct people got refunds the
+   tests only states that all money put into the contract was refunded,
+   i.e. no money get stuck in the contract *)
 (* QuickChick (partially_funded_cb ~~> is_fully_refunded). *)
 (*
 Chain{|
@@ -932,15 +947,16 @@ Definition can_always_fully_refund (cs : ChainState) :=
       else checker true
   | None => checker true
   end.
-(* Above we showed that it is possible to completely empty the contract balance,
-    however ideally it should always be possible to empty the contract balance.
-   If not then it would mean that money could get stuck contract implying that some
-    funded money may not be refundable.
-   We know that all accounts except batFund should be able to refund so the amount of balance
-    that we should be able to withdraw is the total number of tokens held by all accounts except
-    for those held by batFund (initial supply).
-   Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens" then it should be
-    possible to withdraw the entire contract balance.
+(* Above we showed that it is possible to completely empty the contract
+   balance. However, ideally it should always be possible to empty the
+   contract balance.
+   If not then it would mean that money could get stuck contract implying
+   that some funded money may not be refundable.
+   We know that all accounts except batFund should be able to refund so the
+   amount of balance that we should be able to withdraw is the total number
+   of tokens held by all accounts except for those held by batFund (initial supply).
+   Thus if "contract_balance * exchange_rate <= total_supply - batFund_tokens"
+   then it should be possible to withdraw the entire contract balance.
 *)
 (* QuickChick (expectFailure (forAllBlocks can_always_fully_refund')). *)
 (*
@@ -958,9 +974,9 @@ ChainState{
 *)
 (*
   We can see from the above counter example that this property does not hold
-  since batFund account is allowed to create_tokens and batFund should not be
-  able to refund thus that money cannot be refunded (unless batFund can refund
-  which it should not be allowed to do).
+  since batFund account is allowed to create_tokens and batFund should not
+  be able to refund thus that money cannot be refunded (unless batFund can
+  refund which it should not be allowed to do).
 *)
 
 (* As shown above if batFund creates tokens then
@@ -1018,7 +1034,8 @@ ChainState{
 +++ Failed (as expected) after 8 tests and 13 shrinks. (0 discards)
 *)
 (*
-  We can see from the above counter example that this property does not hold, but what goes wrong?
+  We can see from the above counter example that this property
+  does not hold, but what goes wrong?
   Looking at state before block 5 we have
 	  contract_balance      			  = 2
 	  total_supply          = 20 + 3*2  = 26
@@ -1032,14 +1049,15 @@ ChainState{
 	  contract_balance      			  = 2
 	  total_supply          = 26 - 2    = 25
 	  balance of account 11 = 2 - 2     = 0
-  Which leads to the condition not holding anymore since "(3*2 <= 25 - 20)" does not hold
-  So we can see that it went wrong because it refunded 2 tokens and 2 % exchange_rate(3) = 2
-  so 2 tokens got deleted without being refunde,d and therefore the balance associated with
-  those 2 tokens and 1 other token in another account won't be able to be refunded.
+  Which leads to the condition not holding anymore since "(3*2 <= 25 - 20)"
+  does not hold. So we can see that it went wrong because it refunded 2 tokens
+  and 2 % exchange_rate(3) = 2 so 2 tokens got deleted without being refunded,
+  and therefore the balance associated with those 2 tokens and 1 other token in
+  another account won't be able to be refunded.
 *)
 
-(* As shown above if a transfer of some amount where "amount % exchange_rate != 0" then
-    it is not possible to empty the contract balance.
+(* As shown above if a transfer of some amount where "amount % exchange_rate != 0"
+   then it is not possible to empty the contract balance.
    We now test if it is possible when no such transfers occur
 *)
 (*
@@ -1110,9 +1128,8 @@ Definition can_always_finalize check_setup :=
       check_setup setup cb ==> (cb ~~> is_finalized)
     )) setup
   ).
-(* We would like that BAToken has the property that it is
-    always possible to successfully fund the token for any
-    setup used when deploying the token *)
+(* We would like that BAToken has the property that it is always possible
+   to successfully fund the token for any setup used when deploying the token *)
 (*
 Extract Constant defNumTests => "100".
 QuickChick (expectFailure (forAll gBATSetup (build_init_cb (fun cb => cb ~~> is_finalized)))).
@@ -1131,12 +1148,11 @@ Setup{
 }
 +++ Failed (as expected) after 2 tests and 0 shrinks. (0 discards)
 *)
-(* It is clear from the above that it is not possible
-    to fund the token for any setup.
-   It is clear that it failed since the fundingEnd
-   was eqaul to the slot in which the contract was deployed.
-   We now test if it is possible to always fund for setup
-   with a funding period that is not over before it is deployed.
+(* It is clear from the above that it is not possible to fund the token
+   for any setup. It is clear that it failed since the fundingEnd was
+   eqaul to the slot in which the contract was deployed.
+   We now test if it is possible to always fund for setup with a funding
+   period that is not over before it is deployed.
 *)
 
 (*
@@ -1211,9 +1227,8 @@ Setup{
 +++ Failed (as expected) after 7 tests and 0 shrinks. (27 discards)
 *)
 (* From above we can see that our assertions on setup still does not
-   guarantee that the token can be funded.
-   It is clear that it failed since the exchange rate is 0
-   meaning that no tokens can be created.
+   guarantee that the token can be funded. It is clear that it failed
+   since the exchange rate is 0 meaning that no tokens can be created.
 *)
 
 (*

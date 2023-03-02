@@ -1,4 +1,4 @@
-(** * Extraction of an interpreter for a stack based DSL **)
+(** * Extraction of an interpreter for a stack based DSL *)
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.

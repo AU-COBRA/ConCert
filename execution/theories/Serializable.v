@@ -54,7 +54,9 @@ Record SerializedValue :=
   }.
 Unset Primitive Projections.
 
-Definition extract_ser_value (t : SerializedType) (value : SerializedValue) : option (interp_type t).
+Definition extract_ser_value (t : SerializedType)
+                             (value : SerializedValue)
+                             : option (interp_type t).
 Proof.
   destruct value as [ty val].
   destruct (SerializedType.eq_dec t ty).
@@ -62,8 +64,9 @@ Proof.
   - exact None.
 Defined.
 
-(* Defines that a type can be serialized into SerializedValue and deserialized from it,
-   and that deserializing is a left inverse of serializing. *)
+(* Defines that a type can be serialized into SerializedValue
+   and deserialized from it, and that deserializing is a left
+   inverse of serializing. *)
 Class Serializable (ty : Type) :=
   build_serializable {
     serialize : ty -> SerializedValue;
@@ -104,7 +107,10 @@ Solve Obligations with reflexivity.
 #[export]
 Program Instance nat_serializable : Serializable nat :=
   {| serialize n := serialize (Z.of_nat n);
-     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_nat z'); |}.
+     deserialize z := do z' <- deserialize z;
+                      if (z' <? 0)%Z
+                      then None
+                      else Some (Z.to_nat z'); |}.
 Next Obligation.
   intros x.
   cbn.
@@ -120,7 +126,10 @@ Qed.
 #[export]
 Program Instance N_serializable : Serializable N :=
   {| serialize n := serialize (Z.of_N n);
-     deserialize z := do z' <- deserialize z; if (z' <? 0)%Z then None else Some (Z.to_N z'); |}.
+     deserialize z := do z' <- deserialize z;
+                      if (z' <? 0)%Z
+                      then None
+                      else Some (Z.to_N z'); |}.
 Next Obligation.
   intros x.
   cbn.
@@ -136,7 +145,10 @@ Qed.
 #[export]
 Program Instance ser_positive_equivalence : Serializable positive :=
   {| serialize p := serialize (Zpos p);
-     deserialize z := do z' <- deserialize z; if (0 <? z')%Z then Some (Z.to_pos z') else None; |}.
+     deserialize z := do z' <- deserialize z;
+                      if (0 <? z')%Z
+                      then Some (Z.to_pos z')
+                      else None; |}.
 Solve Obligations with auto.
 
 #[export]
@@ -491,7 +503,8 @@ Section Countable.
     | ser_unit => countable.encode (1, 1)
     | ser_int => countable.encode (2, 1)
     | ser_bool => countable.encode (3, 1)
-    | ser_pair x y => countable.encode (4, countable.encode (encode_st_body x, encode_st_body y))
+    | ser_pair x y =>
+        countable.encode (4, countable.encode (encode_st_body x, encode_st_body y))
     | ser_list x => countable.encode (5, encode_st_body x)
     end.
   Definition encode_st (st : SerializedType) : positive :=
@@ -585,7 +598,10 @@ Section Countable.
   Definition encode_serializable_type {A : Type} `{Serializable A} (a : A) : positive :=
     countable.encode (serialize a).
 
-  Definition decode_serializable_type {A : Type} `{Serializable A} (p : positive) : option A :=
+  Definition decode_serializable_type {A : Type}
+                                      `{Serializable A}
+                                      (p : positive)
+                                      : option A :=
     countable.decode p >>= deserialize.
 
   Lemma decode_serializable_type_encode_serializable_type

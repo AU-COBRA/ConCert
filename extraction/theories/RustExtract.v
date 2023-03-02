@@ -40,7 +40,9 @@ Class RustPrintConfig :=
   { term_box_symbol : string;
     type_box_symbol : string;
     any_type_symbol : string;
-    print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *)}.
+    (* use fully-qualified names as identifiers to avoid name clashes *)
+    print_full_names : bool
+  }.
 
 Context `{RustPrintConfig}.
 
@@ -70,8 +72,9 @@ Definition lookup_ind_decl (ind : inductive) : result Ex.one_inductive_body stri
     match nth_error oibs (inductive_ind ind) with
     | Some body => Ok body
     | None => Err ("Could not find inductive "
-                     ++ bs_to_s (string_of_nat (inductive_ind ind))
-                     ++ " in mutual inductive " ++ bs_to_s (string_of_kername (inductive_mind ind)))
+                    ++ bs_to_s (string_of_nat (inductive_ind ind))
+                    ++ " in mutual inductive "
+                    ++ bs_to_s (string_of_kername (inductive_mind ind)))
     end
   | _ => Err ("Could not find inductive "
                 ++ bs_to_s (string_of_kername (inductive_mind ind)) ++ " in environment")
@@ -85,12 +88,16 @@ Definition clean_global_ident (s : string) : string :=
 (* Get identifier for a global constant function given its kername, without
    taking remappings into account *)
 Definition const_global_ident_of_kername (kn : kername) :=
-  clean_global_ident (if print_full_names then (bs_to_s (string_of_kername kn)) else (bs_to_s (snd kn))).
+  clean_global_ident (if print_full_names 
+                      then (bs_to_s (string_of_kername kn))
+                      else (bs_to_s (snd kn))).
 
 (* Get identifier for a global constant meant to be used as a type, without
    taking remappings into account. This is also used for [inductive]. *)
 Definition ty_const_global_ident_of_kername (kn : kername) :=
-  s_to_bs (capitalize (clean_global_ident (bs_to_s (if print_full_names then string_of_kername kn else (snd kn))))).
+  s_to_bs (capitalize (clean_global_ident (bs_to_s (if print_full_names 
+                                                    then string_of_kername kn
+                                                    else (snd kn))))).
 
 (* Get identifier for a global type alias taking remappings into account *)
 Definition get_ty_const_ident (name : kername) : _ :=
@@ -539,7 +546,8 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
   | tCase (ind, npars) discr brs =>
     match brs with
     | [] =>
-      (* If it's a match on an empty type, we just panic, since we should never reach this code *)
+      (* If it's a match on an empty type, we just panic,
+         since we should never reach this code *)
       append "panic!(""Absurd case!"")"
     | _ =>
       match remap_inductive remaps ind with
@@ -569,8 +577,8 @@ Fixpoint print_term (Γ : list ident) (t : term) {struct t} : PrettyPrinter unit
             (* This is hacky, but instead of putting proper names in the context,
                we put a string that unwraps the cell in the context.
                This is simpler for now, but as a side effect we need to push a use
-               since the name won't be in the context. In the future we should unwrap it after the
-               first closure or find a better way to handle this. *)
+               since the name won't be in the context. In the future we should unwrap
+               it after the first closure or find a better way to handle this. *)
             na <- fresh_ident (EAst.dname d) Γ;;
             push_use na;;
             append ("let " ++ bs_to_s na ++ " = self.alloc(std::cell::Cell::new(None));");;

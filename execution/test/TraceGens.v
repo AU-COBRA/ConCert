@@ -1,7 +1,8 @@
 (*
-  The ChainTrace datatype is defined as a ChainedList of ChainStates and ChainSteps.
-  This file defines a generator combinator, gChain, for the ChainBuilder type.
-  From this, a generator/arbitrary instance for the ChainTrace type is derived automatically.
+  The ChainTrace datatype is defined as a ChainedList of ChainStates
+  and ChainSteps. This file defines a generator combinator, gChain,
+  for the ChainBuilder type. From this, a generator/arbitrary instance
+  for the ChainTrace type is derived automatically.
 
   This file also contains checker combinator over ChainBuilders/ChainTraces,
   like forAllChainTrace, reachableFrom_chaintrace, and pre_post_assertion.
@@ -35,10 +36,11 @@ Section TraceGens.
   Global Definition BlockCreator : Address := creator.
   Global Definition MaxGenAttempts : nat := 2.
 
-  (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum information
-      needed to reconstruct a ChainTrace, that being a list of block headers and
-      chain_state_queues from each step_block *)
-  Fixpoint trace_blocks {from to} (trace : ChainTrace from to) : list (BlockHeader * list Action) :=
+  (* Deconstructs a ChainTrace to a list of blockheaders list of the minimum
+     information needed to reconstruct a ChainTrace, that being a list of
+     block headers and chain_state_queues from each step_block *)
+  Fixpoint trace_blocks {from to} (trace : ChainTrace from to)
+                        : list (BlockHeader * list Action) :=
     match trace with
     | snoc trace' (Blockchain.step_block _ _ header _ _ _ _ _ as step) =>
       trace_blocks trace' ++ [(header, chain_state_queue (snd (chainstep_states step)))]
@@ -46,14 +48,16 @@ Section TraceGens.
     | clnil => []
     end.
 
-  (* Reconstructs list of block information (blockheaders and queues) to a ChainBuilder.
-     It trims any empty blocks that can be removed without invalidating execution of
-     the remaining actions.
+  (* Reconstructs list of block information (blockheaders and queues)
+     to a ChainBuilder. It trims any empty blocks that can be removed
+     without invalidating execution of the remaining actions.
      Also removes any actions that cannot be executed *)
-  Fixpoint build_chain_builder (init_cb : ChainBuilder) blocks : result ChainBuilder AddBlockError :=
-    (* Instead of using the original header we need override height and finalized_height
-        since the blockchain requires that the height always grows by one and if we trim and keep the
-        height in the original header then the height would increase by two *)
+  Fixpoint build_chain_builder (init_cb : ChainBuilder) blocks
+                               : result ChainBuilder AddBlockError :=
+    (* Instead of using the original header we need override height and
+       finalized_height since the blockchain requires that the height always
+       grows by one and if we trim and keep the height in the original header
+       then the height would increase by two *)
     let new_header header :=
       {| block_height := S (chain_height init_cb);
         block_slot := header.(block_slot);
@@ -68,7 +72,8 @@ Section TraceGens.
         | Ok cb => acts ++ [act]
         | Err error => acts
         end ) acts [] in
-      match builder_add_block init_cb (new_header header) valid_acts with (* TODO: also try to trim block here if valid_acts is empty *)
+      (* TODO: also try to trim block here if valid_acts is empty *)
+      match builder_add_block init_cb (new_header header) valid_acts with
       | Ok cb => build_chain_builder cb blocks
       | Err error => Err error
       end in
@@ -91,7 +96,8 @@ Section TraceGens.
     end.
 
   (* Reconstructs a list of ChainBuilders *)
-  Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action))) init_cb : list ChainBuilder :=
+  Fixpoint rebuild_chains (shrunk_chains : list (list (BlockHeader * list Action)))
+                          init_cb : list ChainBuilder :=
     match shrunk_chains with
     | [] => []
     | block :: blocks =>
@@ -101,7 +107,8 @@ Section TraceGens.
       end
     end.
 
-  (* Alternative version of ordinary list shrinker that does not attempt to shrink list elements *)
+  (* Alternative version of ordinary list shrinker that
+     does not attempt to shrink list elements *)
   Fixpoint shrinkListAux_ {A} (l : list A) : list (list A) :=
     match l with
     | [] => []
@@ -109,7 +116,8 @@ Section TraceGens.
     end.
 
   (* Shrink list of blocks by trying all combinations of removing one action *)
-  Fixpoint shrinkChainBuilderAux (blocks : list (BlockHeader * list Action)) : list (list (BlockHeader * list Action)) :=
+  Fixpoint shrinkChainBuilderAux (blocks : list (BlockHeader * list Action))
+                                 : list (list (BlockHeader * list Action)) :=
     match blocks with
     | [] => []
     | block :: blocks' =>
@@ -120,8 +128,9 @@ Section TraceGens.
           map (fun xs => block :: xs) (shrinkChainBuilderAux blocks')
     end.
 
-  (* Shrinker for ChainBuilders, it will only try to shrink the blocks and their action queues,
-     it will not attempt to shrink parameters of any actions *)
+  (* Shrinker for ChainBuilders, it will only try to shrink the
+    blocks and their action queues, it will not attempt to
+    shrink parameters of any actions *)
   Instance shrinkChainBuilder : Shrink ChainBuilder :=
   {
     shrink cb :=
@@ -131,7 +140,8 @@ Section TraceGens.
   }.
 
   (* Adds a block with miner reward of 50. This is used for all testing *)
-  Definition add_block (chain : ChainBuilder) acts : result ChainBuilder AddBlockError :=
+  Definition add_block (chain : ChainBuilder) acts
+                       : result ChainBuilder AddBlockError :=
     let header :=
         {| block_height := S (chain_height chain);
           block_slot := S (current_slot chain);
@@ -148,8 +158,10 @@ Section TraceGens.
     acts <- optToVector max_acts_per_block (gActOptFromChainSized cb act_depth) ;;
     returnGen (add_block cb acts).
 
-  (* Given a function from [nat] to a generator, try the generator on decreasing number until one returns Ok *)
-  Fixpoint try_decreasing {T E} (default : E) (n : nat) (g : nat -> G (result T E)) : G (result T E) :=
+  (* Given a function from [nat] to a generator,
+     try the generator on decreasing number until one returns Ok *)
+  Fixpoint try_decreasing {T E} (default : E) (n : nat)
+                          (g : nat -> G (result T E)) : G (result T E) :=
       match n with
       | 0 => returnGen (Err default)
       | S n' =>
@@ -160,7 +172,8 @@ Section TraceGens.
         end
       end.
 
-  Definition try_repeated {T E} (default : E) (n : nat) (g : G (result T E)) : G (result T E) :=
+  Definition try_repeated {T E} (default : E) (n : nat)
+                          (g : G (result T E)) : G (result T E) :=
     backtrack_result default (repeat (1, g) n).
 
   Definition gChain (init_lc : ChainBuilder)
@@ -170,27 +183,29 @@ Section TraceGens.
                     (max_acts_per_block : nat)
                     : G ChainBuilder :=
     let gAdd_block' lc max_acts := gAdd_block lc gActOptFromChainSized act_depth max_acts in
-    let default_error := action_evaluation_depth_exceeded in (* TODO: Not ideal approach, but it suffices for now *)
+    (* TODO: Not ideal approach, but it suffices for now *)
+    let default_error := action_evaluation_depth_exceeded in
     let try_repeat g := try_repeated default_error MaxGenAttempts g in
     let try_decreasing g := try_decreasing default_error max_acts_per_block (fun n => try_repeat (g n)) in
-    (* Try decreasing max_acts_per_block, this is needed in some cases since there might be blocks
-        where it is not possible to generate max_acts_per_block number of valid actions *)
+    (* Try decreasing max_acts_per_block, this is needed in some cases
+       since there might be blocks where it is not possible to generate
+       max_acts_per_block number of valid actions *)
     let fix rec n (lc : ChainBuilder) : G ChainBuilder :=
       match n with
       | 0 => returnGen lc
       (* heuristic: try multiple time and try decreasing for more expected robustness *)
       | S n => lc' <- try_decreasing (gAdd_block' lc) ;;
-              match lc' with
-              | Ok lc' => rec n lc'
-              (* if no new chain could be generated without error, return the old chain *)
-              | err => returnGen lc
-              end
+          match lc' with
+          | Ok lc' => rec n lc'
+          (* if no new chain could be generated without error, return the old chain *)
+          | err => returnGen lc
+          end
       end in
     rec max_length init_lc.
 
   (* Generator that generates blocks of invalid actions.
-      It will return a ChainBuilder and a list of actions that will
-      cause an error if the actions are added as a new block to the ChainBuilder *)
+     It will return a ChainBuilder and a list of actions that will
+    cause an error if the actions are added as a new block to the ChainBuilder *)
   Definition gInvalidAction
                         (init_lc : ChainBuilder)
                         (gActOptFromChainSized : Environment -> nat -> GOpt Action)
@@ -205,13 +220,15 @@ Section TraceGens.
         acts <- optToVector max_acts_per_block (gActOptFromChainSized lc act_depth) ;;
         match (TraceGens.add_block lc acts) with
             | Ok lc' => rec n lc'
-            (* If no new chain could be generated without error, return the trace and action list *)
+            (* If no new chain could be generated without error,
+               return the trace and action list *)
             | err => returnGen (lc, acts)
             end
     end in
   rec max_length init_lc.
 
-  Definition get_reachable {to} : ChainTrace empty_state to -> reachable to := fun t => inhabits t.
+  Definition get_reachable {to} : ChainTrace empty_state to -> reachable to :=
+    fun t => inhabits t.
 
   Definition gReachableFromTrace {to} (gtrace : G (ChainTrace empty_state to)) : G (reachable to) :=
     bindGen gtrace (fun trace =>
@@ -241,7 +258,8 @@ Section TraceGens.
     shrink a := [a]
   |}.
 
-  Global Instance genChainTraceSigSized `{GenSized ChainBuilder} : GenSized {to : ChainState & ChainTrace empty_state to}.
+  Global Instance genChainTraceSigSized `{GenSized ChainBuilder} :
+    GenSized {to : ChainState & ChainTrace empty_state to}.
   Proof.
     constructor.
     intros n.
@@ -283,7 +301,8 @@ Section TraceGens.
     end.
 
   (* Gather execution information for each step_action in a ChainTrace *)
-  Fixpoint trace_states_step_action {from to} (trace : ChainTrace from to) : list (Action * list Action * ChainState * ChainState) :=
+  Fixpoint trace_states_step_action {from to} (trace : ChainTrace from to)
+                                    : list (Action * list Action * ChainState * ChainState) :=
     match trace with
     | snoc trace' (Blockchain.step_action _ _ act _ new_acts _ _ _ as step) =>
       let '(from, to) := chainstep_states step in
@@ -317,7 +336,8 @@ Section TraceGens.
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => discard_empty (trace_states (builder_trace cb)) (conjoin_map printOnFail)).
 
-  (* Asserts that a ChainState property holds on all step_block ChainStates in a ChainTrace *)
+  (* Asserts that a ChainState property holds on all step_block
+     ChainStates in a ChainTrace *)
   Definition forAllBlocks {prop : Type}
                           `{Checkable prop}
                           (maxLength : nat)
@@ -369,13 +389,15 @@ Section TraceGens.
     forAllShrink (gTrace init_lc maxLength) shrink
     (fun cb => discard_empty (trace_list cb) (conjoin_map printOnFail)).
 
-  (* Asserts that a boolean predicate holds for at least one ChainState in the given ChainTrace *)
+  (* Asserts that a boolean predicate holds for at least one
+     ChainState in the given ChainTrace *)
   Definition existsb_chaintrace {from to}
                                 (pf : ChainState -> bool)
                                 (trace : ChainTrace from to) : bool :=
     existsb pf (trace_states trace).
 
-  (* Asserts that a ChainState satisfying a given predicate is reachable from the given trace generator. *)
+  (* Asserts that a ChainState satisfying a given predicate is
+     reachable from the given trace generator. *)
   Definition reachableFromSized_chaintrace
                           (maxLength : nat)
                           (init_lc : ChainBuilder)
@@ -388,8 +410,9 @@ Section TraceGens.
   Definition reachableFrom_chaintrace init_lc gTrace pf : Checker :=
     sized (fun n => reachableFromSized_chaintrace n init_lc gTrace pf).
 
-  (* This property states that if there is a reachable chainstate satisfying the reachable_prop predicate,
-     then all succeeding chainstates must satisfy implied_prop *)
+  (* This property states that if there is a reachable chainstate
+     satisfying the reachable_prop predicate, then all succeeding
+     chainstates must satisfy implied_prop *)
   Definition reachableFrom_implies_chaintracePropSized
                         {A prop : Type}
                        `{Checkable prop}
@@ -471,8 +494,9 @@ Section TraceGens.
         end in
     forAllActionExecution maxLength init_chain gTrace stepProp.
 
-  (* For any ChainState in a ChainTrace if pf tests true on all previous ChainStates in the
-     ChainTrace then implied_prop tests true, for all tested execution traces*)
+  (* For any ChainState in a ChainTrace if pf tests true on all previous
+     ChainStates in the ChainTrace then implied_prop tests true, for
+     all tested execution traces*)
   Definition forAllChainState_implication {prop : Type}
                              `{Checkable prop}
                               (maxLength : nat)

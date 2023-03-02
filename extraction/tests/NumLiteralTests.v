@@ -1,4 +1,3 @@
-
 From ConCert.Extraction Require Import Common.
 From MetaCoq.TypedExtraction Require Import Extraction.
 From MetaCoq.TypedExtraction Require Import ResultMonad.

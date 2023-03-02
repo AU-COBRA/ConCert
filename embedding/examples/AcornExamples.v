@@ -1,4 +1,5 @@
-(** * Examples of library code and contracts originating from the actual Acorn implementation *)
+(** * Examples of library code and contracts originating
+      from the actual Acorn implementation *)
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -16,7 +17,11 @@ Import ListNotations.
 
 Open Scope list.
 
-(** All ASTs below were produced by a printing function implemented in Haskell and operating on Haskell representation of Acorn terms. We collect the outputs of our printing procedure for several modules in this Coq file. For the [ListBase] example, we give also a corresponding Acorn source code *)
+(** All ASTs below were produced by a printing function implemented in
+    Haskell and operating on Haskell representation of Acorn terms.
+    We collect the outputs of our printing procedure for several modules
+    in this Coq file. For the [ListBase] example, we give also a
+    corresponding Acorn source code *)
 
 (** ** [Bool] module from the standard library of Acorn *)
 Module AcornBool.
@@ -24,7 +29,14 @@ Module AcornBool.
 
   Definition Data := [gdInd "Bool" 0 [("True_coq", []); ("False_coq", [])] false].
   (*---------------------*)
-  Definition Functions := [("not", eLambda "x" ((tyInd "Bool")) (eCase ("Bool", []) ((tyInd "Bool")) (eRel 0) [(pConstr "True_coq" [], eConstr "Bool" "False_coq"); (pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
+  Definition Functions := [
+    ("not", eLambda "x"
+                    (tyInd "Bool")
+                    (eCase ("Bool", [])
+                           (tyInd "Bool")
+                           (eRel 0)
+                           [(pConstr "True_coq" [], eConstr "Bool" "False_coq"); 
+                            (pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
 
   MetaCoq Run (translateData [] Data).
 
@@ -36,9 +48,18 @@ End AcornBool.
 Module AcornMaybe.
   MetaCoq Run define_mod_prefix.
 
-  Definition Data := [gdInd "Maybe" 1 [("Nothing_coq", []); ("Just_coq", [(None, tyRel 0)])] false].
+  Definition Data := [gdInd "Maybe" 1 [("Nothing_coq", []); 
+                                       ("Just_coq", [(None, tyRel 0)])] false].
   (*---------------------*)
-  Definition Functions := [("isJust", eTyLam "A" (eLambda "x" ((tyApp (tyInd "Maybe") (tyRel 0))) (eCase ("Maybe",[tyRel 0]) ((tyInd "Bool")) (eRel 0) [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq"); (pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
+  Definition Functions := [
+    ("isJust", eTyLam "A"
+                (eLambda "x" 
+                  (tyApp (tyInd "Maybe") (tyRel 0))
+                  (eCase ("Maybe",[tyRel 0])
+                    (tyInd "Bool")
+                    (eRel 0)
+                    [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq");
+                    (pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
 
   MetaCoq Run (translateData [] Data).
   MetaCoq Run (translateDefs AcornBool.exported (Data ++ AcornBool.Data) Functions).
@@ -50,11 +71,27 @@ Import AcornMaybe.
 (** ** Acorn pairs *)
 Module AcornProd.
 
-  Definition Data := [gdInd "Pair" 2 [("Pair_coq", [(None, tyRel 1); (None, tyRel 0)])] false].
+  Definition Data := [gdInd "Pair" 2 [("Pair_coq", [(None, tyRel 1);
+                                                    (None, tyRel 0)])] false].
   (*---------------------*)
 
   Definition Functions :=
-    [("fst", eTyLam "A" (eTyLam "A" (eLambda "x" ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))) (eCase ("Pair",[(tyRel 1); (tyRel 0)]) (tyRel 1) (eRel 0) [(pConstr "Pair_coq" ["x0"; "x1"], eRel 1)])))); ("snd", eTyLam "A" (eTyLam "A" (eLambda "x" ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))) (eCase ("Pair",[(tyRel 1); (tyRel 0)]) (tyRel 0) (eRel 0) [(pConstr "Pair_coq" ["x0"; "x1"], eRel 0)]))))].
+    [("fst", eTyLam "A"
+              (eTyLam "A"
+                (eLambda "x" 
+                  (tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))
+                  (eCase ("Pair",[(tyRel 1); (tyRel 0)])
+                    (tyRel 1)
+                    (eRel 0)
+                    [(pConstr "Pair_coq" ["x0"; "x1"], eRel 1)]))));
+     ("snd", eTyLam "A"
+              (eTyLam "A"
+                (eLambda "x"
+                  (tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))
+                  (eCase ("Pair",[(tyRel 1); (tyRel 0)])
+                    (tyRel 0)
+                    (eRel 0)
+                    [(pConstr "Pair_coq" ["x0"; "x1"], eRel 0)]))))].
 
   MetaCoq Run (translateData [] Data).
 
@@ -63,7 +100,9 @@ End AcornProd.
 
 (** ** Acorn [List] module *)
 
-(** We consider the example of verifying certain functions on Acorn lists in the paper. We provide a full source code for the Acorn [ListBase] we translated *)
+(** We consider the example of verifying certain functions on Acorn
+    lists in the paper. We provide a full source code for the Acorn
+    [ListBase] we translated *)
 
 (*
 module ListBase where
@@ -88,7 +127,8 @@ definition map a b (f :: a -> b) =
 
 
 -- This definition corresponds to fold_left from the Coq's StdLib.
--- Recursion is on the first argument. This is the only case handled by Acorn -> Coq translation.
+-- Recursion is on the first argument.
+   This is the only case handled by Acorn -> Coq translation.
 definition foldl_alt a b (f :: b -> a -> b) =
   letrec go (xs :: List a) (acc :: b) :: b =
      case xs of
@@ -125,19 +165,250 @@ Module AcornListBase.
   Import AcornBool.
   Import AcornProd.
 
-  Definition Data := [gdInd "List" 1 [("Nil_coq", []); ("Cons_coq", [(None, tyRel 0); (None, (tyApp (tyInd "List") (tyRel 0)))])] false].
+  Definition Data := [
+    gdInd "List"
+      1
+      [("Nil_coq", []);
+      ("Cons_coq", [(None, tyRel 0); (None, (tyApp (tyInd "List") (tyRel 0)))])] false].
 
-(*---------------------*)
-Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))
-; ("foldr", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyArr (tyRel 0) (tyRel 0))) (eLambda "x" (tyRel 0) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 0) [(pConstr "Nil_coq" [], eRel 2); (pConstr "Cons_coq" ["x0"; "x1"], eApp (eApp (eRel 5) (eRel 1)) (eApp (eRel 3) (eRel 0)))])) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyRel 0)) (eRel 0))))))
-; ("map", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 1) (tyRel 0)) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 1))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 1) (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eRel 1) (eRel 0))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))))
-; ("foldl_alt", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0)) (eLambda "x" (tyRel 0) (eCase ("List", [tyRel 1]) (tyRel 0) (eRel 1) [(pConstr "Nil_coq" [], eRel 0); (pConstr "Cons_coq" ["x0"; "x1"], eApp (eApp (eRel 4) (eRel 0)) (eApp (eApp (eRel 5) (eRel 2)) (eRel 1)))]))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) (tyArr (tyRel 0) (tyRel 0))) (eRel 0)))))
-; ("foldl", eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eApp (eApp (eApp (eApp (eApp (eConst "foldl_alt") (eTy (tyRel 1))) (eTy (tyRel 0))) (eRel 2)) (eRel 0)) (eRel 1)))))))
-; ("concat", eTyLam "A" (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eApp (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0)))) (eRel 0)) (eRel 1)))))
-; ("zipWith", eTyLam "A" (eTyLam "A" (eTyLam "A" (eLambda "x" (tyArr (tyRel 2) (tyArr (tyRel 1) (tyRel 0))) (eLetIn "f" (eFix "rec" "x" ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0)))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 1))) (eCase ("List", [tyRel 2]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 1) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))); (pConstr "Cons_coq" ["x0"; "x1"], eCase ("List", [tyRel 1]) ((tyApp (tyInd "List") (tyRel 0))) (eRel 2) [(pConstr "Nil_coq" [], eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))); (pConstr "Cons_coq" ["x0"; "x1"], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eApp (eApp (eRel 7) (eRel 3)) (eRel 1))) (eApp (eApp (eRel 6) (eRel 2)) (eRel 0)))])]))) (tyArr ((tyApp (tyInd "List") (tyRel 2))) (tyArr ((tyApp (tyInd "List") (tyRel 1))) ((tyApp (tyInd "List") (tyRel 0))))) (eRel 0))))))
-; ("reverse", eTyLam "A" (eApp (eApp (eApp (eApp (eConst "foldl") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eLambda "x" (tyRel 0) (eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 0)) (eRel 1))))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)))))
-; ("zip", eTyLam "A" (eTyLam "A" (eApp (eApp (eApp (eApp (eConst "zipWith") (eTy (tyRel 1))) (eTy (tyRel 0))) (eTy ((tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))))) (eApp (eApp (eConstr "Pair" "Pair_coq") (eTy (tyRel 1))) (eTy (tyRel 0))))))
-; ("filter", eTyLam "A" (eLambda "x" (tyArr (tyRel 0) ((tyInd "Bool"))) (eApp (eApp (eApp (eApp (eConst "foldr") (eTy (tyRel 0))) (eTy ((tyApp (tyInd "List") (tyRel 0))))) (eLambda "x" (tyRel 0) (eLambda "x" ((tyApp (tyInd "List") (tyRel 0))) (eCase ("Bool", []) ((tyApp (tyInd "List") (tyRel 0))) (eApp (eRel 2) (eRel 1)) [(pConstr "True_coq" [], eApp (eApp (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0))) (eRel 1)) (eRel 0)); (pConstr "False_coq" [], eRel 0)])))) (eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0))))))].
+  (*---------------------*)
+  Definition Functions :=
+  [ ("singleton", eTyLam "A"
+      (eLambda "x"
+        (tyRel 0)
+        (eApp
+          (eApp
+            (eApp
+              (eConstr "List" "Cons_coq")
+              (eTy (tyRel 0)))
+            (eRel 0))
+          (eApp
+            (eConstr "List" "Nil_coq")
+            (eTy (tyRel 0))))))
+  ; ("foldr", eTyLam "A"
+      (eTyLam "A"
+        (eLambda "x"
+          (tyArr
+            (tyRel 1)
+            (tyArr (tyRel 0) (tyRel 0)))
+          (eLambda "x"
+            (tyRel 0)
+            (eLetIn "f"
+              (eFix "rec" "x"
+                (tyApp (tyInd "List") (tyRel 1))
+                (tyRel 0)
+                (eCase
+                  ("List", [tyRel 1])
+                  (tyRel 0)
+                  (eRel 0)
+                  [(pConstr "Nil_coq" [], eRel 2);
+                  (pConstr "Cons_coq" ["x0"; "x1"],
+                   eApp
+                    (eApp (eRel 5) (eRel 1))
+                    (eApp (eRel 3) (eRel 0)))]))
+              (tyArr
+                (tyApp (tyInd "List") (tyRel 1))
+                (tyRel 0))
+              (eRel 0))))))
+  ; ("map", eTyLam "A"
+      (eTyLam "A"
+        (eLambda "x"
+          (tyArr (tyRel 1) (tyRel 0))
+          (eApp
+            (eApp
+              (eApp
+                (eApp (eConst "foldr") (eTy (tyRel 1)))
+                (eTy (tyApp (tyInd "List") (tyRel 0))))
+              (eLambda "x"
+                (tyRel 1)
+                (eApp
+                  (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0)))
+                  (eApp (eRel 1) (eRel 0)))))
+            (eApp
+              (eConstr "List" "Nil_coq")
+              (eTy (tyRel 0)))))))
+  ; ("foldl_alt", eTyLam "A"
+      (eTyLam "A"
+        (eLambda "x"
+          (tyArr (tyRel 0) (tyArr (tyRel 1) (tyRel 0)))
+          (eLetIn "f"
+            (eFix "rec" "x"
+              ((tyApp (tyInd "List") (tyRel 1)))
+              (tyArr (tyRel 0) (tyRel 0))
+              (eLambda "x"
+                (tyRel 0)
+                (eCase
+                  ("List", [tyRel 1])
+                  (tyRel 0)
+                  (eRel 1)
+                  [(pConstr "Nil_coq" [], eRel 0);
+                   (pConstr "Cons_coq" ["x0"; "x1"],
+                   eApp
+                    (eApp (eRel 4) (eRel 0))
+                    (eApp
+                      (eApp (eRel 5) (eRel 2))
+                      (eRel 1)))])))
+              (tyArr
+                (tyApp (tyInd "List") (tyRel 1))
+                (tyArr (tyRel 0) (tyRel 0))) (eRel 0)))))
+  ; ("foldl", eTyLam "A"
+      (eTyLam "A"
+        (eLambda "x"
+          (tyArr
+            (tyRel 0)
+            (tyArr (tyRel 1) (tyRel 0)))
+          (eLambda "x"
+            (tyRel 0)
+            (eLambda "x"
+              (tyApp (tyInd "List") (tyRel 1))
+              (eApp
+                (eApp
+                  (eApp
+                    (eApp
+                      (eApp
+                        (eConst "foldl_alt")
+                        (eTy (tyRel 1)))
+                      (eTy (tyRel 0)))
+                    (eRel 2))
+                  (eRel 0))
+                (eRel 1)))))))
+  ; ("concat", eTyLam "A"
+      (eLambda "x"
+        (tyApp (tyInd "List") (tyRel 0))
+        (eLambda "x"
+          (tyApp (tyInd "List") (tyRel 0))
+          (eApp
+            (eApp
+              (eApp
+                (eApp
+                  (eApp (eConst "foldr") (eTy (tyRel 0)))
+                  (eTy (tyApp (tyInd "List") (tyRel 0))))
+                (eApp
+                  (eConstr "List" "Cons_coq")
+                  (eTy (tyRel 0))))
+              (eRel 0))
+            (eRel 1)))))
+  ; ("zipWith", eTyLam "A"
+      (eTyLam "A"
+        (eTyLam "A"
+          (eLambda "x"
+            (tyArr
+              (tyRel 2)
+              (tyArr (tyRel 1) (tyRel 0)))
+            (eLetIn "f"
+              (eFix "rec" "x"
+                (tyApp (tyInd "List") (tyRel 2))
+                (tyArr
+                  (tyApp (tyInd "List") (tyRel 1))
+                  (tyApp (tyInd "List") (tyRel 0)))
+                (eLambda "x"
+                  (tyApp (tyInd "List") (tyRel 1))
+                  (eCase
+                    ("List", [tyRel 2])
+                    (tyApp (tyInd "List") (tyRel 0))
+                    (eRel 1)
+                    [(pConstr "Nil_coq" [],
+                      eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));
+                     (pConstr "Cons_coq"
+                        ["x0"; "x1"],
+                      eCase
+                        ("List", [tyRel 1])
+                        (tyApp (tyInd "List") (tyRel 0))
+                        (eRel 2)
+                        [(pConstr "Nil_coq" [],
+                          eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));
+                         (pConstr "Cons_coq" ["x0"; "x1"],
+                          eApp
+                            (eApp
+                              (eApp
+                                (eConstr "List" "Cons_coq")
+                                (eTy (tyRel 0)))
+                              (eApp
+                                (eApp (eRel 7) (eRel 3))
+                                (eRel 1)))
+                            (eApp
+                              (eApp (eRel 6) (eRel 2))
+                              (eRel 0)))])])))
+              (tyArr
+                (tyApp (tyInd "List") (tyRel 2))
+                (tyArr
+                  (tyApp (tyInd "List") (tyRel 1))
+                  (tyApp (tyInd "List") (tyRel 0))))
+              (eRel 0))))))
+  ; ("reverse", eTyLam "A"
+      (eApp
+        (eApp
+          (eApp
+            (eApp
+              (eConst "foldl")
+              (eTy (tyRel 0)))
+            (eTy
+              (tyApp (tyInd "List") (tyRel 0))))
+          (eLambda "x"
+            (tyApp (tyInd "List") (tyRel 0))
+            (eLambda "x"
+              (tyRel 0)
+              (eApp
+                (eApp
+                  (eApp
+                    (eConstr "List" "Cons_coq")
+                    (eTy (tyRel 0)))
+                  (eRel 0))
+                (eRel 1)))))
+        (eApp
+          (eConstr "List" "Nil_coq")
+          (eTy (tyRel 0)))))
+  ; ("zip", eTyLam "A"
+      (eTyLam "A"
+        (eApp
+          (eApp
+            (eApp
+              (eApp
+                (eConst "zipWith")
+                (eTy (tyRel 1)))
+              (eTy (tyRel 0)))
+            (eTy
+              (tyApp
+                (tyApp (tyInd "Pair") (tyRel 1))
+                (tyRel 0))))
+          (eApp
+            (eApp
+              (eConstr "Pair" "Pair_coq")
+              (eTy (tyRel 1)))
+            (eTy (tyRel 0))))))
+  ; ("filter", eTyLam "A"
+      (eLambda "x"
+        (tyArr
+          (tyRel 0)
+          ((tyInd "Bool")))
+        (eApp
+          (eApp
+            (eApp
+              (eApp
+                (eConst "foldr")
+                (eTy (tyRel 0)))
+              (eTy (tyApp (tyInd "List") (tyRel 0))))
+            (eLambda "x"
+              (tyRel 0)
+              (eLambda "x"
+                (tyApp (tyInd "List") (tyRel 0))
+                (eCase
+                  ("Bool", [])
+                  (tyApp (tyInd "List") (tyRel 0))
+                  (eApp (eRel 2) (eRel 1))
+                  [(pConstr "True_coq" [],
+                    eApp
+                      (eApp
+                        (eApp
+                          (eConstr "List" "Cons_coq")
+                          (eTy (tyRel 0)))
+                        (eRel 1))
+                      (eRel 0));
+                   (pConstr "False_coq" [], eRel 0)]))))
+          (eApp
+            (eConstr "List" "Nil_coq")
+            (eTy (tyRel 0))))))
+  ].
 
   MetaCoq Run (translateData [] Data).
 
@@ -149,7 +420,8 @@ Definition Functions := [("singleton", eTyLam "A" (eLambda "x" (tyRel 0) (eApp (
 
   Definition AcornList := List.
 
-  (** We prove that the imported definitions are equivalent to the corresponding definitions from the standard library of Coq *)
+  (** We prove that the imported definitions are equivalent to the
+      corresponding definitions from the standard library of Coq *)
   Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
     match acornL with
     | Cons_coq hd tl => hd :: from_acorn tl
@@ -214,16 +486,84 @@ End AcornListBase.
 (** ** Acorn blockchain-related data types *)
 Module AcornBlochain.
 
-  Definition ABl_data := [gdInd "Caller" 0 [("CallerContract_coq", [(None, tyInd "nat")]); ("CallerAccount_coq", [(None, tyInd "string")])] false; gdInd "ChainContext" 0 [("ChainContext_coq", [(None, tyInd "nat"); (None, tyInd "nat"); (None, tyInd "nat")])] false; gdInd "InitContext" 0 [("InitContext_coq", [(None, (tyInd "ChainContext")); (None, tyInd "string")])] false; gdInd "ReceiveContext" 0 [("ReceiveContext_coq", [(None, (tyInd "ChainContext")); (None, tyInd "string"); (None, tyInd "nat")])] false].
+  Definition ABl_data := [
+    gdInd "Caller" 0
+      [("CallerContract_coq", [(None, tyInd "nat")]);
+       ("CallerAccount_coq", [(None, tyInd "string")])] false;
+    gdInd "ChainContext" 0
+      [("ChainContext_coq",
+        [(None, tyInd "nat");
+         (None, tyInd "nat");
+         (None, tyInd "nat")])] false;
+    gdInd "InitContext" 0
+      [("InitContext_coq",
+        [(None, (tyInd "ChainContext"));
+         (None, tyInd "string")])] false;
+    gdInd "ReceiveContext" 0
+      [("ReceiveContext_coq",
+        [(None, (tyInd "ChainContext"));
+         (None, tyInd "string");
+         (None, tyInd "nat")])] false
+  ].
   (*---------------------*)
-  Definition ABl_functions := [("slotNumber", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
-; ("blockHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
-; ("finalizedHeight", eLambda "x" ((tyInd "ChainContext")) (eCase ("ChainContext", []) (tyInd "nat") (eRel 0) [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))
-; ("initOrigin", eLambda "x" ((tyInd "InitContext")) (eCase ("InitContext", []) (tyInd "string") (eRel 0) [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 0)]))
-; ("initChain", eLambda "x" ((tyInd "InitContext")) (eCase ("InitContext", []) ((tyInd "ChainContext")) (eRel 0) [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 1)]))
-; ("receiveChain", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) ((tyInd "ChainContext")) (eRel 0) [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
-; ("receiveOrigin", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "string") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
-; ("receiveSelfAddress", eLambda "x" ((tyInd "ReceiveContext")) (eCase ("ReceiveContext", []) (tyInd "nat") (eRel 0) [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))].
+  Definition ABl_functions :=
+    [ ("slotNumber", eLambda "x"
+        (tyInd "ChainContext")
+        (eCase
+          ("ChainContext", [])
+          (tyInd "nat")
+          (eRel 0)
+          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
+    ; ("blockHeight", eLambda "x"
+        (tyInd "ChainContext")
+        (eCase
+          ("ChainContext", [])
+          (tyInd "nat")
+          (eRel 0)
+          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
+    ; ("finalizedHeight", eLambda "x"
+        (tyInd "ChainContext")
+        (eCase
+          ("ChainContext", [])
+          (tyInd "nat")
+          (eRel 0)
+          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))
+    ; ("initOrigin", eLambda "x"
+        (tyInd "InitContext")
+        (eCase
+          ("InitContext", [])
+          (tyInd "string")
+          (eRel 0)
+          [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 0)]))
+    ; ("initChain", eLambda "x" 
+        (tyInd "InitContext")
+        (eCase
+          ("InitContext", [])
+          (tyInd "ChainContext")
+          (eRel 0)
+          [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 1)]))
+    ; ("receiveChain", eLambda "x"
+        (tyInd "ReceiveContext")
+        (eCase
+          ("ReceiveContext", [])
+          (tyInd "ChainContext")
+          (eRel 0)
+          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
+    ; ("receiveOrigin", eLambda "x"
+        (tyInd "ReceiveContext")
+        (eCase
+          ("ReceiveContext", [])
+          (tyInd "string")
+          (eRel 0)
+          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
+    ; ("receiveSelfAddress", eLambda "x"
+        (tyInd "ReceiveContext")
+        (eCase
+          ("ReceiveContext", [])
+          (tyInd "nat")
+          (eRel 0)
+          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))
+    ].
 
   MetaCoq Run (translateData stdlib_prefixes ABl_data).
 
@@ -261,7 +601,12 @@ definition count (s :: CState) (msg :: Msg) =
 
 (** Data type definitions corresponding representation of the module [CoqExamples] above *)
 Definition acorn_datatypes :=
-[gdInd "Msg" 0 [("Inc_coq", [(None, tyInd "Z")]); ("Dec_coq", [(None, tyInd "Z")])] false; gdInd "CState" 0 [("CState_coq", [(None, tyInd "Z"); (None, tyInd "string")])] false].
+  [ gdInd "Msg" 0
+      [("Inc_coq", [(None, tyInd "Z")]);
+       ("Dec_coq", [(None, tyInd "Z")])] false;
+    gdInd "CState" 0
+      [("CState_coq", [(None, tyInd "Z");
+       (None, tyInd "string")])] false].
 
 MetaCoq Run (translateData [] acorn_datatypes).
 
@@ -277,12 +622,52 @@ End Prim.
 
 
 (** Function definitions corresponding representation of the module [CoqExamples] above *)
-Definition acorn_module : list (string * expr) := [("owner", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "string") (eRel 0) [(pConstr "CState_coq" ["x0"
-; "x1"], eRel 0)]))
-; ("balance", eLambda "x" (tyInd "CState") (eCase ("CState", []) (tyInd "Z") (eRel 0) [(pConstr "CState_coq" ["x0"
-; "x1"], eRel 1)]))
-; ("count", eLambda "x" (tyInd "CState") (eLambda "x" (tyInd "Msg") (eCase ("Msg", []) (tyInd "CState") (eRel 0) [(pConstr "Inc_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "plusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))
-; (pConstr "Dec_coq" ["x0"], eApp (eApp (eConstr "CState" "CState_coq") (eApp (eApp (eConst "minusInt64") (eApp (eConst "balance") (eRel 2))) (eRel 0))) (eApp (eConst "owner") (eRel 2)))])))].
+Definition acorn_module : list (string * expr) :=
+  [ ("owner", eLambda "x"
+      (tyInd "CState")
+      (eCase
+        ("CState", [])
+        (tyInd "string")
+        (eRel 0)
+        [(pConstr "CState_coq" ["x0"; "x1"], eRel 0)]))
+  ; ("balance", eLambda "x"
+      (tyInd "CState")
+      (eCase
+        ("CState", [])
+        (tyInd "Z")
+        (eRel 0)
+        [(pConstr "CState_coq" ["x0"; "x1"], eRel 1)]))
+  ; ("count", eLambda "x"
+      (tyInd "CState")
+      (eLambda "x"
+        (tyInd "Msg")
+        (eCase
+          ("Msg", [])
+          (tyInd "CState")
+          (eRel 0)
+          [(pConstr "Inc_coq" ["x0"],
+            eApp
+              (eApp
+                (eConstr "CState" "CState_coq")
+                (eApp
+                  (eApp
+                    (eConst "plusInt64")
+                    (eApp (eConst "balance") (eRel 2)))
+                  (eRel 0)))
+              (eApp
+                (eConst "owner")
+                (eRel 2)));
+           (pConstr "Dec_coq" ["x0"],
+            eApp
+              (eApp
+                (eConstr "CState" "CState_coq")
+                (eApp
+                  (eApp
+                    (eConst "minusInt64")
+                    (eApp (eConst "balance") (eRel 2)))
+                  (eRel 0)))
+              (eApp (eConst "owner") (eRel 2)))])))
+  ].
 
 MetaCoq Run (translateDefs [] Σ' acorn_module).
 
@@ -330,12 +715,36 @@ End ForPeresentation.
 
 Module Recursion.
 
-  Definition R_data := [gdInd "Nat" 0 [("Zero_coq", []); ("Suc_coq", [(None, (tyInd "Nat"))])] false].
-(*---------------------*)
+  Definition R_data := [
+    gdInd "Nat" 0 [("Zero_coq", []); ("Suc_coq", [(None, (tyInd "Nat"))])] false
+  ].
+  (*---------------------*)
 
   Open Scope nat.
 
-  Definition R_functions := [("add", eLetIn "f" (eFix "rec" "x" ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat")) (eLambda "x" ((tyInd "Nat")) (eCase ("Nat", []) ((tyInd "Nat")) (eRel 1) [(pConstr "Zero_coq" [], eRel 0); (pConstr "Suc_coq" ["x0"], eApp (eConstr "Nat" "Suc_coq") (eApp (eApp (eRel 3) (eRel 0)) (eRel 1)))]))) (tyArr ((tyInd "Nat")) (tyArr (tyInd "Nat") (tyInd "Nat"))) (eRel 0))].
+  Definition R_functions :=
+    [ ("add", eLetIn "f"
+        (eFix "rec" "x"
+          (tyInd "Nat")
+          (tyArr (tyInd "Nat") (tyInd "Nat"))
+          (eLambda "x"
+            (tyInd "Nat")
+            (eCase
+              ("Nat", [])
+              (tyInd "Nat")
+              (eRel 1)
+              [(pConstr "Zero_coq" [], eRel 0);
+               (pConstr "Suc_coq" ["x0"],
+                eApp
+                  (eConstr "Nat" "Suc_coq")
+                  (eApp
+                    (eApp (eRel 3) (eRel 0))
+                    (eRel 1)))])))
+        (tyArr
+          (tyInd "Nat")
+          (tyArr (tyInd "Nat") (tyInd "Nat")))
+        (eRel 0))
+    ].
 
   MetaCoq Run (translateData [] R_data).
 
@@ -382,11 +791,19 @@ End Recursion.
 Module Predicativity.
 Definition id := fun (A : Set) (a : A) => a.
 
-Definition id_id_syn := eApp (eApp (eConst "id") (eTy (tyForall "A" (tyArr (tyRel 0) (tyRel 0))))) (eConst "id").
+Definition id_id_syn :=
+  eApp
+    (eApp
+      (eConst "id")
+      (eTy (tyForall "A" (tyArr (tyRel 0) (tyRel 0)))))
+    (eConst "id").
 
 (* Eval compute in (expr_to_term StdLib.Σ (reindexify 0 id_id_syn)). *)
 
-Definition id_forall := eLambda "x" (tyForall "A" (tyArr (tyRel 0) (tyRel 0))) (eRel 0).
+Definition id_forall :=
+  eLambda "x"
+    (tyForall "A" (tyArr (tyRel 0) (tyRel 0)))
+    (eRel 0).
 
 (* Compute (expr_to_term StdLib.Σ (reindexify 0 id_forall)). *)
 

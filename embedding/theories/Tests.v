@@ -1,5 +1,4 @@
 (** * Various examples of using notations and conversion to the shallow embedding *)
-
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.

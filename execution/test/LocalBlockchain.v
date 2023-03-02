@@ -107,7 +107,8 @@ Section LocalBlockchain.
                 (from to : Address)
                 (amount : Amount)
                 (msg : option SerializedValue)
-                (lc : LocalChain) : result (list Action * LocalChain) ActionEvaluationError :=
+                (lc : LocalChain)
+                : result (list Action * LocalChain) ActionEvaluationError :=
       do if amount <? 0 then Err (amount_negative amount) else Ok tt;
       do if amount >? env_account_balances lc from then Err (amount_too_high amount) else Ok tt;
       match FMap.find to lc.(lc_contracts) with

@@ -1,4 +1,4 @@
-(** * Extraction of a counter contract with dependent types (propositions) **)
+(** * Extraction of a counter contract with dependent types (propositions) *)
 
 (** A version of the counter contract that uses propositions to restrict the input.
     We also demonstrate how one can use the certifying eta-expansion to make sure

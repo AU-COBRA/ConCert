@@ -113,8 +113,9 @@ Section ChainBaseSpecialization.
       | tConstruct {| inductive_mind := name |} _ _ =>
         if contains name specialized then
           Err ("'"
-                  ++ string_of_kername name
-                  ++ "' (or constructor of this) appears unapplied in term; this needs to be specialized")
+              ++ string_of_kername name
+              ++ "' (or constructor of this) appears unapplied"
+              ++ "in term; this needs to be specialized")
         else
           ret t
       | tCase (mk_case_info ind npars relevance) pr disc brs =>
@@ -232,7 +233,10 @@ Section ChainBaseSpecialization.
       body <- match cst_body cst with
               | Some body =>
                 body <- map_error
-                          (fun s => "While specializing decl " ++ string_of_kername kn ++ " body: " ++ s ++ nl ++ PCUICErrors.print_term Σ [] body)
+                          (fun s => "While specializing decl " ++
+                                    string_of_kername kn ++
+                                    " body: " ++ s ++ nl ++
+                                    PCUICErrors.print_term Σ [] body)
                           (specialize_body specialized kn [] remove body);;
                 ret (Some body)
               | None => ret None
@@ -337,7 +341,9 @@ Definition axiomatized_ChainBase_decl : global_decl :=
 
 (* Specialize ChainBase away in all definitions in an environment.
     Note: this will also add an axiomatized chain base to the environment. *)
-Fixpoint specialize_env_rev (Σ : global_declarations) (Σprint : global_env_ext) : result_string global_declarations :=
+Fixpoint specialize_env_rev (Σ : global_declarations)
+                            (Σprint : global_env_ext)
+                            : result_string global_declarations :=
   match Σ with
   | [] => ret []
   | (name, decl) :: Σ =>

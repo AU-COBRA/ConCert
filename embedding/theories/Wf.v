@@ -1,5 +1,4 @@
 (** * Well-formedness conditions *)
-
 From MetaCoq.Template Require Import utils.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EnvSubst.
@@ -30,7 +29,10 @@ Definition global_dec_ok (gd : global_dec) : bool :=
 Definition genv_ok Σ := forallb global_dec_ok Σ.
 
 
-(** Well-formedness condition on evaluation environments wrt. a type: [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned in [ty], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
+(** Well-formedness condition on evaluation environments wrt. a type:
+    [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned
+    in [ty], if there is a corresponding expression in ρ (starting from the
+    index [n]) it corresponds to a type. *)
   Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
     match ty with
     | tyInd x => true
@@ -39,16 +41,21 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
     | tyVar _ => false
     | tyRel i => if Nat.leb n i then
                   match lookup_i ρ (i-n) with
-                  | Some e => is_type e (* if there is somethig in [ρ], it must be a type *)
-                  | None => true (* if nothing there, that's ok *)
+                  (* if there is somethig in [ρ], it must be a type *)
+                  | Some e => is_type e
+                  (* if nothing there, that's ok *)
+                  | None => true
                   end
                 else true
     | tyArr ty1 ty2 => ty_env_ok n ρ ty1 && ty_env_ok n ρ ty2
     end.
 
-  (** ** Well-formedness condition on evaluation environments wrt. an expression (In the paper : (WF.ii)) *)
+  (** ** Well-formedness condition on evaluation environments wrt.
+      an expression (In the paper : (WF.ii)) *)
 
-  (** [ρ] is well-formed wrt. an expression [e] when for any type variables mentioned in [e], if there is a corresponding expression in ρ (starting from the index [n]) it corresponds to a type. *)
+  (** [ρ] is well-formed wrt. an expression [e] when for any type
+      variables mentioned in [e], if there is a corresponding expression
+      in ρ (starting from the index [n]) it corresponds to a type. *)
 
   Definition ty_expr_env_ok (ρ : env expr) : nat -> expr -> bool :=
     fix rec n e :=

@@ -1,5 +1,4 @@
 (** Proofs of correctness *)
-
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.

@@ -42,9 +42,11 @@ Arguments lmd_entry_point {_ _ _ _ _ _ _}.
 (* We override masks for *some* constants that have only logical parameters, like
    [@AddressMap.empty]. Our optimization conservatively keeps one parameter
    if all the parameters are logical. This is necessary because such definitions
-   might use something like [false_rect] and removing all the arguments will force evaluating their bodies, which can lead to an exception or looping depending
+   might use something like [false_rect] and removing all the arguments will force
+   evaluating their bodies, which can lead to an exception or looping depending
    on how the elimination from the empty types is implemented.
-   However, for [AddressMap.empty] is completely safe to remove all arguments, since it's an abbreviation for a constructor.*)
+   However, for [AddressMap.empty] is completely safe to remove all arguments,
+   since it's an abbreviation for a constructor. *)
 Definition overridden_masks (kn : kername) : option bitmask :=
   if eq_kername kn <%% @AddressMap.empty %%> then Some [true]
   else None.
@@ -112,7 +114,8 @@ Definition TT_remap_default : list (kername * String.string) :=
   [
     (* types *)
     remap <%% Z %%> "tez"
-  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int] and use truncated subtraction *)
+  (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int]
+    and use truncated subtraction *)
   (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
      [int]. However, [Z] is also used as the type of currency, that could lead to clashes
      in the extracted code. *)
@@ -297,7 +300,8 @@ Definition quote_and_preprocess {Base : ChainBase}
            (inline : list kername)
            (m : CameLIGOMod msg ctx params storage operation error)
            : TemplateMonad (Ast.Env.global_env * kername * kername) :=
-   (* we compute with projections before quoting to avoid unnecessary dependencies to be quoted *)
+   (* we compute with projections before quoting to
+      avoid unnecessary dependencies to be quoted *)
    init <- tmEval cbn m.(lmd_init);;
    receive <-tmEval cbn m.(lmd_receive);;
   '(Σ,_) <- tmQuoteRecTransp (init,receive) false ;;

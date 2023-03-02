@@ -1,4 +1,4 @@
-(** * Elm web app example **)
+(** * Elm web app example *)
 
 (** We implement a simple web application allowing for adding users to
 a list after validating the input data. We use the Coq version of
@@ -101,20 +101,23 @@ Definition userAlreadyExistsError := "User already exists!".
 Program Definition validateModel : Model -> list string :=
   fun model =>
     let res :=
-        [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name)) (seNames model.(users)), userAlreadyExistsError) ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
+        [ (~~ existsb (fun nm => nm =? model.(currentEntry).(name))
+                      (seNames model.(users)), userAlreadyExistsError)
+        ; (~~ (model.(currentEntry).(name) =? ""), emptyNameError)
         ; (model.(currentEntry).(password) =? model.(currentEntry).(passwordAgain), passwordsDoNotMatchError)
         ; (8 <=? length model.(currentEntry).(password), passwordIsTooShortError)%nat] in
     map snd (filter (fun x => ~~ x.1) res).
 
 
-(* Messages for updating the current entry and adding the current entry to the list of users *)
+(** Messages for updating the current entry and
+    adding the current entry to the list of users *)
 Inductive StorageMsg :=
 | Add
 | UpdateEntry (_ : Msg).
 
 
 (** We translate the user input to the stored representation.
-Note that the translation only works for valid entries *)
+    Note that the translation only works for valid entries *)
 Program Definition toValidStoredEntry : ValidEntry -> ValidStoredEntry :=
   fun entry =>
     {| seName := entry.(name); sePassword := entry.(password) |}.
@@ -126,7 +129,7 @@ Local Hint Resolve -> eqb_neq : core.
 Local Hint Unfold nonEmptyString : core.
 
 (** This tactic notation allows extracting information from the fact
-that the validation succeeded *)
+    that the validation succeeded *)
 Tactic Notation "destruct_validation" :=
   unfold validateModel in *;
   destruct (existsb _ _) eqn:Hexists;
@@ -287,7 +290,8 @@ Definition to_inline :=
 Definition elm_extraction (m : ElmMod) (TT : list (kername * string)) : TemplateMonad _ :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   seeds <- monad_map extract_def_name_exists m.(elmmd_extract);;
-  general_wrapped Σ (header_and_imports ++ Common.nl ++ Common.nl ++ preamble ++ Common.nl ++ Common.nl ++ elm_false_rec) ""
+  general_wrapped Σ (header_and_imports ++ Common.nl ++ Common.nl ++
+                      preamble ++ Common.nl ++ Common.nl ++ elm_false_rec) ""
                   (KernameSetProp.of_list seeds)
                   to_inline
                   (map fst TT)

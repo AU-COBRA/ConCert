@@ -92,7 +92,8 @@ Definition ex_serialized_type := ser_pair (ser_list (ser_list ser_bool)) ser_int
 Definition ex_val := ([[true; false]; [true; true]; [false]; []], 2%Z).
 (* Compute (string_of_interp_type ex_serialized_type ex_val). *)
 
-(* Show and Generator instances for types related to Traces (an execution sequence of contracts on the BC) *)
+(* Show and Generator instances for types related to
+   Traces (an execution sequence of contracts on the BC) *)
 #[export]
 Instance showBlockHeader
           (BaseTypes : ChainBase)
@@ -229,14 +230,15 @@ Instance showAddBlockError
           `{Show SerializedValue}
           : Show AddBlockError :=
 {|
-  show err := match err with
-              | invalid_header header => "invalid_header: " ++ show header
-              | invalid_root_action act => "invalid_root_action: " ++ show act
-              | origin_from_mismatch act => "origin_from_mismatch: " ++ show act
-              | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded"
-              | action_evaluation_error act eval_error =>
-                "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
-              end
+  show err :=
+    match err with
+    | invalid_header header => "invalid_header: " ++ show header
+    | invalid_root_action act => "invalid_root_action: " ++ show act
+    | origin_from_mismatch act => "origin_from_mismatch: " ++ show act
+    | action_evaluation_depth_exceeded => "action_evaluation_depth_exceeded"
+    | action_evaluation_error act eval_error =>
+      "action_evaluation_error for " ++ show act ++ " with error: " ++ show eval_error
+    end
 |}.
 
 #[export]
@@ -305,11 +307,12 @@ Ltac make_show ts :=
   end.
 
 (** Tactic to automatically derive [Show] instances for [SerializedValue].
-    Takes as input a list of types and will produce a show instance that tries to deserialize
-    the serialized value to one of those types and print that value.
-    The instance will attempt to deserialize to the types in the order that they are given.
-    Prints an error message in case all deserializations failed. The tactic will fail if
-    the types given do not have [Show] and [Serializable] instances.
+    Takes as input a list of types and will produce a show instance that
+    tries to deserialize the serialized value to one of those types and
+    print that value. The instance will attempt to deserialize to the types
+    in the order that they are given. Prints an error message in case all
+    deserializations failed. The tactic will fail if the types given do not
+    have [Show] and [Serializable] instances.
 *)
 Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
   (let pairs := pair c0 .. (pair cn tt) .. in
@@ -323,7 +326,8 @@ Notation "'Derive' 'Show' 'Msg' < c0 , .. , cn >" :=
     (at level 0, c0, cn at level 9, only parsing).
 
 #[export]
-Instance showChainTraceSigT `{Show SerializedValue} : Show {to : ChainState & ChainTrace empty_state to} :=
+Instance showChainTraceSigT `{Show SerializedValue}
+                            : Show {to : ChainState & ChainTrace empty_state to} :=
 {|
   show a := show (projT2 a)
 |}.
