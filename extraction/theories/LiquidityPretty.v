@@ -3,14 +3,22 @@
 
 (** ** Features/limitations *)
 
-(** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of Liquidity, or some times, lack of proper support.
+(** Printing covers most constructs of CIC_box (terms after erasure). 
+    Usually we have to remove redundant boxes before printing.
+    There are some limitations on what can work after extraction, due to the
+    nature of Liquidity, or sometimes, lack of proper support.
 
-Liquidity allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied.
+    Liquidity allows only tail-recursive calls and recursive functions must
+    have only one argument. So, we pack multiple arguments in a tuple.
+    In order for that to be correct, we assume that all fixpoints are fully applied.
 
-Another issue: constructors accept only one argument, so we have to uncurry (pack in a tuple) applications as well. This transformation is applied to all constructors and the pretty-printing stage. Again, we assume that the constructors are fully applied (e.g. eta-expanded at the previous stage).
+    Another issue: constructors accept only one argument, so we have to uncurry
+    (pack in a tuple) applications as well. This transformation is applied to all
+    constructors and the pretty-printing stage. Again, we assume that the constructors
+    are fully applied (e.g. eta-expanded at the previous stage).
 
-Pattern-macthing: pattern-matching on pairs is not supported by Liquidity, so all the programs must use projections.
- *)
+    Pattern-matching: pattern-matching on pairs is not supported by Liquidity,
+    so all the programs must use projections. *)
 From Coq Require Import Basics.
 From Coq Require Import Ascii.
 From Coq Require Import List.
@@ -179,7 +187,8 @@ Section print_term.
         else let ps := concat "," (mapi (fun i v => print_type_var v i) vars) in
              (parens (Nat.ltb #|oib.(ind_type_vars)| 1) ps) ++ " " in
     let print_record projs_and_ctors :=
-      let projs_and_ctors_printed := map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
+      let projs_and_ctors_printed :=
+        map (fun '(p, (proj_nm, ty)) => print_proj (capitalize prefix) TT vars (p.1, ty)) projs_and_ctors in
       "type " ++ params ++ uncapitalize ind_nm ++ " = {" ++ nl
             ++ concat (";" ++ nl) projs_and_ctors_printed ++ nl
             ++ "}" in
@@ -191,10 +200,12 @@ Section print_term.
       let '(_, ctors,_) := build_record_ctor in
       let projs_and_ctors := combine oib.(ExAst.ind_projs) ctors in
       print_record projs_and_ctors
-      (* otherwise, one-constructor inductives are printed as aliases since liquidity doesn't allow inductives with 1 constructor. *)
+      (* otherwise, one-constructor inductives are printed as aliases
+         since liquidity doesn't allow inductives with 1 constructor. *)
       | [(_, [ctor_arg], _)], _ => "type " ++ params ++ uncapitalize ind_nm ++" = "
       ++ concat " * " (map (print_box_type prefix TT vars ∘ snd) [ctor_arg])
-      (* otherwise, the record might be defined without primitive projections. Hence, we look for "projections" in the constructor *)
+      (* otherwise, the record might be defined without primitive projections.
+         Hence, we look for "projections" in the constructor *)
       | [(_,ctor_args,_)],[] =>
       let projs := map (fun '(nm, bt) => (string_of_name nm, bt)) ctor_args in
       let projs_and_ctors := combine projs ctor_args in
@@ -228,7 +239,9 @@ Section print_term.
   end.
 
 
-  (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam] doesn't work well with print_def calls, because we pass print_term to [print_defs] and this is sensitive to how the decreasing argument is determined *)
+  (* NOTE: This is more fixpoint-friendly definition, using [Edecompose_lam]
+    doesn't work well with print_def calls, because we pass print_term to
+    [print_defs] and this is sensitive to how the decreasing argument is determined *)
   Fixpoint lam_body (t : term) : term :=
     match t with
     | tLambda n b => lam_body b
@@ -237,7 +250,8 @@ Section print_term.
 
   Import EAst.
 
-  Definition print_def (print_term : context -> bool -> bool -> term -> string) (Γ : context) (fdef : def term) :=
+  Definition print_def (print_term : context -> bool -> bool -> term -> string)
+                       (Γ : context) (fdef : def term) :=
       let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
       let fix_name := string_of_name (fdef.(dname)) in
       let (args, _) := Edecompose_lam (fdef.(dbody)) in
@@ -258,9 +272,11 @@ Section print_term.
     | _ => None
     end.
 
-  (* Certain names in Liquidity are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
-  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
-     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+  (* Certain names in Liquidity are reserved (like 'to' and others) so we
+     ensure no fresh names are reserved *)
+  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.)
+     we don't need to add them since they are also reserved names in Coq, hence
+     we can't write Coq programs with these names anyway. *)
   Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (eqb id) reserved.
 
@@ -280,7 +296,8 @@ Section print_term.
       (fun decl =>
          match decl.(decl_name) with
          | nNamed id' =>
-           (* NOTE: we compare the identifiers up to the capitalisation of the first letters *)
+           (* NOTE: we compare the identifiers up to
+              the capitalization of the first letters *)
            negb (eqb (uncapitalize id) (uncapitalize id'))
          | nAnon => true
          end) Γ.
@@ -411,13 +428,16 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     | [] => (Γ, [])
     | v :: vs0 =>
       let nm := fresh_string_name Γ v (tVar (s_to_bs "dummy")) in
-      let Γ0 := vass (nNamed (s_to_bs nm)) :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+      (* add name to the context to avoid shadowing due to name clashes *)
+      let Γ0 := vass (nNamed (s_to_bs nm)) :: Γ in
       let '(Γ1, vs1) := fresh_string_names Γ0 vs0 in
       (Γ1, nm :: vs1)
     end.
 
   (* [print_pat] expects that the names in pt.1 are already checked for freshness *)
-  Definition print_pat (Γ : context) (prefix : string) (TT : env string) (ctor : string) (infix : bool) (pt : list string * string) : string :=
+  Definition print_pat (Γ : context) (prefix : string)
+                       (TT : env string) (ctor : string)
+                       (infix : bool) (pt : list string * string) : string :=
     let vars := rev pt.1 in
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
@@ -438,9 +458,13 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
   (** ** The pretty-printer *)
 
   (** [prefix] - a sting pre-pended to the constants' and constructors' names to avoid clashes
-      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for an applied variable (if it corresponds to a recursive call). The initial value is an empty list. Once we fit a fixpoint case, we add the fixpoint name to [FT], so all the recursive calls in the fixpoint body are packed into a tuple.
+      [FT] - list of fixpoint names. Used to determine if uncurrying is needed for an
+      applied variable (if it corresponds to a recursive call).
+      The initial value is an empty list. Once we fit a fixpoint case, we add the fixpoint
+      name to [FT], so all the recursive calls in the fixpoint body are packed into a tuple.
 
-      [TT] - translation table allowing for remapping constants and constructors to Liquidity primitives, if required.
+      [TT] - translation table allowing for remapping constants and constructors
+      to Liquidity primitives, if required.
 
       [Γ] - context that gets updated when we go under lambda, let, pattern or fixpoint.
 
@@ -458,7 +482,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
                       (t : term) {struct t} :=
   let print_term := print_term projs in
   match t with
-  | tBox => "()" (* boxes become the contructor of the [unit] type *)
+  | tBox => "()" (* boxes become the constructor of the [unit] type *)
   | tRel n =>
     match nth_error Γ n with
     | Some {| decl_name := na |} =>
@@ -531,7 +555,8 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
       (* is it a transfer *)
       else if (uncapitalize nm =? "act_transfer") then print_transfer apps
       (* is it a record declaration? *)
-          (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+          (* if it is an inductive with one constructor, and not a record,
+             then it is an alias, so we don't print the constructor *)
       else match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
       | Some oib => (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
                     if is_one_constructor_inductive_and_not_record oib then
@@ -557,7 +582,8 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     let cst_name := string_of_kername c in
     with_default (prefix ++ c.2) (look TT cst_name)
   | tConstruct ind l [] =>
-    (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the constructor *)
+    (* if it is an inductive with one constructor, and not a record,
+       then it is an alias, so we don't print the constructor *)
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     (* Check if it has only 1 constructor, and projections are specified, and > 1 projections *)
     | Some oib => if is_one_constructor_inductive_and_not_record oib then ""
@@ -638,16 +664,19 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     match lookup_ind_decl mind i with
     | Some oib =>
       match nth_error oib.(ExAst.ind_projs) k with
-      | Some (na, _) => (* if it is a inductive with one constructor, and not a record, then it is an alias, so we don't print the projection *)
+      | Some (na, _) => (* if it is an inductive with one constructor, and not a record,
+                           then it is an alias, so we don't print the projection *)
                         if is_one_constructor_inductive_and_not_record oib then
                           print_term prefix FT TT Γ false false c
                         else print_term prefix FT TT Γ false false c ++ "." ++ na
       | None =>
-        "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
+        "UnboundProj(" ++ string_of_inductive ind ++ ","
+                       ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
                        ++ print_term prefix FT TT Γ true false c ++ ")"
       end
     | None =>
-      "UnboundProj(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
+      "UnboundProj(" ++ string_of_inductive ind ++ ","
+                     ++ string_of_nat i ++ "," ++ string_of_nat k ++ ","
                      ++ print_term prefix FT TT Γ true false c ++ ")"
     end
   | tFix l n =>
@@ -687,7 +716,7 @@ Fixpoint get_fix_names (t : term) : list BasicAst.name :=
   end.
 
 Definition print_decl (prefix : string)
-           (TT : env string) (* tranlation table *)
+           (TT : env string) (* translation table *)
            (Σ : ExAst.global_env)
            (projs : list (Kernames.ident * ExAst.one_inductive_body))
            (decl_name : string)
@@ -710,11 +739,15 @@ Definition print_decl (prefix : string)
         ++ wrap (LiquidityPretty.print_term Σ projs prefix [] TT ctx true false lam_body).
 
 Definition print_init (prefix : string)
-           (TT : env string) (* tranlation table *)
-           (projs : list (Kernames.ident * ExAst.one_inductive_body)) (* record projections and the record names they project *)
-           (build_call_ctx : string) (* a string that corresponds to a call contex *)
-           (init_prelude : string) (* operations available in the [init] as local definitions.
-                                      Liquidity does not allow to refer to global definitions in [init]*)
+          (* tranlation table *)
+           (TT : env string)
+           (* record projections and the record names they project *)
+           (projs : list (Kernames.ident * ExAst.one_inductive_body))
+           (* a string that corresponds to a call context *)
+           (build_call_ctx : string)
+           (* operations available in the [init] as local definitions.
+              Liquidity does not allow referring to global definitions in [init]*)
+           (init_prelude : string)
            (Σ : ExAst.global_env)
            (cst : ExAst.constant_body) : option string :=
   b <- cst.(ExAst.cst_body) ;;
@@ -747,7 +780,7 @@ Definition print_init (prefix : string)
 
 
 Definition print_cst (prefix : string)
-           (TT : env string) (* tranlation table *)
+           (TT : env string) (* translation table *)
            (Σ : ExAst.global_env)
            (kn : Kernames.kername)
            (cst : ExAst.constant_body)
@@ -808,7 +841,9 @@ Fixpoint print_global_env (prefix : string) (TT : env string)
 
 Local Open Scope string_scope.
 
-(** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
+(** We un-overload operations and add definitions that are more convenient
+    to use during the pretty-printing phase. These part should be included
+    when printing contracts that use the corresponding operations. *)
 
 Definition prod_ops :=
        "let[@inline] fst (p : 'a * 'b) : 'a = p.(0)"

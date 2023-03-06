@@ -64,7 +64,7 @@ Section Theories.
   Qed.
 
   (* begin hide *)
-  Tactic Notation "contract_simpl" := contract_simpl receive init.
+  Tactic Notation "contract_simpl" := contract_simpl @receive @init.
 
   Ltac destruct_message :=
     repeat match goal with
@@ -154,7 +154,7 @@ Section Theories.
     let get_allowance addr1 addr2 state := with_default 0 (FMap.find (addr1, addr2) state.(allowances)) in
     let allowance_before := get_allowance from sender old_state in
     let allowance_after := get_allowance from sender new_state in
-    (* If the from and sender is equal, allowances should remain unchained *)
+    (* If from and sender is equal, allowances should remain unchained *)
     if address_eqb sender from
     then
       (allowance_before =? allowance_after)
@@ -282,7 +282,7 @@ Section Theories.
       now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
   Qed.
 
-  (** If the requirements are met then then receive on transfer msg must succeed and
+  (** If the requirements are met then receive on transfer msg must succeed and
       if receive on transfer msg succeeds then requirements must hold *)
   Lemma try_transfer_is_some : forall state chain ctx param,
     (ctx_amount ctx <= 0)%Z /\
@@ -399,7 +399,7 @@ Section Theories.
     now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
   Qed.
 
-  (** If the requirements are met then then receive on approve msg must succeed and
+  (** If the requirements are met then receive on approve msg must succeed and
       if receive on approve msg succeeds then requirements must hold *)
   Lemma try_approve_is_some : forall state chain ctx param,
     (ctx_amount ctx <= 0)%Z /\
@@ -442,7 +442,7 @@ Section Theories.
     now contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on get_allowance msg must succeed and
+  (** If the requirements are met then receive on get_allowance msg must succeed and
       if receive on get_allowance msg succeeds then requirements must hold *)
   Lemma try_get_allowance_is_some : forall prev_state chain ctx param,
     (ctx_amount ctx <= 0)%Z <->
@@ -480,7 +480,7 @@ Section Theories.
     now contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on getBalance msg must succeed and
+  (** If the requirements are met then receive on getBalance msg must succeed and
       if receive on getBalance msg succeeds then requirements must hold *)
   Lemma try_get_balance_is_some : forall prev_state chain ctx param,
     (ctx_amount ctx <= 0)%Z <->
@@ -518,7 +518,7 @@ Section Theories.
     now contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on get_total_supply msg must succeed and
+  (** If the requirements are met then receive on get_total_supply msg must succeed and
       if receive on get_total_supply msg succeeds then requirements must hold *)
   Lemma try_get_total_supply_is_some : forall prev_state chain ctx param,
     (ctx_amount ctx <= 0)%Z <->
@@ -534,7 +534,7 @@ Section Theories.
 
 
   (** ** Init correct *)
-  (** After initalization no accounts should hold tokens *)
+  (** After initialization no accounts should hold tokens *)
   Lemma init_balances_correct : forall chain ctx setup state,
     init chain ctx setup = Ok state ->
       state.(tokens) = FMap.add setup.(lqt_provider) setup.(initial_pool) FMap.empty.
@@ -543,7 +543,7 @@ Section Theories.
     now contract_simpl.
   Qed.
 
-  (** After initalization no allowances should be set *)
+  (** After initialization no allowances should be set *)
   Lemma init_allowances_correct : forall chain ctx setup state,
     init chain ctx setup = Ok state ->
       state.(allowances) = FMap.empty.
@@ -593,7 +593,7 @@ Section Theories.
 
 
   (** ** Outgoing acts facts *)
-  (** If contract emits self calls then they are for the receive entrypoints (which do not exits) *)
+  (** If contract emits self calls then they are for the receive entrypoints (which do not exist) *)
   Lemma only_getter_self_calls bstate caddr :
     reachable bstate ->
     env_contracts bstate caddr = Some (contract : WeakContract) ->

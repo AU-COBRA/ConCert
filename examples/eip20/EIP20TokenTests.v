@@ -411,7 +411,7 @@ Definition allower_reapproves_transferFrom_correct (pre_trace post_trace : list 
                                                    (first_approval_amount : N) :=
   let trace := pre_trace ++ post_trace in
   let reapprove_correct cs :=
-  (* Checks if a chainstate has a re-approval act, and if so, then checks that the spent amount inbetween
+  (* Checks if a ChainState has a re-approval act, and if so, then checks that the spent amount in between
      the first approval and the re-approval is not greater than expected. *)
   let res := (allower_reapproves_delegate_step allower delegate cs) in
     isSomeCheck res (fun new_approval_amount =>

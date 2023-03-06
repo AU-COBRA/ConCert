@@ -169,8 +169,8 @@ Section FA2TransferHook.
                                       (param : transfer_descriptor_param)
                                       (state : HookState)
                                       : result (list ActionBody) HookError :=
-    do _ <- throwIf (negb (address_eqb caller state.(hook_fa2_caddr))) default_hook_error;
-    do _ <- throwIf (negb (address_eqb param.(transfer_descr_fa2) state.(hook_fa2_caddr))) default_hook_error;
+    do _ <- throwIf (address_neqb caller state.(hook_fa2_caddr)) default_hook_error;
+    do _ <- throwIf (address_neqb param.(transfer_descr_fa2) state.(hook_fa2_caddr)) default_hook_error;
     let operator := param.(transfer_descr_operator) in
     let check_transfer_iterator tr acc :=
       do _ <- check_transfer_permissions tr operator state ;
@@ -185,7 +185,7 @@ Section FA2TransferHook.
                                           (new_policy : permissions_descriptor)
                                           (state : HookState)
                                           : result HookState HookError :=
-    do _ <- throwIf (negb (address_eqb caller state.(hook_owner))) default_hook_error;
+    do _ <- throwIf (address_neqb caller state.(hook_owner)) default_hook_error;
     Ok (state<| hook_policy := new_policy |>).
 
   Definition hook_receive (chain : Chain)

@@ -38,7 +38,7 @@ Module CounterRefinementTypes.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z)
                   : result storage Error :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx] *)
+    let ctx_ := ctx in (* prevents optimizations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).

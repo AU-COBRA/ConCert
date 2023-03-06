@@ -89,7 +89,7 @@ Module CrowdfundingContract.
     MetaCoq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
-    (** We prove that the initialisation fails if we send money on contact deployment. *)
+    (** We prove that the initialization fails if we send money on contact deployment. *)
     Lemma init_validated setup call_ctx :
       (sc_sent_amount call_ctx <> 0)%Z ->
       init setup call_ctx = None.

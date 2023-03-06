@@ -73,7 +73,7 @@ Definition lc_contract_members_and_proposals_with_votes (state : Congress.State)
 
 Definition congressContractsMembers_nonowners state : list Address :=
     let members := (map fst o FMap.elements) (members state) in
-    let non_owner_members := filter (fun member => negb (address_eqb member (owner state))) members in
+    let non_owner_members := filter (fun member => address_neqb member (owner state)) members in
     non_owner_members.
 
 Definition gCongressMember_without_caller (state : Congress.State)

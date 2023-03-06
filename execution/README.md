@@ -113,9 +113,9 @@ commitment after a deadline.
 
 In [BoardroomVoting.v](../examples/boardroomVoting/BoardroomVoting.v) we verify functional
 correctness of a private boardroom voting contract based on [1] under some
-simplifying assumptions. In particular we do not verify anything about the
+simplifying assumptions. In particular, we do not verify anything about the
 zero-knowledge proofs required to make sure that everyone participates correctly
-in the smart contract. Instead we assume that everyone participates correctly
+in the smart contract. Instead, we assume that everyone participates correctly
 and then show that the smart contract in this case computes the correct result
 (i.e. a public tally of the private votes). The statement is the following:
 

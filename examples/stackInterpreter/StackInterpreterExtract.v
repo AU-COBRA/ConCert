@@ -1,4 +1,4 @@
-(** * Extraction of an interpreter for a stack based DSL **)
+(** * Extraction of an interpreter for a stack based DSL *)
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Containers.
@@ -42,7 +42,7 @@ Module Interpreter.
                   (setup : unit)
                   : result storage Error :=
     let ctx0 := ctx in
-    let setup0 := setup in (* prevents optimisations from removing unused [ctx] and [setup] *)
+    let setup0 := setup in (* prevents optimizations from removing unused [ctx] and [setup] *)
     Ok [].
 
   Definition params := list instruction * ext_map.
@@ -121,7 +121,7 @@ Module Interpreter.
   Definition receive (p : params)
                      (s : storage)
                      : result (list action * storage) Error :=
-    let s0 := s in (* prevents optimisations from removing unused [s] *)
+    let s0 := s in (* prevents optimizations from removing unused [s] *)
     match interp p.2 p.1 [] 0 with
     | Ok v => Ok ([],v)
     | Err e => Err e

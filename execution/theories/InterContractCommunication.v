@@ -18,7 +18,8 @@ Ltac trace_induction :=
     [try discriminate |
     destruct_chain_step; try destruct_action_eval;
     match goal with
-    | env_eq : EnvironmentEquiv _ _ |- _ => try rewrite env_eq in *; try setoid_rewrite env_eq
+    | env_eq : EnvironmentEquiv _ _ |- _ =>
+        try rewrite env_eq in *; try setoid_rewrite env_eq
     end;
     repeat (specialize (IH ltac:(auto)))]; auto
   end.
@@ -39,7 +40,8 @@ Section InterContractCommunication.
     | _ => false
     end.
 
-  Definition callFrom {Msg : Type} (addr : Address) (call_info : ContractCallInfo Msg) : bool :=
+  Definition callFrom {Msg : Type} (addr : Address)
+                      (call_info : ContractCallInfo Msg) : bool :=
     (call_info.(call_from) =? addr)%address.
 
   Lemma deployed_incoming_calls_typed : forall bstate caddr
@@ -70,7 +72,8 @@ Section InterContractCommunication.
       inversion deployed0.
       subst. clear deployed0.
       apply wc_receive_strong in receive_some as
-        (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+        (prev_state' & msg' & new_state' & serialize_prev_state
+          & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
       destruct msg';
         try rewrite msg_ser; eauto.
@@ -131,7 +134,8 @@ Section InterContractCommunication.
       inversion deployed.
       subst. clear deployed.
       apply wc_receive_strong in receive_some as
-        (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
+        (prev_state' & msg' & new_state' & serialize_prev_state
+        & msg_ser & serialize_new_state & receive_some).
       cbn in receive_some.
       destruct IH as (? & calls & ?).
       apply undeployed_contract_no_out_queue in not_deployedA; try easy.

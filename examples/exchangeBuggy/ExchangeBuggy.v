@@ -74,8 +74,6 @@ Section ExchangeBuggyContract.
 
   End Serialization.
 
-  Definition address_not_eqb a b := negb (address_eqb a b).
-
   Definition begin_exchange_tokens_to_assets (ctx : ContractCallContext)
                                              (params : exchange_param)
                                              (exchange_caddr : Address)
@@ -83,8 +81,8 @@ Section ExchangeBuggyContract.
                                              : result (State * (list ActionBody)) Error :=
     (* Send out callbacks to check owner token balance, and exchange contract token balance
       to determine if:
-      1. owner has sufficient tokens to exchange
-      2. exchange rate (based off this contract's token balance)
+      1. Owner has sufficient tokens to exchange
+      2. Exchange rate (based off this contract's token balance)
     *)
     let owner_balance_param := {|
       owner := params.(exchange_owner);
@@ -122,7 +120,7 @@ Section ExchangeBuggyContract.
     do _ <- throwIf (negb (length responses =? 2)) default_error;
     do trx_owner_balance_response <- result_of_option (nth_error responses 0) default_error;
     do exchange_balance_response <- result_of_option (nth_error responses 1) default_error;
-    do _ <- throwIf (address_not_eqb exchange_caddr exchange_balance_response.(request).(owner)) default_error;
+    do _ <- throwIf (address_neqb exchange_caddr exchange_balance_response.(request).(owner)) default_error;
     do related_exchange <- result_of_option (last (map Some state.(ongoing_exchanges)) None) default_error;
     (* Check if transfer owner has enough tokens to perform the exchange *)
     do _ <- throwIf (N.ltb trx_owner_balance_response.(balance) related_exchange.(tokens_sold)) default_error;

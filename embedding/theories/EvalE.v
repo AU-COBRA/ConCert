@@ -1,6 +1,6 @@
-(** * Interpreter for the λsmart langage *)
+(** * Interpreter for the λsmart language *)
 
-(** This version of the interpreter supports polymorhic types *)
+(** This version of the interpreter supports polymorphic types *)
 From ConCert.Embedding Require Import Ast.
 From ConCert.Utils Require Import Env.
 
@@ -70,7 +70,9 @@ Inductive val : Type :=
 
 Definition AllEnv {A} (P: A -> Type) : env A -> Type := All (P ∘ snd).
 
-(** An induction principle that takes into account nested occurences of elements of [val] in the list of arguments of [vConstr] and in the environment of [vClos] *)
+(** An induction principle that takes into account nested occurrences of
+    elements of [val] in the list of arguments of [vConstr] and in
+    the environment of [vClos] *)
 Definition val_ind_full
    (P : val -> Prop)
    (Hconstr : forall (i : inductive) (n : ename) (l : list val), Forall P l -> P (vConstr i n l))
@@ -95,8 +97,9 @@ Definition val_ind_full
   + apply Hty.
 Defined.
 
-(** An elimination principle (on a predicate to [Type]) that takes into account nested occurences of elements of [val]
-   in the list of arguments of [vConstr] and in the environment of [vClos] *)
+(** An elimination principle (on a predicate to [Type]) that takes
+    into account nested occurrences of elements of [val] in the
+    list of arguments of [vConstr] and in the environment of [vClos] *)
 Definition val_elim_full
    (P : val -> Type)
    (Hconstr : forall (i : inductive) (n : ename) (l : list val), All P l -> P (vConstr i n l))
@@ -127,7 +130,9 @@ Definition ind_name (v : val) :=
   | _ => None
   end.
 
-(** Very simple implementation of pattern-matching. Note that we do not match on parameters of constructors coming from parameterised inductives *)
+(** Very simple implementation of pattern-matching. Note that we do
+    not match on parameters of constructors coming from parameterized
+    inductives *)
 Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
            (constr_args : list A) (bs : list (pat * expr)) :=
   pe <- option_to_res (find (fun x => (fst x).(pName) =? cn)%string bs) (cn ++ ": not found");;
@@ -137,7 +142,8 @@ Definition match_pat {A} (cn : ename) (nparam : nat) (arity :list type)
   let arity_len := nparam + length arity in
   if (Nat.eqb ctr_len pt_len) then
     if (Nat.eqb ctr_len arity_len) then
-      (* NOTE: first [nparam] elements in the [constr_args] are types, so we don't match them *)
+      (* NOTE: first [nparam] elements in the [constr_args]
+         are types, so we don't match them *)
       let args := skipn nparam constr_args in
       let assignments := combine p.(pVars) args in
       Ok (assignments,e)
@@ -154,7 +160,9 @@ Fixpoint inductive_name (ty : type) : option ename :=
   end.
 
 
-(** Some machinery to substitute types during the evaluation. Although we don't care about the types the during evaluation, we need the types later. *)
+(** Some machinery to substitute types during the evaluation.
+    Although we don't care about the types the during evaluation,
+    we need the types later. *)
 Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
   match ty with
   | tyInd x => Some ty
@@ -180,7 +188,8 @@ Fixpoint eval_type_i (k : nat) (ρ : env val) (ty : type) : option type :=
     Some (tyArr ty1' ty2')
   end.
 
-(** The same as [eval_type_i] but for named variables. NOTE: not up-to-date wrt. eval_type_i *)
+(** The same as [eval_type_i] but for named variables.
+    NOTE: not up-to-date wrt. eval_type_i *)
 Fixpoint eval_type_n (ρ : env val) (ty : type) : option type :=
   match ty with
   | tyInd x => Some ty
@@ -233,8 +242,10 @@ Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type): bool :=
   | tyVar _ => false
   | tyRel i => if Nat.leb n i then
                 match lookup_i ρ (i-n) with
-                | Some e => is_type_val e (* if there is somethig in [ρ], it must be a type *)
-                | None => true (* if nothing there, that's ok *)
+                (* if there is something in [ρ], it must be a type *)
+                | Some e => is_type_val e
+                (* if nothing there, that's ok *)
+                | None => true
                 end
               else true
   | tyArr ty1 ty2 => valid_ty_env n ρ ty1 && valid_ty_env n ρ ty2
@@ -268,10 +279,20 @@ Definition validate_branches (enamed : bool) (ρ : env val) (es : list (pat * ex
   if enamed then
     Ok tt (* we validate only for the "indexed" mode *)
   else
-    if forallb (fun x => valid_env ρ #|(fst x).(pVars)| (snd x)) es then Ok tt else EvalError "Invalid environment".
+    if forallb (fun x => valid_env ρ #|(fst x).(pVars)| (snd x)) es
+    then Ok tt
+    else EvalError "Invalid environment".
 
 
-(** The interpreter works for both enamed and enameless representation of Oak expressions, depending on a parameter [enamed]. Due to the potential non-termination of Oak programs, we define our interpreter using a fuel idiom: by structural recursion on an additional argument (a natural number). We keep types in during evaluation, because for the soundness theorem we would have to translate values back to expression and then further to MetaCoq terms. This requires us to keep all types in place. In addition to this interpreter, we plan to implement another one which computes on terms after erasure of typing information. *)
+(** The interpreter works for both enamed and enameless representation
+    of Oak expressions, depending on a parameter [enamed].
+    Due to the potential non-termination of Oak programs, we define our
+    interpreter using a fuel idiom: by structural recursion on an additional
+    argument (a natural number). We keep types in during evaluation, because
+    for the soundness theorem we would have to translate values back to expression
+    and then further to MetaCoq terms. This requires us to keep all types in place.
+    In addition to this interpreter, we plan to implement another one which computes
+    on terms after erasure of typing information. *)
 
 Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> res val :=
   fun (enamed : bool) (Σ : global_env) =>
@@ -280,11 +301,14 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
     | O => NotEnoughFuel
     | S n =>
       match e with
-      | eRel i => if enamed then EvalError "Indices as variables are not supported"
-                 else option_to_res (lookup_i ρ i) ("var not found")
-      | eVar nm => if enamed then
-                    option_to_res (ρ # (nm)) (nm ++ " - var not found")
-                  else EvalError (nm ++ " variable found, but enamed variables are not supported")
+      | eRel i =>
+          if enamed then
+            EvalError "Indices as variables are not supported"
+          else option_to_res (lookup_i ρ i) ("var not found")
+      | eVar nm =>
+          if enamed then
+            option_to_res (ρ # (nm)) (nm ++ " - var not found")
+          else EvalError (nm ++ " variable found, but enamed variables are not supported")
       | eLambda nm ty b =>
         (* NOTE: we pass the same type as the codomain type here
           (because it's not needed for lambda).

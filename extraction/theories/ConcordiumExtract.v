@@ -1,4 +1,3 @@
-(* From MetaCoq Require Import utils. *)
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -29,7 +28,9 @@ Local Coercion bytestring.String.of_string : String.string >-> bytestring.string
 
 Module ConcordiumRemap.
 
-Definition lookup_const (TT : list (kername * bytestring.string)) (name : kername): option bytestring.string :=
+Definition lookup_const (TT : list (kername * bytestring.string))
+                        (name : kername)
+                        : option bytestring.string :=
   match find (fun '(key, _) => eq_kername key name) TT with
   | Some (_, val) => Some val
   | None => None

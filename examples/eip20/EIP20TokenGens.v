@@ -21,7 +21,7 @@ Module EIP20Gens (Info : EIP20GensInfo).
   Definition serializeMsg := @serialize EIP20Token.Msg _.
 
   (* This function tries to generate a transfer between existing accounts in the token contract's state.
-    Otherwise tries to use accounts in the Blockchain state.
+    Otherwise, tries to use accounts in the Blockchain state.
     Has a small chance to transfer between "fresh" accounts. *)
   Definition gTransfer (env : Environment)
                        (state : EIP20Token.State)

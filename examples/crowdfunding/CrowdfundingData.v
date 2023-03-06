@@ -24,7 +24,7 @@ Set Nonrecursive Elimination Schemes.
 
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
-(** Generating names for the data structures. We also add a prefix, corresponsing ti the current module path. *)
+(** Generating names for the data structures. We also add a prefix, corresponding ti the current module path. *)
 MetaCoq Run
         ( mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in

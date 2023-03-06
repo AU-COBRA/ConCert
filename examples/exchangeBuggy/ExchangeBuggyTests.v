@@ -94,7 +94,7 @@ Definition add_operator_all owner operator := {|
   op_param_tokens := all_tokens;
 |}.
 
-(* Setup a chain with FA2 contract, exchange contract, and exploit contract deployed.
+(* Set up a chain with FA2 contract, exchange contract, and exploit contract deployed.
    Also adds some tokens to person_1 and exchange contract, and adds some operators on the fa2 contract *)
 Definition chain : ChainBuilder :=
   unpack_result (TraceGens.add_block builder_initial
@@ -212,7 +212,7 @@ Definition tokens_to_asset_correct :=
   TraceGens.forAllChainStatePairs 1 chain (gExploitChainTraceList 1) tokens_to_asset_correct_P.
 
 (* Illustration of how the reentrancy attack can give the caller more money with the same amount of tokens.
-   Notice how in the second sequence, the second argument remains the same, ie. it emulates the reentrancy attack. *)
+   Notice how in the second sequence, the second argument remains the same, i.e. it emulates the reentrancy attack. *)
 (* Compute (getInputPrice 200 1000 30). *)
 (* 4 *)
 (* Compute (getInputPrice 200 1200 26). *)

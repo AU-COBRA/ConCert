@@ -1,4 +1,4 @@
-(** * Extraction of a counter contract with refinement types to Midllang *)
+(** * Extraction of a counter contract with refinement types to Midlang *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 From ConCert.Execution Require Import Blockchain.

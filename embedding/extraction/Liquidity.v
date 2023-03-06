@@ -16,7 +16,8 @@ Module TCString := bytestring.String.
 
 Coercion TCString.to_string : TCString.t >-> string.
 
-(* Names for two mandatory argument for the main function. Used when generating code for [wrapper] and for the entry point *)
+(* Names for two mandatory arguments for the main function.
+   Used when generating code for [wrapper] and for the entrypoint *)
 Definition MSG_ARG := "msg".
 Definition STORAGE_ARG := "st".
 
@@ -31,12 +32,13 @@ Record LiquidityModule :=
        message * storage -> option (list SimpleActionBody * storage) *)
     main: string;
     (* extra arguments to the main function for using in the wrapper;
-       note that two two mandatory arguments (MSG_ARG : message) and (STORAGE_ARG : storage)
+       note that two mandatory arguments (MSG_ARG : message) and (STORAGE_ARG : storage)
        should not be the list *)
     main_extra_args : list string;
   }.
 
-Definition newLine := String (Ascii.Ascii false true false true false false false false) EmptyString.
+Definition newLine :=
+  String (Ascii.Ascii false true false true false false false false) EmptyString.
 Definition inParens s := "(" ++ s ++ ")".
 Definition inCurly s := "{" ++ s ++ "}".
 Definition ofType e ty := e ++ " : " ++ ty.
@@ -48,7 +50,7 @@ Definition look (e : env string) (s : string) : option string :=
 Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   match ty with
   | tyInd nm =>
-    (* ignore module path on prining *)
+    (* ignore module path on printing *)
     let (_, nm') := PCUICTranslate.kername_of_string nm in
     TCString.to_string (Extras.with_default nm' (option_map TCString.of_string (look TT nm)))
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
@@ -56,7 +58,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   | tyApp ty1 ty2 =>
     match ty1 with
       | (tyApp (tyInd ty_nm) A) =>
-        (* ignore module path on prining *)
+        (* ignore module path on printing *)
         let (_, nm') := PCUICTranslate.kername_of_string ty_nm in
         if TCString.to_string nm' =? "prod" then
           inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT ty2)
@@ -86,7 +88,7 @@ Definition printCtorTy (TT : env string) (args : list (option ename * type)) :=
 Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
   match gd with
   | gdInd nm nparams ctors is_record =>
-    (* ignore module path on prining *)
+    (* ignore module path on printing *)
     let (_, nm') := PCUICTranslate.kername_of_string nm in
     "type " ++ nm' ++ " = " ++
     if is_record then
@@ -154,7 +156,8 @@ Definition isTruePat (p : pat) :=
 Definition isFalsePat (p : pat) :=
   let '(pConstr nm v) := p in nm =? "false".
 
-(** We assume that before printing the Liquidity code [erase] has been applied to the expression *)
+(** We assume that before printing the Liquidity code
+    [erase] has been applied to the expression *)
 
 Definition liquidify (TT TTty : env string ) : expr -> string :=
   fix go (e : expr) : string :=
@@ -291,8 +294,9 @@ Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type)
     ++ printWrapperBody (contract ++ " " ++ sep " " [MSG_ARG; STORAGE_ARG]
                                   ++ " " ++ _extra_args).
 
-(* NOTE: Polymoprhic definitions might not behave well in Liquidity *)
-Definition print_glob TT TTty (def_clause : string) (def_name : string) (gd : (list (ename * type)) * expr) : string :=
+(* NOTE: Polymorphic definitions might not behave well in Liquidity *)
+Definition print_glob TT TTty (def_clause : string) (def_name : string)
+                      (gd : (list (ename * type)) * expr) : string :=
   def_clause ++ " " ++ def_name ++ " "
              ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) (fst gd))
              ++" = " ++ liquidify TT TTty (snd gd).

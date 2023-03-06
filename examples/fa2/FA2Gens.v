@@ -204,7 +204,7 @@ Module FA2Gens (Info : FA2TestsInfo).
         ) ;
         (* create tokens *)
         (1, let has_balance amount := Z.ltb 0 amount in
-            let is_not_contract_addr addr := negb (address_is_contract addr) in
+            let is_not_contract_addr addr := address_not_contract addr in
             caller <- liftOptGen (gAddress accounts) ;;
             (* caller <- liftM fst (sampleFMapOpt_filter lc.(lc_account_balances)
                                 (fun p => (is_not_contract_addr (fst p)) && (has_balance (snd p)))) ;; *)
@@ -221,7 +221,7 @@ Module FA2Gens (Info : FA2TestsInfo).
 
 
   (* --------------------- FA2 Client Generators --------------------- *)
-  (* The generators for this section assume that 'fa2_client_addr' is an address to an fa2 client contract
+  (* The generators for this section assume that 'fa2_client_addr' is an address to a fa2 client contract
     with message type ClientMsg *)
   Section FA2ClientGens.
     Let client_other_msg := @other_msg _ FA2ClientMsg.
@@ -262,7 +262,7 @@ Module FA2Gens (Info : FA2TestsInfo).
     let max_act_depth := 1 in
     gChain cb gFA2Actions length 1 max_acts_per_block.
 
-  (* the '1' fixes nr of actions per block to 1 *)
+  (* the '1' fixes the number of actions per block to 1 *)
   Definition token_reachableFrom (cb : ChainBuilder) pf : Checker :=
     reachableFrom_chaintrace cb (gFA2ChainTraceList 1) pf.
 

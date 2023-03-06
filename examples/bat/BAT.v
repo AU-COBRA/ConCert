@@ -45,9 +45,9 @@ Section BAT.
         EIP20Token.allowances := FMap.empty;
       |} in
     Ok {|
-      (** EIP20Token initialisation: *)
+      (** EIP20Token initialization: *)
       token_state := token_state;
-      (** BAT initialisation: *)
+      (** BAT initialization: *)
       initSupply := setup.(_batFund);
       isFinalized := false;
       fundDeposit := setup.(_fundDeposit);
@@ -99,7 +99,7 @@ Section BAT.
     do _ <- throwIf (state.(isFinalized)
             || (Nat.leb current_slot state.(fundingEnd))
             || (state.(tokenCreationMin) <=? (total_supply state))) default_error;
-    (** Don't allow the the batFundDeposit account to refund *)
+    (** Don't allow the batFundDeposit account to refund *)
     do _ <- throwIf (address_eqb sender state.(batFundDeposit)) default_error;
     do sender_bats <- result_of_option (FMap.find sender (balances state)) default_error;
     do _ <- throwIf (sender_bats =? 0) default_error;
@@ -130,7 +130,7 @@ Section BAT.
         Note: the last requirement makes it possible to end a funding early if the cap has been reached.
     *)
     do _ <- throwIf (state.(isFinalized) ||
-                    (negb (address_eqb sender state.(fundDeposit))) ||
+                    (address_neqb sender state.(fundDeposit)) ||
                     ((total_supply state) <? state.(tokenCreationMin))) default_error;
     do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) &&
                       negb ((total_supply state) =? state.(tokenCreationCap)))

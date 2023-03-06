@@ -14,10 +14,10 @@ The most important types are:
   interact with the blockchain. We allow transfers, calls and deployment
   of contracts.
 
-- The [WeakContract] type describes a "weak" or "stringly" typed
+- The [WeakContract] type describes a "weak" or "strongly" typed
   version of smart contracts. Contracts are just two functions init and
-  receive to respectively initialize state on deployment and update
-  state when receiving messages. The weak version of contracts means that
+  receive to respectively initialize the state on deployment and update
+  the state when receiving messages. The weak version of contracts means that
   the state/message/setup types, which would normally vary with contracts,
   are stored in a serialized format.
 
@@ -44,13 +44,13 @@ The next types deal with semantics.
 
 - The [ChainStep] type. This specifies how the blockchain should execute smart
   contracts, and how new blocks are added. It relates a [ChainState] to a new [ChainState].
-  There are steps to allow adding blocks, evaluating actions in the queue and to
-  permute the queue (allowing to model any execution order).
+  There are steps to allow adding blocks, evaluating actions in the queue and permuting
+  the queue (allowing to model any execution order).
 
 - The [ChainTrace] type. This just represents a sequence of steps. If a trace ends
-  in a state it means that state is [reachable] and there is a "semantically correct"
+  in a state it means that the state is [reachable] and there is a "semantically correct"
   way of executing to get to this state. This type records the full history of a
-  blockchain's execution and it would thus be unrealistic to extract.
+  blockchain's execution, and it would thus be unrealistic to extract.
 
 - The [ChainBuilderType] type. This is a typeclass for implementations of blockchains,
   where these implementations need to prove that they satisfy our semantics.
@@ -96,6 +96,12 @@ Delimit Scope address_scope with address.
 Bind Scope address_scope with Address.
 Infix "=?" := address_eqb (at level 70) : address_scope.
 
+Definition address_neqb `{ChainBase} (x y : Address) : bool :=
+  negb (address_eqb x y).
+
+Definition address_not_contract `{ChainBase} (x : Address) : bool :=
+  negb (address_is_contract x).
+
 Lemma address_eq_refl `{ChainBase} x :
   address_eqb x x = true.
 Proof. destruct (address_eqb_spec x x); auto; congruence. Qed.
@@ -120,6 +126,10 @@ Global Ltac destruct_address_eq :=
       try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
     | [|- context[address_eqb ?a ?b]] =>
       try rewrite (address_eq_sym b a) in *; destruct (address_eqb_spec a b)
+    | [H: context[address_neqb ?a ?b] |- _] =>
+      try unfold address_neqb in *; destruct (address_eqb_spec a b)
+    | [|- context[address_neqb ?a ?b]] =>
+      try unfold address_neqb in *; destruct (address_eqb_spec a b)
     end.
 
 Section Blockchain.
@@ -192,7 +202,7 @@ Record Action :=
 Definition act_amount (a : Action) :=
   act_body_amount (act_body a).
 
-(** Represents a strongly-typed contract. This is what user's will primarily
+(** Represents a strongly-typed contract. This is what users will primarily
 use and interact with when they want deployment. We keep the weak contract
 only "internally" for blockchains, while any strongly-typed contract can
 be converted to and from *)
@@ -338,7 +348,7 @@ Record EnvironmentEquiv (e1 e2 : Environment) : Prop :=
       forall addr, env_contract_states e1 addr = env_contract_states e2 addr;
   }.
 
-(** Strongly typed version of contract state *)
+(** Strongly typed version of the contract state *)
 Definition contract_state
            {A : Type}
            `{Serializable A}
@@ -1938,7 +1948,7 @@ End Semantics.
 Inductive ActionEvaluationError :=
 | amount_negative (amount : Amount) (* amount is negative *)
 | amount_too_high (amount : Amount) (* sender does not have enough money *)
-| no_such_contract (addr : Address) (* there is not contract at that address *)
+| no_such_contract (addr : Address) (* there is no contract at that address *)
 | too_many_contracts (* cannot generate fresh address for new contract *)
 | init_failed (err : SerializedValue) (* contract init function failed *)
 | receive_failed (err : SerializedValue) (* contract receive function failed *)
@@ -2126,7 +2136,8 @@ Section LiftTransactionProp.
          `{Serializable State}
          `{Serializable Error}.
 
-(** If some property [P] holds for all actions in the output of the receive function, the property can be lifted to all outgoing actions for all reachabile states. *)
+(** If some property [P] holds for all actions in the output of the receive function, 
+    the property can be lifted to all outgoing actions for all reachable states. *)
 Lemma lift_outgoing_acts_prop
         {P : ActionBody -> Prop}
         (contract : Contract Setup Msg State Error)
@@ -2179,7 +2190,7 @@ Proof.
 Qed.
 
 (** If some property [P] holds for all contract states in the output of the receive function,
-  the property can be lifted to all contract states for all reachabile states. *)
+  the property can be lifted to all contract states for all reachable states. *)
 Lemma lift_contract_state_prop
         {P : State -> Prop}
         (contract : Contract Setup Msg State Error)

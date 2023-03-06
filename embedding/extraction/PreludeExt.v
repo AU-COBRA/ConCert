@@ -1,4 +1,4 @@
-(** * Extensinos for Prelude from Embedding *)
+(** * Extensions for Prelude from Embedding *)
 
 (** Extends Prelude from Embedding with new definitions required for extraction *)
 
@@ -28,7 +28,8 @@ Open Scope nat.
 MetaCoq Run
         ( mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-          mkNames mp ["address"; "time"; "ContractAddr"; "UserAddr"; "Time" ; "Money" ] "_coq").
+          mkNames mp ["address"; "time"; "ContractAddr";
+                      "UserAddr"; "Time" ; "Money" ] "_coq").
 
 
 Definition address_ty :=
@@ -81,7 +82,8 @@ Notation "a <=t b" := [| {eConst (to_string_name <% leb_time %>)} {a} {b} |]
 
 (** A simplified representation of a call context.
     Contains: current time, sender, transaction amount, contract's balance *)
-Notation "'CallCtx'" := [! time × (address × (money × money)) !] (in custom type at level 0).
+Notation "'CallCtx'" := [! time × (address × (money × money)) !]
+                         (in custom type at level 0).
 
 Notation "'current_time' st" :=
   [| first time (address × (money × money)) {st} |]
@@ -199,7 +201,10 @@ Definition init_wrapper {setup storage}
     init simple_ctx.
 
 
-(** Our approximation for finite maps. We cannot use the one defined in the Embedding.Prelude, because it cannot be made parametric wrt. the type of keys doe to limitations of the embedding (types cannot be constants, only inductives) *)
+(** Our approximation for finite maps. We cannot use the one defined in the
+    Embedding.Prelude, because it cannot be made parametric wrt. the type of
+    keys doe to limitations of the embedding (types cannot be constants,
+    only inductives) *)
 Module Maps.
   Open Scope nat.
 

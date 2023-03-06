@@ -35,11 +35,11 @@ Module BATGens (Info : BATGensInfo).
 
   Definition get_refundable_accounts state : list (G (option Address)) :=
     let balances_list := FMap.elements (balances state) in
-    let filtered_balances := filter (fun x => (bat_addr_refundable || (negb (address_eqb bat_addr (fst x)))) && (0 <? (snd x))%N) balances_list in
+    let filtered_balances := filter (fun x => (bat_addr_refundable || (address_neqb bat_addr (fst x))) && (0 <? (snd x))%N) balances_list in
       map returnGen (map Some (map fst filtered_balances)).
 
   Definition get_fundable_accounts env : G (option Address) :=
-    let freq_accounts := map (fun addr => (if bat_addr_fundable || (negb (address_eqb addr bat_addr)) then Z.to_nat (account_balance env addr) else 0, returnGenSome addr)) accounts in
+    let freq_accounts := map (fun addr => (if bat_addr_fundable || (address_neqb addr bat_addr) then Z.to_nat (account_balance env addr) else 0, returnGenSome addr)) accounts in
       freq_ (returnGen None) freq_accounts.
 
   Definition gFund_amount env state addr : G Z :=
@@ -50,7 +50,7 @@ Module BATGens (Info : BATGensInfo).
     if (state.(isFinalized)
             || (Nat.ltb current_slot state.(fundingStart))
             || (Nat.ltb state.(fundingEnd) current_slot) (* Funding can only happen in funding period *)
-            || (N.ltb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate))) (* No funding if cap was hit or we are too close to it *)
+            || (N.ltb (state.(tokenCreationCap) - (total_supply state)) state.(tokenExchangeRate))) (* No funding if cap was hit or if we are too close to it *)
     then
       returnGen None
     else
@@ -119,7 +119,7 @@ Module BATGens (Info : BATGensInfo).
     else
       returnGen None.
 
-  (* BAT valid call generator
+  (* BAT valid call generator.
     Generator that will always return BAToken contract calls that are valid on their own,
     i.e. guaranteed to be valid if it is the first action executed in the block.
   *)
@@ -166,7 +166,7 @@ Module BATGens (Info : BATGensInfo).
       )
     ].
 
-  (* BAT invalid call generator
+  (* BAT invalid call generator.
     Generator likely to generate invalid BAToken contract calls.
     It treats the BAToken code mostly as blackbox and only know the expected types of input
       but does not make any assumptions/checks on which values will result in valid or invalid calls
@@ -217,7 +217,7 @@ Module BATGens (Info : BATGensInfo).
       - 6.5% chance of using the invalid action generator. This generator is likely to generate an invalid call
         since it treats the contract as a black box and thus does not check any of the expected requirements for
         a contract call to be valid.
-      The reamaining 90% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
+      The remaining 90% of the time it will generate a call that is guaranteed to be valid (only guaranteed to
       be valid on its own, since the generator cannot know what other calls may be included in the same block and
       which order they will be executed in)
   *)

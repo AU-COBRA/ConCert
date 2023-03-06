@@ -62,8 +62,10 @@ Definition bind_error {T E1 E2 : Type} (f : E1 -> E2) (r : result T E1) : result
   | Err e => Err (f e)
   end.
 
-Definition isOk {T E : Type} (r : result T E) := match r with | Ok _ => true | Err _ => false end.
-Definition isErr {T E : Type} (r : result T E) := match r with | Ok _ => false | Err _ => true end.
+Definition isOk {T E : Type} (r : result T E) :=
+  match r with | Ok _ => true | Err _ => false end.
+Definition isErr {T E : Type} (r : result T E) :=
+  match r with | Ok _ => false | Err _ => true end.
 
 
 Lemma result_of_option_eq_some : forall {T E : Type} (x : option T) (e : E) (y : T),

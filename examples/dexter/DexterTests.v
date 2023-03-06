@@ -39,7 +39,7 @@ Definition exchange_tokens_to_money_act owner amount :=
     tokens_sold := amount;
   |}).
 
-(* Setup a chain with token contract, and dexter contract deployed.
+(* Set up a chain with token contract, and dexter contract deployed.
    Also adds some tokens to person_1 and dexter contract, and adds some operators on the fa2 contract *)
 Definition chain : ChainBuilder :=
   unpack_result (TraceGens.add_block builder_initial
@@ -132,11 +132,11 @@ Definition tokens_to_asset_correct :=
 (* We first test the Dexter contract with breadth-first execution model *)
 (* QuickChick (tokens_to_asset_correct). *)
 (* +++ Passed 10000 tests (0 discards) *)
-(* We see that the property holds with breadt-first execution model *)
+(* We see that the property holds with breadth-first execution model *)
 
 (* However, the Dexter contract was designed for Tezos which used
    breadth-first execution model.
-   Thus we next test the property with that model *)
+   Thus, we next test the property with that model *)
 (* Extract Constant DepthFirst => "false".
 QuickChick (tokens_to_asset_correct). *)
 (*

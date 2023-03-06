@@ -1,5 +1,4 @@
 (** Proofs of correctness *)
-
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
@@ -277,7 +276,7 @@ Proof.
       inversion He; subst; clear He.
       simpl in *. rewrite Hres in *. eauto with hints.
     + (* eConst *)
-      (* The traslation does not support constants yet *)
+      (* The translation does not support constants yet *)
       inversion He.
     + (* eCase *)
       unfold expr_eval_i in He. destruct p.
@@ -543,7 +542,7 @@ Proof.
       eapply closed_exprs; eauto.
 Qed.
 
-(** ** Soundness for closed epxressions (In the paper: Corollary 2)*)
+(** ** Soundness for closed expressions (In the paper: Corollary 2)*)
 Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2
           (e : expr) (v : val) :
   Σ1 ⋈ Σ2 ->

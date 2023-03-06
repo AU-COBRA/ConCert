@@ -39,7 +39,7 @@ Section BATAltFix.
                   (setup : Setup)
                   : result State Error :=
     (** BAToken should not be deployable if one of the following conditions does not hold on "setup"
-      - funding period is non empty
+      - funding period is non-empty
       - funding period does not start before the slot where the contract is deployed
       - minimum tokens to fund should not be less than the maximum tokens allowed
       - the initial supply of tokens should be less than the maximum tokens allowed
@@ -47,7 +47,7 @@ Section BATAltFix.
       - it must be possible to get over minimum token bound without going over maximum
       For the last condition we check that "exchange rate <= token cap - token min", however this does exclude
       a few possible configurations where the contract still works as intended, however these are not likely to
-      come up in real usecases.
+      come up in real use cases.
     *)
     do _ <- throwIf ((setup.(_fundingEnd) <=? setup.(_fundingStart))%nat
             || (setup.(_fundingStart) <? chain.(current_slot))%nat
@@ -62,9 +62,9 @@ Section BATAltFix.
         EIP20Token.allowances := FMap.empty;
       |} in
     Ok {|
-      (** EIP20Token initialisation: *)
+      (** EIP20Token initialization: *)
       token_state := token_state;
-      (** BAT initialisation: *)
+      (** BAT initialization: *)
       initSupply := setup.(_batFund);
       isFinalized := false;
       fundDeposit := setup.(_fundDeposit);
@@ -145,7 +145,7 @@ Section BATAltFix.
         Note: the last requirement makes it possible to end a funding early if the cap has been reached.
     *)
     do _ <- throwIf (state.(isFinalized) ||
-                    (negb (address_eqb sender state.(fundDeposit))) ||
+                    (address_neqb sender state.(fundDeposit)) ||
                     ((total_supply state) <? state.(tokenCreationMin))) default_error;
     do _ <- throwIf ((Nat.leb current_slot state.(fundingEnd)) &&
                       negb ((total_supply state) =? state.(tokenCreationCap)))

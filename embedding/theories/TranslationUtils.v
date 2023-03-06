@@ -123,12 +123,14 @@ Fixpoint translateData_ (ps : env string) (es : list global_dec) : TemplateMonad
     translateData_ ps es'
   end.
 
-(** [deps] is a list of dependencies for which prefixes are already defined (they come from a different module, not from the one where [es] is defined) *)
+(** [deps] is a list of dependencies for which prefixes are already defined
+    (they come from a different module, not from the one where [es] is defined) *)
 Definition translateData (deps : env string) (es : list global_dec) :=
   mp_ <- tmCurrentModPath tt ;;
   let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
   let ps := prefixes_gds es (stdlib_prefixes ++ deps) mp in
- (* NOTE: it is important that we first put [stdlib_prefixes] otherwise they might be shadowed by some definitions from [ps] *)
+ (* NOTE: it is important that we first put [stdlib_prefixes]
+    otherwise they might be shadowed by some definitions from [ps] *)
   translateData_ (stdlib_prefixes ++ deps ++ ps) es.
 
 
@@ -152,7 +154,8 @@ Definition translateDefs (deps : env string) (Σ : Ast.global_env) (es : list (s
   let ps := prefixes es deps mp in
   print_nf ("Exported definitions: " ++ Strings.String.concat ", " (map fst ps))%string;;
   tmDefinition "exported"%bs ps ;;
-  (* NOTE: it is important that we first put [stdlib_prefixes] otherweise they might be shadowed by some definitions from [ps] *)
+  (* NOTE: it is important that we first put [stdlib_prefixes]
+     otherwise they might be shadowed by some definitions from [ps] *)
   let Σ := (StdLib.Σ ++ add_prefix_genv Σ (stdlib_prefixes ++ deps ++ ps))%list in
   translateDefs_ (stdlib_prefixes ++ deps ++ ps) Σ es.
 

@@ -2,9 +2,10 @@ From Coq Require Import String.
 From Coq Require Import List.
 From ConCert.Embedding Require Import Ast.
 
-(** * Notations for the deep embeding *)
+(** * Notations for the deep embedding *)
 
-(** Here we use "custom entries" - a new feature of Coq allowing to define autonomous grammars *)
+(** Here we use "custom entries" - a new feature of
+    Coq allowing to define autonomous grammars *)
 
 Import ListNotations.
 
@@ -83,7 +84,12 @@ Notation " ctr [ tys ]" :=
         tys custom ctor_args at level 2).
 
 
-(** Unfortunately there are some problems with recursive notations (might go away after the next stable release - 8.10.). So,there are several variants of [data], [record], [case] for different number of cases below. The first argument in the recursive pattern is parsed correctly, but the second and the next ones are not considered as declared [custom], so no custom rules apply *)
+(** Unfortunately there are some problems with recursive notations
+    (might go away after the next stable release - 8.10.).
+    So, there are several variants of [data], [record], [case] for different
+    number of cases below. The first argument in the recursive pattern is
+    parsed correctly, but the second and the next ones are not considered
+    as declared [custom], so no custom rules apply. *)
 
 (* Notation "'data' ty_nm ':=' c1 | .. | cn ;;" := *)
 (*   (gdInd ty_nm (cons c1 .. (cons cn nil) ..)) *)

@@ -3,9 +3,15 @@
 
 (** ** Features/limitations *)
 
-(** Printing covers most constructs of CIC_box (terms after erasure). Usually we have to remove redundant boxes before printing. There are some limitations on what can work after extraction, due to the nature of CameLIGO, or some times, lack of proper support.
+(** Printing covers most constructs of CIC_box (terms after erasure).
+    Usually we have to remove redundant boxes before printing.
+    There are some limitations on what can work after extraction,
+    due to the nature of CameLIGO, or sometimes, lack of proper support.
 
-CameLIGO allows only tail-recursive calls and recursive functions must have only one argument. So, we pack multiple arguments in a tuple. In order for that to be correct, we assume that all fixpoints are fully applied. *)
+    CameLIGO allows only tail-recursive calls and recursive functions must
+    have only one argument. So, we pack multiple arguments in a tuple.
+    In order for that to be correct, we assume that all fixpoints are
+    fully applied. *)
 From MetaCoq.TypedExtraction Require Import Utils.
 From MetaCoq.TypedExtraction Require Import ExAst.
 From MetaCoq.TypedExtraction Require Import Annotations.
@@ -69,7 +75,8 @@ Module PrintConfAddModuleNames.
   Definition print_ctor_name_ (kn : kername) :=
     let lmn := last_module_name (fst kn) in
     let nm := (snd kn) in
-    (* NOTE: CameLIGO has a limitation for the constructor name length, so we try our best to fit and don't get clashes *)
+    (* NOTE: CameLIGO has a limitation for the constructor name length,
+       so we try our best to fit and don't get clashes *)
     let ctor_name := if lmn =? "" then bs_to_s nm else substring 0 4 lmn ^ "_" ^ nm in
     capitalize (substring 0 31 ctor_name).
 
@@ -92,8 +99,8 @@ Module PrintConfAddModuleNames.
 
 End PrintConfAddModuleNames.
 
-(** Print names only, don't prepend module names or any other parts of the fully qualified path.
-    Gives more readable code, but might lead to name clashes *)
+(** Print names only, don't prepend module names or any other parts of the
+    fully qualified path. Gives more readable code, but might lead to name clashes *)
 Module PrintConfShortNames.
 
   Local Instance PrintWithShortNames : CameLIGOPrintConfig :=
@@ -155,9 +162,11 @@ Section PPTerm.
     | _ => bt
     end.
 
-  (* Certain names in CameLIGO are reserved (like 'to' and others) so we ensure no fresh names are reserved *)
-  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.) we don't need to add them since
-     they are also reserved names in Coq, hence we can't write coq programs with these names anyways. *)
+  (* Certain names in CameLIGO are reserved (like 'to' and others)
+     so we ensure no fresh names are reserved *)
+  (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.)
+     we don't need to add them since they are also reserved names in Coq, hence
+     we can't write Coq programs with these names anyway. *)
   Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (String.eqb id) reserved.
 
@@ -189,7 +198,8 @@ Section PPTerm.
       (fun decl =>
          match decl.(decl_name) with
          | nNamed id' =>
-           (* NOTE: we compare the identifiers up to the capitalisation of the first letters *)
+           (* NOTE: we compare the identifiers up to
+              the capitalization of the first letters *)
            negb (String.eqb (uncapitalize id) (uncapitalize id'))
          | nAnon => true
          end) Γ.
@@ -215,7 +225,7 @@ Section PPTerm.
       end
     in aux n.
 
-  (* NOTE: ligo doesn't support wildcard *)
+  (* NOTE: LIGO doesn't support wildcard *)
   Definition fresh_string_name (ctx : context) (na : name) : string :=
     let id := match na with
               | nAnon => "a"
@@ -235,7 +245,8 @@ Section PPTerm.
     | [] => (Γ, [])
     | v :: vs0 =>
       let nm := fresh_string_name Γ v in
-      let Γ1 := vass (nNamed (bytestring.String.of_string nm)) :: Γ in (* add name to the context to avoid shadowing due to name clashes *)
+      (* add name to the context to avoid shadowing due to name clashes *)
+      let Γ1 := vass (nNamed (bytestring.String.of_string nm)) :: Γ in
       let '(Γ2, vs1) := go Γ1 vs0 in
       (Γ2, nm :: vs1)
     end in
@@ -243,7 +254,7 @@ Section PPTerm.
 
 
   (** The [for_ind] flag tells the type printer whether the type is used in an inductive
-      type definition or in a fucntion, since the syntax is different for these two cases
+      type definition or in a function, since the syntax is different for these two cases
       in CameLIGO *)
   Definition print_type_var_name (for_ind : bool) (var_name : string) :=
     let type_var_prefix := if for_ind then "'" else "" in
@@ -445,7 +456,9 @@ Section PPTerm.
     end
     in go [].
 
-  Definition print_pat (TT : env string) (ind_kn : kername) (ctor : string) (infix : bool) (pt : list string * string) :=
+  Definition print_pat (TT : env string) (ind_kn : kername)
+                       (ctor : string) (infix : bool)
+                       (pt : list string * string) :=
     let vars := rev (fst pt) in
     if infix then
       String.concat (" " ++ ctor ++ " ") vars ++ " -> " ++ (snd pt)
@@ -456,17 +469,18 @@ Section PPTerm.
       print_uncurried_app ctor_nm vars ++ " -> " ++ (snd pt).
 
   Definition print_num_literal (TT : env string) (t : term) : option string :=
-    (* is it an natural number literal? *)
+    (* is it a natural number literal? *)
     match nat_syn_to_nat t with
     | Some n => Some (string_of_nat n ^ "n")
     | None =>
-      (* is it an positive binary number [positive] literal? *)
+      (* is it a positive binary number [positive] literal? *)
       match pos_syn_to_nat t with
       | Some k => Some (string_of_nat k ^ "n")
-      | None => (* is it an binary natural number [N] literal? *)
+      | None => (* is it a binary natural number [N] literal? *)
         match N_syn_to_nat t with
         | Some m =>
-          (* NOTE: we check whether [N] is remapped to [int], if it's NOT, we add "n", since we consider it a natural number *)
+          (* NOTE: we check whether [N] is remapped to [int], if it's NOT,
+             we add "n", since we consider it a natural number *)
           let N_remapped := with_default "" (look TT (string_of_kername <%% N %%>)) in
           let units := if N_remapped =? "int" then "" else "n" in
           Some (string_of_nat m ^ units)
@@ -474,7 +488,8 @@ Section PPTerm.
           (* is it an integer number [Z] literal? *)
           match Z_syn_to_Z t with
           | Some z =>
-            (* NOTE: we check whether [Z] is remapped to [tez], if so, we add "tz" to the literal *)
+            (* NOTE: we check whether [Z] is remapped to [tez],
+               if so, we add "tz" to the literal *)
             let Z_remapped := with_default "" (look TT (string_of_kername <%% BinInt.Z %%>)) in
             let units := if Z_remapped =? "tez" then "tez" else "" in
             Some (string_of_Z z ^ units)
@@ -494,13 +509,13 @@ Section PPTerm.
   (** ** The pretty-printer *)
 
   (** [TT] - translation table allowing for remapping constants and constructors to
-  CameLIGO primitives, if required.
+      CameLIGO primitives, if required.
 
       [ctx] - context that gets updated when we go under lambda, let, pattern or
       fixpoint.
 
       [ty_ctx] - context of type variables. Note that we don't update it, meaning that
-      polymorphic definitions can be only top-level for now. To allow local polymoprhic
+      polymorphic definitions can be only top-level for now. To allow local polymorphic
       definitions (not sure whether these are supported in LIGO), we need to update type
       annotations, so they provide type context as well.
 
@@ -516,7 +531,7 @@ Section PPTerm.
                       (t : term)
                       {struct t} : annots box_type t -> string :=
     match t return annots box_type t -> string with
-    | tBox => fun bt => "()" (* boxes become the contructor of the [unit] type *)
+    | tBox => fun bt => "()" (* boxes become the constructor of the [unit] type *)
     | tRel n => fun bt =>
       match nth_error ctx n with
       | Some {| decl_name := na |} =>
@@ -590,7 +605,8 @@ Section PPTerm.
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type ty_ctx TT bt ++ ")"
                 | _,_ =>
                   let nm' := with_default (print_ctor_name (fst mind, bytestring.String.of_string nm)) (look TT nm) in
-                  (* constructors take a single argument (uncurried), so we wrap the args into a tuple *)
+                  (* constructors take a single argument (uncurried),
+                     so we wrap the args into a tuple *)
                   parens top (print_uncurried_app nm' apps)
                 end
               end
@@ -696,7 +712,8 @@ Section PPTerm.
         let targs := combine sargs (map (print_box_type ty_ctx TT) tys) in
         let sargs_typed := String.concat " " (map (fun '(x,ty) => parens false (x ++ " : " ++ ty)) targs) in
         let fix_call := parens false (fix_name ^ " : " ^ print_box_type ty_ctx TT bt) in
-        (* NOTE: we cannot directly use the result of decomposing with [Edecompose_lam_annot] beause the guardedness check cannot see through it *)
+        (* NOTE: we cannot directly use the result of decomposing with
+           [Edecompose_lam_annot] because the guardedness check cannot see through it *)
         let fix_body := lam_body_annot_cont (fun body body_annot => print_term TT ctx ty_ctx true false body body_annot) fix_decl.(dbody) fixa in
         parens top ("let rec " ++ fix_name ^ " " ^ sargs_typed ^ " : " ^ sret_ty ^ " = " ^ nl ^
                       fix_body ^ nl ^
@@ -783,13 +800,13 @@ Section PPLigo.
     "let" ^ " " ^ decl ^ " : " ^ printed_res_ty ^ " = " ^ nl
     ^ wrap (print_term env TT ctx forall_abstractions true false lam_body body_annot).
 
-  (* NOTE: we assume that [init] is not a polymoprhic function, so we use an empty type
+  (* NOTE: we assume that [init] is not a polymorphic function, so we use an empty type
     context when printing types *)
   Definition print_init
              (TT : env string) (* translation table *)
-             (build_call_ctx : string) (* a string that corresponds to a call contex *)
+             (build_call_ctx : string) (* a string that corresponds to a call context *)
              (init_prelude : string) (* operations available in the [init] as local definitions.
-                                        CameLIGO does not allow to refer to global definitions in [init]*)
+                                        CameLIGO does not allow referring to global definitions in [init]*)
              (env : ExAst.global_env)
              (cst : ExAst.constant_body)
              : (constant_body_annots box_type cst) -> option string :=
@@ -902,7 +919,9 @@ Section PPLigo.
 
   Local Open Scope string_scope.
 
-  (** We un-overload operations and add definitions that are more convenient to use during the pretty-printing phase. These part should be included when printing contracts that use the corresponding operations. *)
+  (** We un-overload operations and add definitions that are more convenient
+      to use during the pretty-printing phase. These part should be included
+      when printing contracts that use the corresponding operations. *)
 
   Definition int_ops :=
     <$
@@ -1002,7 +1021,7 @@ Section PPLigo.
   $>.
 
   Definition CameLIGO_chain_instance :=
-  <$ (* ConCert's Chain type and its instance. Currently we map all fields to Tezos.level *)
+  <$ (* ConCert's Chain type and its instance. Currently, we map all fields to Tezos.level *)
   "type chain = {"
   ; "  chain_height_     : nat;"
   ; "  current_slot_     : nat;"
@@ -1050,7 +1069,9 @@ Section PPLigo.
        "      Ok v -> (v.0, v.1)" ;
        "    | Err e -> (failwith e : return))" $>.
 
-  Definition print_default_entry_point (state_nm : kername) (receive_nm : kername) (msg_nm : kername) :=
+  Definition print_default_entry_point (state_nm : kername)
+                                       (receive_nm : kername)
+                                       (msg_nm : kername) :=
   let st := print_type_name state_nm in
   let rec := print_const_name receive_nm in
   let msg := print_type_name msg_nm in

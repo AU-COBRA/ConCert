@@ -30,7 +30,8 @@ Definition z := "z".
 
 (** ** Negation on booleans *)
 
-(** First we define a conversion function taking a bool and producing the corresponding syntactic λsmart value *)
+(** First we define a conversion function taking a bool
+    and producing the corresponding syntactic λsmart value *)
 Definition of_bool : bool -> val :=
   fun b => if b then vConstr Bool "true" []
         else vConstr Bool "false" [].
@@ -46,7 +47,10 @@ Definition my_negb_syn :=
 (** We translate and unquote using the ConCert embedding feature *)
 MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-(** We prove that the running the interpreter with [my_negb_syn] applied to an expression originating from Coq' boolean value computes the same result as the unquoted function [my_negb]. As a result, we do not depend on correctness of [unquote] *)
+(** We prove that the running the interpreter with [my_negb_syn] applied
+    to an expression originating from Coq' boolean value computes the same
+    result as the unquoted function [my_negb]. As a result, we do not
+    depend on correctness of [unquote] *)
 Lemma my_negb_correct b :
   exists n v,
     eval(Σ, n,
@@ -56,4 +60,7 @@ Proof.
   destruct b; exists 3; eexists; simpl; eauto.
 Qed.
 
-(** One can prove similar results any non-recursive definition. Proofs in this case would require just case analysis and computation. For recursive definitions proofs would require induction and some additional lemmas *)
+(** One can prove similar results any non-recursive definition.
+    Proofs in this case would require just case analysis and computation.
+    For recursive definitions proofs would require induction
+    and some additional lemmas *)

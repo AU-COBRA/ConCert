@@ -54,7 +54,7 @@ Definition setupWchain := (BV.Setup × Chain).
 Definition init_wrapper (cctx : ContractCallContext) (s : setupWchain) := (run_contract_initer BV.init) s.2 cctx s.1.
 
 
-(** In the Tezos blockchain there is no concept of initialisation
+(** In the Tezos blockchain there is no concept of initialization
     function. However, it's common to provide a function that computes
     a valid initial storage that can be used for deployment.*)
 Definition init (s : Address * Setup) : result State Error :=
@@ -290,14 +290,14 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @List.map %%> "List.map"
   ; remap <%% @List.find %%> "List.find"
   ; remap <%% @List.length %%> "List.length"
-  ; remap <%% @List.app %%> "List.fold_left (fun (acc, e : (int list) * int) -> e :: acc)" (* small hack since ligo doesn't have append on lists *)
+  ; remap <%% @List.app %%> "List.fold_left (fun (acc, e : (int list) * int) -> e :: acc)" (* small hack since LIGO doesn't have append on lists *)
   ].
 
 (** A translation table of constructors and some constants. The corresponding definitions will be extracted and renamed. *)
 Definition TT_rename : list (string * string) :=
   [ ("Some", "Some")
   ; ("None", "None")
-  ; ("Zpos" ,"int") (* [int] is an embedding of natutal numbers to integers in CameLIGO *)
+  ; ("Zpos" ,"int") (* [int] is an embedding of natural numbers to integers in CameLIGO *)
   ; ("S" ,"1n +")
   ; ("true", "true")
   ; ("false", "false")

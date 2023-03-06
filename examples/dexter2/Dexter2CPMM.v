@@ -7,9 +7,9 @@
     This contract is an implementation of a Constant Product Market Maker (CPMM).
     When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,
     this contract serves as a decentralized exchange allowing users to trade between
-    XTZ and tokens. Additionally users can also add or withdraw funds from the
+    XTZ and tokens. Additionally, users can also add or withdraw funds from the
     exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
-    of the trading reserves, this way user are incentivised to add funds to the reserves.
+    of the trading reserves, this way user are incentivized to add funds to the reserves.
 *)
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
@@ -187,7 +187,7 @@ Module Type NullAddress.
     (** Null address that will newer contain contracts *)
     Parameter null_address : Address.
 
-    (** Place holder for tezos set delegate operation *)
+    (** Placeholder for Tezos set delegate operation *)
     Parameter set_delegate_call : baker_address -> list ActionBody.
     Axiom delegate_call : forall addr, Forall (fun action =>
       match action with
@@ -225,7 +225,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 
     (** ** Helper functions *)
 
-    (** [Amount] is defined as an alias to [Z]. We use these conversion function to mark
+    (** [Amount] is defined as an alias to [Z]. We use these conversion functions to mark
         the places explicitly where the conversion from amounts happens. *)
     Definition amount_to_N : Amount -> N := Z.to_N.
     Definition N_to_amount : N -> Amount := Z.of_N.
@@ -258,7 +258,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                     : ActionBody :=
       act_call addr (N_to_amount amt) (serialize msg).
 
-    (** Note that [quantity] is allowed to be negative. In this case it correspons to burning *)
+    (** Note that [quantity] is allowed to be negative. In this case it corresponds to burning *)
     Definition mint_or_burn (state : State)
                             (target : Address)
                             (quantitiy : Z)
@@ -398,7 +398,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                          : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_BAKER *)
       do _ <- throwIf (state.(freezeBaker)) default_error; (* error_BAKER_PERMANENTLY_FROZEN *)
         Ok (state<| freezeBaker := param.(freezeBaker_) |>, set_delegate_call param.(baker)).
 
@@ -410,7 +410,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                            : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_MANAGER *)
         Ok (state<| manager := new_manager |>, []).
 
     (** ** Set liquidity address *)
@@ -421,8 +421,8 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                : Result :=
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_SELF_IS_UPDATING_TOKEN_POOL_MUST_BE_FALSE *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) state.(manager))) default_error; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
-      do _ <- throwIf (negb (address_eqb state.(lqtAddress) null_address)) default_error; (* error_LQT_ADDRESS_ALREADY_SET *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) state.(manager)) default_error; (* error_ONLY_MANAGER_CAN_SET_LQT_ADRESS *)
+      do _ <- throwIf (address_neqb state.(lqtAddress) null_address) default_error; (* error_LQT_ADDRESS_ALREADY_SET *)
         Ok (state<| lqtAddress := new_lqt_address |>, []).
 
     (** ** Update token pool *)
@@ -430,7 +430,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                  (ctx : ContractCallContext)
                                  (state : State)
                                  : Result :=
-      do _ <- throwIf (negb (address_eqb ctx.(ctx_from) ctx.(ctx_origin))) default_error; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
+      do _ <- throwIf (address_neqb ctx.(ctx_from) ctx.(ctx_origin)) default_error; (* error_CALL_NOT_FROM_AN_IMPLICIT_ACCOUNT *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do _ <- throwIf state.(selfIsUpdatingTokenPool) default_error; (* error_UNEXPECTED_REENTRANCE_IN_UPDATE_TOKEN_POOL *)
       let balance_of_request :=
@@ -447,7 +447,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
                                           (token_pool : update_token_pool_internal_)
                                           : Result :=
       do _ <- throwIf ((negb state.(selfIsUpdatingTokenPool)) ||
-                        (negb (address_eqb ctx.(ctx_from) state.(tokenAddress)))) default_error; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
+                        (address_neqb ctx.(ctx_from) state.(tokenAddress))) default_error; (* error_THIS_ENTRYPOINT_MAY_ONLY_BE_CALLED_BY_GETBALANCE_OF_TOKENADDRESS *)
       do _ <- throwIf (non_zero_amount ctx.(ctx_amount)) default_error; (* error_AMOUNT_MUST_BE_ZERO *)
       do token_pool <-
         match token_pool with
@@ -546,7 +546,7 @@ Module Dexter2 (SI : Dexter2Serializable) (NAddr : NullAddress).
 End Dexter2.
 
 Module DSInstances <: Dexter2Serializable.
-  (* Serialisation instances (omitted).
+  (* Serialization instances (omitted).
 
       NOTE: we use [<:] to make the definitions transparent, so the
       implementation details can be revealed, if needed *)

@@ -1,5 +1,4 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
-
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.Template Require Import BasicAst.
@@ -30,7 +29,8 @@ Fixpoint mdots (prefix : modpath) (l : list MCString.string) :=
   | h :: tl => mdots (MPdot prefix h) tl
   end.
 
-(** Parses a string containig a file path and a module path separated in a way that helps to recover the kername structure.
+(** Parses a string containing a file path and a module path
+    separated in a way that helps to recover the kername structure.
  E.g. "Path/To/File#ModuleName.NestedModuleName" *)
 Definition modpath_of_string (s : string) : modpath :=
   let fpath_mod := StringExtra.str_split "#" s in
@@ -42,8 +42,9 @@ Definition modpath_of_string (s : string) : modpath :=
   if module =? "" then fp
   else mdots fp mod_items.
 
-(** Parses a string containig a file path, a module path separated and a name in a way that helps to recover the kername structure.
- E.g. "Path/To/File#ModuleName.NestedModuleName@FunctionName" *)
+(** Parses a string containing a file path, a module path separated
+    and a name in a way that helps to recover the kername structure.
+    E.g. "Path/To/File#ModuleName.NestedModuleName@FunctionName" *)
 Definition kername_of_string (s : string) : kername :=
   let qualified_name := StringExtra.str_split "@" s in
   if Nat.eqb (List.length qualified_name) 1
@@ -53,7 +54,8 @@ Definition kername_of_string (s : string) : kername :=
        let name := TCString.of_string (hd "" (tl qualified_name)) in
        (modpath_of_string path, name).
 
-(** The priting functions below are similar to the ones from MetaCoq, but we use different separators for different parts of the [kername] *)
+(** The printing functions below are similar to the ones from MetaCoq,
+    but we use different separators for different parts of the [kername] *)
 
 Definition string_of_dirpath (dp : dirpath) : string :=
   TCString.to_string (String.concat "/" (rev dp)).
@@ -77,7 +79,9 @@ Definition string_of_kername (kn : kername) :=
 Definition aRelevant (n : name) :=
   {| binder_name := n; binder_relevance := Relevant |}.
 
-(** Translation of types to PCUIC terms. Universal types become Pi-types with the first argument being of type [Set]. Keeping them in [Set] is crucial, since we don't have to deal with universe levels *)
+(** Translation of types to PCUIC terms. Universal types become Pi-types with the
+    first argument being of type [Set]. Keeping them in [Set] is crucial,
+    since we don't have to deal with universe levels *)
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd (kername_of_string i) 0) []
@@ -92,7 +96,9 @@ Fixpoint type_to_term (ty : type) : term :=
   end
 where "T⟦ ty ⟧ " := (type_to_term ty).
 
-(** Translating branches of the [eCase] construct. Note that MetaCoq uses indices to represent constructors. Indices are corresponding positions in the list of constructors for a particular inductive type *)
+(** Translating branches of the [eCase] construct. Note that MetaCoq uses indices
+    to represent constructors. Indices are corresponding positions in the list of
+    constructors for a particular inductive type *)
 Definition etrans_branch (params : list type)(bs : list (pat * term))
            (c : constr) : branch term :=
   let nm := fst c in
@@ -185,7 +191,7 @@ Definition of_ename (e : option ename) : aname :=
   | None => aRelevant nAnon
   end.
 
-(** Translation of constructors of parameterised inductive types requires
+(** Translation of constructors of parameterized inductive types requires
     non-trivial manipulation of De Bruijn indices. *)
 Definition mkArrows_rec (ind_name : ename) (nparam : nat) :=
   fix rec (n : nat) (proj_tys : list (option ename * type)) :=
@@ -350,8 +356,10 @@ Module StdLib.
     [gdInd Unit 0 [("tt", [])] false;
      gdInd Bool 0 [("true", []); ("false", [])] false;
      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
-     gdInd Int 0 [("Z0", [])] false ; (* we ommit other construtors for now, since in general integer literals are not supported yet *)
-     gdInd String 0 [] false; (* just for remapping string to Coq string, construtors are not necessary *)
+     (* we omit other constructors for now, since in general integer literals are not supported yet *)
+     gdInd Int 0 [("Z0", [])] false ;
+     (* just for remapping string to Coq string, constructors are not necessary *)
+     gdInd String 0 [] false;
      gdInd List 1 [("nil", []); ("cons", [(None,tyRel 0);
                                          (None,tyApp (tyInd List) (tyRel 0))])] false;
      gdInd Prod 2 [("pair", [(None,tyRel 1); (None,tyRel 0)])] false].

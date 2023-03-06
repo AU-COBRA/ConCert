@@ -129,7 +129,7 @@ Section CounterExtraction.
 
 
   (*  If we first prepare the environment for erasure in [TemplateMonad] *)
-  (*  and run erasure/prining outside of it, it works ~4 times faster for this example *)
+  (*  and run erasure/printing outside of it, it works ~4 times faster for this example *)
 
   (** This command adds [cameLIGO_counter_prepared] to the environment, *)
   (*  which can be evaluated later *)

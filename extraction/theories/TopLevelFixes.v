@@ -16,8 +16,10 @@ Local Open Scope erasure.
 
 Fixpoint optimize_aux (t : term) (kn : Kernames.kername) (lams : nat) :=
   match t with
-  | tLambda na body => tLambda na (optimize_aux body kn (S lams))
-  | tFix [def] 0 => (dbody def){0 := mkApps (tConst kn) (MCList.rev_map tRel (seq 0 lams))}
+  | tLambda na body =>
+      tLambda na (optimize_aux body kn (S lams))
+  | tFix [def] 0 =>
+      (dbody def){0 := mkApps (tConst kn) (MCList.rev_map tRel (seq 0 lams))}
   | _ => t
   end.
 

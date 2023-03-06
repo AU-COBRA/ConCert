@@ -1,4 +1,5 @@
-(* Computation needed to show termination of the Bernstein-Yang modular inversion algorithm *)
+(* Computation needed to show termination of the
+   Bernstein-Yang modular inversion algorithm *)
 
 From ConCert.Extraction Require Import Loader.
 From Coq Require Import Bool.

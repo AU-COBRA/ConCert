@@ -38,7 +38,7 @@ Section BATCommon.
     (** Message types from the EIP20/ERC20 Standard Token: *)
     | tokenMsg : EIP20Token.Msg -> Msg
     (** Message types specific for BAT: *)
-    (** create_tokens acceps the currency of the chain and converts
+    (** create_tokens accepts the currency of the chain and converts
         it to BAT according to the pre-specified exchange rate *)
     | create_tokens : Msg
     (** finalize ends the funding period and sends the chain currency to
@@ -71,7 +71,7 @@ Section BATCommon.
       _fundingStart	  		: nat;
       _fundingEnd					: nat;
       (** In the reference implementation, the fields below are constants,
-          but we allow setting them at initialisation, in order to test out different values. *)
+          but we allow setting them at initialization, in order to test out different values. *)
       _tokenExchangeRate  : N;
       _tokenCreationCap 	: N;
       _tokenCreationMin 	: N;
@@ -331,7 +331,7 @@ Section BATCommon.
                           else 0) bstate.(chain_state_queue))
           (env_account_balances bstate account).
 
-  (** Spendable blance is the balance of an account minus their pending
+  (** Spendable balance is the balance of an account minus their pending
       usage, i.e. the minimum amount that the account is guaranteed to have
       available for usage next block. *)
   Definition spendable_balance (bstate : ChainState) accounts : Amount :=
@@ -397,7 +397,7 @@ Section BATCommon.
   Local Close Scope Z_scope.
 
   (** Function that generated create_token actions.
-      Will keep generating action untill all accounts given have been emptied of balance
+      Will keep generating action until all accounts given have been emptied of balance
       or the token goal is hit. Also ensures that we do not hit the token creation cap
       by only creation just enough to go over the token goal. *)
   Fixpoint create_token_acts (env : Environment) caddr accounts tokens_left exchange_rate :=

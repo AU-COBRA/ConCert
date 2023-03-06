@@ -1,6 +1,6 @@
 (** * EIP20 Token Implementation *)
 (**
-  This file contains an correctness proofs of the EIP20 token implementation.
+  This file contains correctness proofs of the EIP20 token implementation.
 *)
 From Coq Require Import ZArith_base.
 From Coq Require Import List. Import ListNotations.
@@ -146,7 +146,7 @@ Section Theories.
     repeat (
       try eip_simpl;
       try address_map_convert;
-      try contract_simpl_step receive init).
+      try contract_simpl_step @receive @init).
 
   Ltac FMap_simpl_step :=
     match goal with
@@ -222,7 +222,7 @@ Section Theories.
 
 
 
-  (** ** Expected behvaiour of EIP20 functions *)
+  (** ** Expected behaviour of EIP20 functions *)
   Definition transfer_balance_update_correct old_state new_state from to tokens :=
     let get_balance addr state := with_default 0 (FMap.find addr state.(balances)) in
     let from_balance_before := get_balance from old_state in
@@ -310,7 +310,7 @@ Section Theories.
     FMap_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on transfer msg must succeed and
+  (** If the requirements are met then receive on transfer msg must succeed and
       if receive on transfer msg succeeds then requirements must hold *)
   Lemma try_transfer_is_some : forall state chain ctx to amount,
     (ctx_amount ctx <= 0)%Z /\
@@ -434,7 +434,7 @@ Section Theories.
 
   Set Keyed Unification.
 
-  (** If the requirements are met then then receive on transfer_from msg must succeed and
+  (** If the requirements are met then receive on transfer_from msg must succeed and
       if receive on transfer_from msg succeeds then requirements must hold *)
   Lemma try_transfer_from_is_some : forall state chain ctx from to amount,
     let get_allowance_ account := FMap.find account (with_default (@FMap.empty (FMap Address TokenValue) _) (FMap.find from (allowances state))) in
@@ -545,7 +545,7 @@ Section Theories.
       cbn; FMap_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on approve msg must succeed and
+  (** If the requirements are met then receive on approve msg must succeed and
       if receive on approve msg succeeds then requirements must hold *)
   Lemma try_approve_is_some : forall state chain ctx delegate amount,
     (ctx_amount ctx >? 0)%Z = false <-> isOk (receive chain ctx state (Some (approve delegate amount))) = true.
@@ -563,7 +563,7 @@ Section Theories.
 
   (** ** EIP20 functions preserve sum of balances *)
 
-  (** Sum of all balances remain the same after proccessing transfer msg *)
+  (** Sum of all balances remain the same after processing transfer msg *)
   Lemma try_transfer_preserves_balances_sum : forall prev_state new_state chain ctx to amount new_acts,
     receive chain ctx prev_state (Some (transfer to amount)) = Ok (new_state, new_acts) ->
       (sum_balances prev_state) = (sum_balances new_state).
@@ -575,7 +575,7 @@ Section Theories.
     now apply sumN_FMap_add_sub.
   Qed.
 
-  (** Sum of all balances remain the same after proccessing transfer_from msg *)
+  (** Sum of all balances remain the same after processing transfer_from msg *)
   Lemma try_transfer_from_preserves_balances_sum : forall prev_state new_state chain ctx from to amount new_acts,
     receive chain ctx prev_state (Some (transfer_from from to amount)) = Ok (new_state, new_acts) ->
       (sum_balances prev_state) = (sum_balances new_state).
@@ -615,7 +615,7 @@ Section Theories.
 
 
 
-  (** ** Total supply always equals inial supply *)
+  (** ** Total supply always equals initial supply *)
   Lemma total_supply_eq_init_supply bstate caddr (trace : ChainTrace empty_state bstate) :
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     exists deploy_info cstate,

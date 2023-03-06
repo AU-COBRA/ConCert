@@ -1,4 +1,4 @@
-(** * λsmart language definition  *)
+(** * λsmart language definition *)
 From MetaCoq.Template Require All.
 From Coq Require Import String.
 From Coq Require Import List.
@@ -26,9 +26,14 @@ Record pat := pConstr {pName : ename; pVars : list ename}.
 
 (** ** λsmart AST *)
 
-(** We have both named variables and de Bruijn indices. Translation to MetaCoq requires indices, while named representation is what we might get from the integration API. We can define relations on type of expressions ensuring that either names are used, or indices, but not both at the same time. *)
+(** We have both named variables and de Bruijn indices.
+    Translation to MetaCoq requires indices, while named representation
+    is what we might get from the integration API. We can define relations
+    on type of expressions ensuring that either names are used, or indices,
+    but not both at the same time. *)
 
-(** Note also that AST must be explicitly annotated with types. This is required for the translation to MetaCoq. *)
+(** Note also that AST must be explicitly annotated with types.
+    This is required for the translation to MetaCoq. *)
 Inductive expr : Set :=
 | eRel       : nat -> expr (* de Bruijn index *)
 | eVar       : ename -> expr (* named variables *)
@@ -47,8 +52,8 @@ Inductive expr : Set :=
                type (* of the arg *) -> type (* return type *) -> expr (* body *) -> expr
 | eTy        : type -> expr.
 
-(** An induction principle that takes into account nested occurrences of expressions
-   in the list of branches for [eCase] *)
+(** An induction principle that takes into account nested
+    occurrences of expressions in the list of branches for [eCase] *)
 Definition expr_ind_case (P : expr -> Prop)
            (Hrel    : forall n : nat, P (eRel n))
            (Hvar    : forall n : ename, P (eVar n))
@@ -117,7 +122,8 @@ Definition vars_to_apps acc vs :=
 
 Definition constr := (string * list (option ename * type))%type.
 
-(** Global declarations. Will be extended to handle declaration of constant, e.g. function definitions *)
+(** Global declarations. Will be extended to handle
+    declaration of constant, e.g. function definitions *)
 Inductive global_dec :=
 | gdInd : ename
           -> nat (* num of params *)
@@ -140,7 +146,8 @@ Fixpoint lookup_global ( Σ : global_env) (key : ename) : option global_dec :=
   | gdInd key' n v r :: xs => if eqb key' key then Some (gdInd key' n v r) else lookup_global xs key
   end.
 
-(** Looks up for the given inductive by name and if succeeds, returns a list of constructors with corresponding arities *)
+(** Looks up for the given inductive by name and if succeeds,
+    returns a list of constructors with corresponding arities *)
 Definition resolve_inductive (Σ : global_env) (ind_name : ename)
   : option (nat * list constr) :=
   match (lookup_global Σ ind_name) with
@@ -150,7 +157,8 @@ Definition resolve_inductive (Σ : global_env) (ind_name : ename)
 
 Definition remove_proj (c : constr) := map snd (snd c).
 
-(** Resolves the given constructor name to a corresponding position in the list of constructors along with the constructor's arity *)
+(** Resolves the given constructor name to a corresponding position
+    in the list of constructors along with the constructor's arity *)
 Definition resolve_constr (Σ : global_env) (ind_name constr_name : ename)
   : option (nat * nat * list type) :=
   match (resolve_inductive Σ ind_name) with
@@ -165,8 +173,9 @@ Definition resolve_constr (Σ : global_env) (ind_name constr_name : ename)
 Definition bump_indices (l : list (ename * nat)) (n : nat) :=
   map (fun '(x,y) => (x, n+y)) l.
 
-(** For a list of vars returns a list of pairs (var,number) where the number is a position of the var counted from the end of the list.
- E.g. number_vars ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)] *)
+(** For a list of vars returns a list of pairs (var,number) where
+    the number is a position of the var counted from the end of the list.
+    E.g. number_vars ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)] *)
 Definition number_vars (i : nat) (ns : list ename) : list (ename * nat) :=
   combine ns (rev (seq i (length ns + i))).
 
@@ -175,7 +184,7 @@ Open Scope string.
 Example number_vars_xyz : number_vars 0 ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)].
 Proof. reflexivity. Qed.
 
-(** ** Convertion from named representation to De Bruijn indices *)
+(** ** Conversion from named representation to De Bruijn indices *)
 
 (** Converting variable names to De Bruijn indices in types *)
 Fixpoint indexify_type (l : list (ename * nat)) (ty : type) : type :=
@@ -245,7 +254,10 @@ Fixpoint lift_type_vars (n k : nat) (ty : type) : type :=
 
 (** ** Merging type and term De Bruijn indices *)
 
-(** Merging De Bruijn indices of type variables corresponding to type abstractions with lambda abstractions. We assume that the expressions are in the prenex form, so type abstractions can only occur at the outermost positions: [\\A => \\ B => ... \x => \y => t] *)
+(** Merging De Bruijn indices of type variables corresponding to type
+    abstractions with lambda abstractions. We assume that the expressions
+    are in the prenex form, so type abstractions can only occur at
+    the outermost positions: [\\A => \\ B => ... \x => \y => t] *)
 Fixpoint reindexify (n : nat) (e : expr) : expr :=
   match e with
   | eRel i => eRel i
@@ -274,10 +286,11 @@ Fixpoint decompose_inductive (ty : type) : option (ename * list type) :=
   match ty with
   | tyInd x => Some (x,[])
   | tyForall nm ty => None
-  | tyApp ty1 ty2 => match decompose_inductive ty1 with
-                    | Some res =>let '(ind, tys) := res in Some (ind, (tys++[ty2])%list)
-                    | _ => None
-                    end
+  | tyApp ty1 ty2 =>
+      match decompose_inductive ty1 with
+      | Some res =>let '(ind, tys) := res in Some (ind, (tys++[ty2])%list)
+      | _ => None
+      end
   | tyVar x => None
   | tyRel x => None
   | tyArr x x0 => None

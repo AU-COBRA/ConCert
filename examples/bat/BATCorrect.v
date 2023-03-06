@@ -25,7 +25,7 @@ Section Theories.
   Context {BaseTypes : ChainBase}.
   Open Scope N_scope.
   (* Tactics to simplify proof steps *)
-  Tactic Notation "contract_simpl" := unfold init in *; contract_simpl receive init.
+  Tactic Notation "contract_simpl" := contract_simpl @receive @init.
 
   Ltac destruct_message :=
     repeat match goal with
@@ -397,7 +397,7 @@ Section Theories.
       propify;
       destruct_or_hyps;
       try easy;
-      now destruct_address_eq.
+      try now destruct_address_eq.
   Qed.
 
   Lemma try_finalize_acts_correct : forall prev_state new_state chain ctx new_acts,
@@ -705,7 +705,7 @@ Section Theories.
 
   (** ** Constants are constant *)
 
-  (** Constants should never change after after receiving msg *)
+  (** Constants should never change after receiving msg *)
   Lemma receive_preserves_constants : forall prev_state new_state chain ctx msg new_acts,
     receive chain ctx prev_state msg = Ok (new_state, new_acts) ->
         prev_state.(fundDeposit) = new_state.(fundDeposit)
@@ -852,13 +852,13 @@ Section Theories.
       cbn; destruct_address_eq; try easy.
       eapply N.le_trans; eauto.
     - update_all.
-      (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+      (* First check if contract is already finalized, if it is, we just use the current state to finish proof *)
       destruct (isFinalized cstate) eqn:finalized;
         [eexists; rewrite queue; split; eauto; split; eauto; eapply empty_queue_is_emptyable |].
       (* Fast forward time/slot to "fundingEnd" so that we know for sure that the funding period is not active
           in the next block *)
       forward_time (cstate.(fundingEnd)); eauto.
-      (* forward_time gives us a new ChainState so we no longer need the old one therefore
+      (* forward_time gives us a new ChainState, so we no longer need the old one therefore
           we call update_all to replace all occurrences of the old ChainState with the new one *)
       update_all.
       (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
@@ -975,13 +975,13 @@ Section Theories.
       eapply spendable_consume_act; eauto;
         intros; rewrite_environment_equiv; subst; destruct msg;
         cbn; destruct_address_eq; try easy; lia.
-    - (* Update goal and eleminate all occurrences of old ChainState *)
+    - (* Update goal and eliminate all occurrences of old ChainState *)
       update_all.
       (* Now that the queue is empty we can switch from using spendable_balance
         to total_balance to simplify the proof *)
       rewrite spendable_eq_total_balance in enough_balance_to_fund; eauto.
 
-      (* First check if contract is already finalized, if it is we just use the current state to finish proof *)
+      (* First check if contract is already finalized, if it is, we just use the current state to finish proof *)
       destruct (isFinalized cstate) eqn:finalized;
         [eexists; split; eauto; rewrite queue; split; eauto; apply empty_queue_is_emptyable |].
 
@@ -1025,10 +1025,10 @@ Section Theories.
         apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
         apply list.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
 
-        (* Check if funding goal was alredy hit *)
+        (* Check if funding goal was already hit *)
         destruct (tokenCreationMin cstate - total_supply cstate) eqn:tokens_left_to_fund.
         * (* If funding goal is reached then we know that create_token_acts will not
-              produce any more actions so the queue is actually empty.
+              produce any more actions, so the queue is actually empty.
             Therefore we can directly apply the induction hypothesis *)
           eapply IHaccounts; eauto.
         -- now rewrite tokens_left_to_fund.
@@ -1235,9 +1235,9 @@ Section Theories.
   (** ** Refund guarantee *)
 
   (** The BAToken contract should guarantee that all tokens (except for the free initSupply given to batFundDeposit)
-      can be fully refunded. However as shown in the property based tests this is not the case so we can only prove
+      can be fully refunded. However, as shown in the property based tests this is not the case, so we can only prove
       a weaker result stating that refund msgs can always be consumed. This does not guarantee refunding as the
-      proof does not state that the new actions produced by refund entrypoint can be evaluated. Thus it is not
+      proof does not state that the new actions produced by refund entrypoint can be evaluated. Thus, it is not
       guaranteed that the state changes will be applied *)
   Lemma weak_refund_guarantee : forall bstate cstate caddr account acts,
     let refund_act := build_act account account (act_call caddr 0 refund) in

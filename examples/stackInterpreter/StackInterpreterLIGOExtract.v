@@ -1,4 +1,4 @@
-(** * Extraction of an interpreter for a stack based DSL **)
+(** * Extraction of an interpreter for a stack based DSL *)
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
@@ -23,7 +23,7 @@ Module CameLIGOInterp.
 
   Definition init (setup : unit)
                   : result storage Error :=
-    (* prevents optimisations from removing unused [setup]. TODO: override masks instead *)
+    (* prevents optimizations from removing unused [setup]. TODO: override masks instead *)
     let setup0 := setup in
     Ok [].
 

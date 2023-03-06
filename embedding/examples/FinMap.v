@@ -22,11 +22,13 @@ Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
-(** Implementing a simple finite map data type using our embedding. We pick a simple representation of finite maps which is isomorphic to lists of key-value pairs *)
+(** Implementing a simple finite map data type using our embedding.
+    We pick a simple representation of finite maps which is
+    isomorphic to lists of key-value pairs *)
 
 (** ** The deep embedding of data structures for finite maps *)
 
-(** We generate names for inductives and constants (preffixed with a module path) *)
+(** We generate names for inductives and constants (prefixed with a module path) *)
 MetaCoq Run
         (mp_ <- tmCurrentModPath tt ;;
           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
@@ -35,13 +37,16 @@ MetaCoq Run
 (** And constructors (just names, no module path prefix) *)
 MetaCoq Run (mkNames "" ["Nothing"; "Just"; "MNil"; "MCons"] "Acorn").
 
-(** Now we can use [Maybe] as a name for a data type in our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
+(** Now we can use [Maybe] as a name for a data type in
+    our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
 
 (* Maybe = "MaybeAcorn" *)
 (*      : string *)
 
 
-(** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type. [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell. First, we define a new datatype without using notations *)
+(** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type.
+    [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell.
+    First, we define a new datatype without using notations *)
 
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []); (Just, [(None,tyRel 0)])] false.
@@ -59,9 +64,13 @@ MetaCoq Unquote Inductive (global_to_tc map_syn).
 Definition Σ' :=
   Σ ++ [ maybe_syn; map_syn ].
 
-(** We generate string constants for variable names as well to make our examples look nicer *)
+(** We generate string constants for variable names as
+    well to make our examples look nicer *)
 MetaCoq Run
-      (mkNames "" ["A"; "B"; "C"; "f"; "a"; "b"; "c"; "m"; "n"; "k" ; "v"; "w"; "x"; "y"; "z" ; "lookup"; "add" ] "_coq").
+      (mkNames "" ["A"; "B"; "C"; "f"; "a";
+                   "b"; "c"; "m"; "n"; "k";
+                   "v"; "w"; "x"; "y"; "z";
+                   "lookup"; "add" ] "_coq").
 
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,
@@ -113,7 +122,8 @@ MetaCoq Unquote Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn))
 
 (** ** Correctness *)
 
-(** We can prove correctness of "library" definitions like finite maps by comparing the to Coq's standard library definitions *)
+(** We can prove correctness of "library" definitions like finite
+    maps by comparing them to Coq's standard library definitions *)
 
 (** Since Coq's [FMap] is a module, we fix the type of keys to be [nat] *)
 Module NatMap := FMapWeakList.Make Nat_as_OT.
@@ -127,7 +137,8 @@ Fixpoint from_amap {A} (m : MapAcorn nat A) : NatMap.Raw.t A :=
 
 Import PeanoNat.Nat.
 
-(** Showing that [add] function on Acorn finite maps are behaves the same way as one of the Coq's Stdlib implementations (up to converting the results) *)
+(** Showing that [add] function on Acorn finite maps are behaves the same way
+    as one of the Coq's Stdlib implementations (up to converting the results) *)
 Lemma add_map_eq_stdlib {A : Set} k v m :
   NatMap.Raw.add k v (from_amap m) = from_amap (add_map _ A PeanoNat.Nat.eqb k v m).
 Proof.
@@ -171,7 +182,8 @@ Section MapEval.
 
   (** The syntactic representation of the following map [1 ~> 1; 0 ~> 0] *)
   Definition aMap :=
-    [| $MCons$Map {tyNat} {tyNat} 1 1 ($MCons$Map {tyNat} {tyNat} 0 0 ($MNil$Map {tyNat} {tyNat})) |].
+    [| $MCons$Map {tyNat} {tyNat} 1 1
+        ($MCons$Map {tyNat} {tyNat} 0 0 ($MNil$Map {tyNat} {tyNat})) |].
 
   (** Computing boolean equality with the interpreter *)
   Example compute_eqb_true :

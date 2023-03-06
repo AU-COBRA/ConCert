@@ -7,9 +7,9 @@
     This contract is an implementation of a Constant Product Market Maker (CPMM).
     When paired with a FA1.2 or FA2 token contract and a Dexter2 liquidity contract,
     this contract serves as a decentralized exchange allowing users to trade between
-    XTZ and tokens. Additionally users can also add or withdraw funds from the
+    XTZ and tokens. Additionally, users can also add or withdraw funds from the
     exchanges trading reserves. Traders pay a 0.3% fee, the fee goes to the owners
-    of the trading reserves, this way user are incentivised to add funds to the reserves.
+    of the trading reserves, this way user are incentivized to add funds to the reserves.
 *)
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
@@ -151,7 +151,7 @@ Section Theories.
   Tactic Notation "math_convert" := repeat math_convert_step.
 
   Tactic Notation "contract_simpl" :=
-    repeat (unfold call_to_token,call_to_other_token; contract_simpl_step receive_cpmm init_cpmm).
+    repeat (unfold call_to_token,call_to_other_token; contract_simpl_step @receive_cpmm @init_cpmm).
 
   Ltac destruct_message :=
     repeat match goal with
@@ -199,7 +199,7 @@ Section Theories.
     contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on set_baker msg must succeed and
+  (** If the requirements are met then receive on set_baker msg must succeed and
       if receive on set_baker msg succeeds then requirements must hold *)
   Lemma set_baker_is_some : forall prev_state chain ctx param,
     (ctx_amount ctx <= 0)%Z /\
@@ -248,7 +248,7 @@ Section Theories.
     contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on set_manager msg must succeed and
+  (** If the requirements are met then receive on set_manager msg must succeed and
       if receive on set_manager msg succeeds then requirements must hold *)
   Lemma set_manager_is_some : forall prev_state chain ctx new_manager,
     (ctx_amount ctx <= 0)%Z /\
@@ -296,7 +296,7 @@ Section Theories.
     contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on set_lqt_address msg must succeed and
+  (** If the requirements are met then receive on set_lqt_address msg must succeed and
       if receive on set_lqt_address msg succeeds then requirements must hold *)
   Lemma set_lqt_address_is_some : forall prev_state chain ctx new_lqt_address,
     (ctx_amount ctx <= 0)%Z /\
@@ -345,7 +345,7 @@ Section Theories.
     contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on None msg must succeed and
+  (** If the requirements are met then receive on None msg must succeed and
       if receive on None msg succeeds then requirements must hold *)
   Lemma default_entrypoint_is_some : forall prev_state chain ctx,
     prev_state.(selfIsUpdatingTokenPool) = false
@@ -379,7 +379,7 @@ Section Theories.
     now subst.
   Qed.
 
-  (** [update_token_pool] produces an call act with amount = 0, calling
+  (** [update_token_pool] produces a call act with amount = 0, calling
       the token contract with a balance of request *)
   Lemma update_token_pool_new_acts_correct : forall chain ctx prev_state new_state new_acts,
     receive_cpmm chain ctx prev_state (Some (FA2Token.other_msg UpdateTokenPool)) = Ok (new_state, new_acts) ->
@@ -394,7 +394,7 @@ Section Theories.
     now contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on update_token_pool msg must succeed and
+  (** If the requirements are met then receive on update_token_pool msg must succeed and
       if receive on update_token_pool msg succeeds then requirements must hold *)
   Lemma update_token_pool_is_some : forall prev_state chain ctx,
     (ctx_amount ctx <= 0)%Z /\
@@ -460,7 +460,7 @@ Section Theories.
     contract_simpl.
   Qed.
 
-  (** If the requirements are met then then receive on update_token_pool_internal msg must succeed and
+  (** If the requirements are met then receive on update_token_pool_internal msg must succeed and
       if receive on update_token_pool_internal msg succeeds then requirements must hold *)
   Lemma update_token_pool_internal_is_some : forall prev_state chain ctx responses,
     (ctx_amount ctx <= 0)%Z /\
@@ -509,8 +509,8 @@ Section Theories.
     now subst.
   Qed.
 
-  (** In the informal specification it is stated that tokens should be trasnfered from owner,
-      but in the implementation it is trasnfered from the sender.
+  (** In the informal specification it is stated that tokens should be trasnferred from owner,
+      but in the implementation it is trasnferred from the sender.
       For this we assume that the implementation is correct over the informal specification since
       that is what other formalizations seem to have assumed *)
   Lemma add_liquidity_new_acts_correct : forall chain ctx prev_state new_state new_acts param,
@@ -531,7 +531,7 @@ Section Theories.
     now math_convert.
   Qed.
 
-  (** If the requirements are met then then receive on add_liquidity msg must succeed and
+  (** If the requirements are met then receive on add_liquidity msg must succeed and
       if receive on add_liquidity msg succeeds then requirements must hold *)
   Lemma add_liquidity_is_some : forall prev_state chain ctx param,
     let lqt_minted := amount_to_N ctx.(ctx_amount) * prev_state.(lqtTotal) / prev_state.(xtzPool) in
@@ -614,7 +614,7 @@ Section Theories.
     end.
   Qed.
 
-  (** If the requirements are met then then receive on remove_liquidity msg must succeed and
+  (** If the requirements are met then receive on remove_liquidity msg must succeed and
       if receive on remove_liquidity msg succeeds then requirements must hold *)
   Lemma remove_liquidity_is_some : forall prev_state chain ctx param,
     let xtz_withdrawn := (param.(lqtBurned) * prev_state.(xtzPool)) / prev_state.(lqtTotal) in
@@ -692,7 +692,7 @@ Section Theories.
     now math_convert.
   Qed.
 
-  (** If the requirements are met then then receive on xtz_to_token msg must succeed and
+  (** If the requirements are met then receive on xtz_to_token msg must succeed and
       if receive on xtz_to_token msg succeeds then requirements must hold *)
   Lemma xtz_to_token_is_some : forall prev_state chain ctx param,
     let tokens_bought := ((amount_to_N ctx.(ctx_amount)) * 997 * prev_state.(tokenPool)) /
@@ -768,7 +768,7 @@ Section Theories.
     end.
   Qed.
 
-  (** If the requirements are met then then receive on token_to_xtz msg must succeed and
+  (** If the requirements are met then receive on token_to_xtz msg must succeed and
       if receive on token_to_xtz msg succeeds then requirements must hold *)
   Lemma token_to_xtz_is_some : forall prev_state chain ctx param,
     let xtz_bought := (param.(tokensSold) * 997 * prev_state.(xtzPool)) /
@@ -849,7 +849,7 @@ Section Theories.
     now math_convert.
   Qed.
 
-  (** If the requirements are met then then receive on token_to_token msg must succeed and
+  (** If the requirements are met then receive on token_to_token msg must succeed and
       if receive on token_to_token msg succeeds then requirements must hold *)
   Lemma token_to_token_is_some : forall prev_state chain ctx param,
     let xtz_bought := (param.(tokensSold_) * 997 * prev_state.(xtzPool)) /
@@ -1799,7 +1799,6 @@ Section Theories.
           --- (* Call contract *)
               rewrite deployed in deployed0.
               inversion deployed0.
-              (*rewrite deployed_state0 in deployed_state'.*)
               subst.
               apply wc_receive_strong in receive_some as
                 (prev_state' & msg' & new_state' & serialize_prev_state & msg_ser & serialize_new_state & receive_some).
@@ -2116,7 +2115,7 @@ Section Theories.
     (** We prove that the invariant hold for any contract satisfying the interface *)
     Lemma lqt_pool_correct_interface :
       forall (i_lqt_contract : LqtTokenInterface), (* for any correct liquidity token *)
-         (forall x (y : Address), deserialize x = Some y -> x = serialize y) -> (* a technical condition for serialisation *)
+         (forall x (y : Address), deserialize x = Some y -> x = serialize y) -> (* a technical condition for serialization *)
         lqtTotal_total_supply_invariant i_lqt_contract.
     Proof.
       intros ? ? ? ? ? ? deployed_main deployed_lqt.
@@ -2145,7 +2144,7 @@ Section Theories.
     Qed.
   End LqtPoolCorrect.
 
-  (** Now, we prove that the concrete implemention of the liquidity token satisfies the
+  (** Now, we prove that the concrete implementation of the liquidity token satisfies the
       inter-contract invariant *)
   Theorem lqt_pool_correct_lqt_fa12 :
     (forall x (y : Address), deserialize x = Some y -> x = serialize y) ->

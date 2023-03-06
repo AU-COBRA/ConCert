@@ -1,4 +1,4 @@
-(** * Convertion from values back to expressions through the environment substitution *)
+(** * Conversion from values back to expressions through the environment substitution *)
 From Coq Require Import List.
 From Coq Require Import Relations.
 From Coq Require Import Morphisms.
@@ -68,12 +68,12 @@ Module NamelessSubst.
   Definition subst_env_i := subst_env_i_aux 0.
 
     (** Converting from values back to expressions.
-       This will be used to compare results of the evaluation with different semantics, or
-       for stating soundness theorem for the translation to a different language, e.g.
+       This will be used to compare results of the evaluation with different semantics,
+       or for stating soundness theorem for the translation to a different language, e.g.
        to Template Coq terms.
 
-       The most non-trivial part is to convert closures, for which we have to perform some form
-       of substitution of values from the value environment (see [subst_env])
+       The most non-trivial part is to convert closures, for which we have to perform
+       some form of substitution of values from the value environment (see [subst_env])
        Inspired by the implementation of
        "A Certified Implementation of ML with Structural Polymorphism" by Jacques Garrigue.
      *)
@@ -136,7 +136,8 @@ Module NamelessSubst.
            assert (n1=0) by (apply Nat.eqb_eq; easy).
            subst. simpl. reflexivity.
       * destruct a.
-        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2]; try discriminate; exists n2; reflexivity).
+        assert (Hn2 : {n2 | n1 = S n2}) by (destruct n1 as [ | n2];
+          try discriminate; exists n2; reflexivity).
         destruct Hn2 as [n2 Heq_n2]. replace (n1-1) with n2 by lia.
         subst. simpl in Hlt. unfold is_true in *. rewrite Nat.ltb_lt in Hlt.
         apply Nat.succ_lt_mono in Hlt. rewrite <- Nat.ltb_lt in Hlt.
@@ -156,7 +157,7 @@ End NamelessSubst.
 (** ** Substitution for the named representation *)
 Module NamedSubst.
 
-  (** Currenlty we do not use named substitution in our soundness proof. *)
+  (** Currently we do not use named substitution in our soundness proof. *)
 
   (** NOTE: assumes, that expression in [ρ] are closed! *)
  Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=

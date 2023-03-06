@@ -10,8 +10,8 @@ From Coq Require Import List. Import ListNotations.
 From Coq Require Import ZArith_base.
 
 (** A type of finite maps (dictionaries) with addresses as keys.
-Basically, it's just a specilisation of [FMap] to [Address] as keys.
-This definitions is more extraction-friendly. *)
+Basically, it's just a specilization of [FMap] to [Address] as keys.
+This definition is more extraction-friendly. *)
 
 Module AddressMap.
 
@@ -42,7 +42,7 @@ Module AddressMap.
 
 End AddressMap.
 
-(** The specialised version is convertible to [FMap.find] after resolving the instances *)
+(** The specialized version is convertible to [FMap.find] after resolving the instances *)
 Lemma AddressMap_find_convertible `{ChainBase} {V : Type} :
   AddressMap.find (V := V) = FMap.find.
 Proof. reflexivity. Qed.

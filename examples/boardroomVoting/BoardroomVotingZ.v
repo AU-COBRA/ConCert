@@ -338,7 +338,7 @@ Module BoardroomVoting (Params : BoardroomParams).
         svi_sk : Z;
         (* Chosen randomness for knowledge of secret key proof *)
         svi_sk_r : Z;
-        (* Secret vot e*)
+        (* Secret vote *)
         svi_sv : bool;
         (* Chosen random w for vote proof *)
         svi_sv_w : Z;

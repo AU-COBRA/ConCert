@@ -38,7 +38,9 @@ build_monad_laws {
 Class MonadTrans (m : Type -> Type) (mt : Type -> Type) : Type :=
   { lift : forall {t}, mt t -> m t }.
 
-Fixpoint monad_map {A B} {m : Type -> Type} `{Monad m} (f : A -> m B) (xs : list A) : m (list B) :=
+Fixpoint monad_map {A B} {m : Type -> Type}
+                  `{Monad m} (f : A -> m B)
+                   (xs : list A) : m (list B) :=
   match xs with
   | nil => ret nil
   | cons x xs' =>
@@ -56,14 +58,18 @@ Proof.
   - cbn. now rewrite IHxs.
 Qed.
 
-Fixpoint monad_foldr {A B} {m : Type -> Type} `{Monad m} (f : A -> B -> m A) (a : A) (xs : list B) : m A :=
+Fixpoint monad_foldr {A B} {m : Type -> Type}
+                    `{Monad m} (f : A -> B -> m A)
+                     (a : A) (xs : list B) : m A :=
   match xs with
   | nil => ret a
   | cons x xs' => do v <- monad_foldr f a xs';
                   f v x
   end.
 
-Fixpoint monad_foldl {A B} {m : Type -> Type} `{Monad m} (f : A -> B -> m A) (a : A) (xs : list B) : m A :=
+Fixpoint monad_foldl {A B} {m : Type -> Type}
+                    `{Monad m} (f : A -> B -> m A)
+                     (a : A) (xs : list B) : m A :=
   match xs with
   | nil => ret a
   | cons x xs' => do v <- f a x;

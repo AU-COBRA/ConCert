@@ -1,4 +1,4 @@
-(** * Simple examples on how to use our framework **)
+(** * Simple examples on how to use our framework *)
 From Coq Require Import String.
 From Coq Require Import Basics.
 From Coq Require Import List.
@@ -43,7 +43,8 @@ Section MCDemo.
   MetaCoq Unquote Definition plus_one :=
     (MC.tLambda (aRelevant (nNamed "x"))
                 (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
-                (MC.tApp (MC.tConstruct (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
+                (MC.tApp (MC.tConstruct
+                            (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
                          (MC.tRel 0 :: nil))).
 
   (* fun x : nat => S x : nat -> nat *)
@@ -102,7 +103,8 @@ Example eval_my_negb_syn :
 Proof. reflexivity. Qed.
 
 Example eval_my_negb_true :
-  expr_eval_i Σ 4 nil (indexify nil [| {my_negb_syn} True |]) = Ok (vConstr Bool "false" nil).
+  expr_eval_i Σ 4 nil (indexify nil [| {my_negb_syn} True |]) =
+  Ok (vConstr Bool "false" nil).
 Proof. reflexivity. Qed.
 
 MetaCoq Unquote Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
@@ -135,17 +137,20 @@ MetaCoq Unquote Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
-Example value_eval : expr_eval_n Σ 3 nil prog2 = Ok (vConstr Nat "Suc"
-                                                             [vConstr Nat "Suc"
-                                                                      [vConstr Nat "Z" []]]).
+Example value_eval :
+  expr_eval_n Σ 3 nil prog2 = Ok (vConstr Nat "Suc"
+                                  [vConstr Nat "Suc"
+                                    [vConstr Nat "Z" []]]).
 Proof. reflexivity. Qed.
 
 Example eval_is_zero_true :
-  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} Zero |]) = Ok (vConstr Bool "true" []).
+  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} Zero |]) =
+  Ok (vConstr Bool "true" []).
 Proof. reflexivity. Qed.
 
 Example eval_is_zero_false :
-  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} {prog2} |]) = Ok (vConstr Bool "false" []).
+  expr_eval_i Σ 4 nil (indexify nil [|{is_zero_syn} {prog2} |]) =
+  Ok (vConstr Bool "false" []).
 Proof. reflexivity. Qed.
 
 Inductive blah :=

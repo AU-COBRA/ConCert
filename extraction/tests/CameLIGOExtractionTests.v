@@ -29,7 +29,7 @@ Definition bindOptCont {A B} (a : option A) (f : A -> option B) : option B :=
 Module BoolRect.
 
   (** Previously, this example extracted wrong, because some name
-      annotations of the [bool_rect] are thse same, leading to
+      annotations of the [bool_rect] are these same, leading to
       shadowing in the resulting code *)
 
   (** One can see the variable names by quoting and printing the AST, as below *)
@@ -65,7 +65,7 @@ End BoolRect.
 Module FoldLeft.
 
   (** We test how the annotation machinery passes the context with erased variables to
-      the annotate the type of the fixpoint, which doesn't abstract over the type
+      annotate the type of the fixpoint, which doesn't abstract over the type
       parameters itself. *)
   Definition foldL {A B : Type} (f : A -> B -> A) : list B -> A -> A :=
     fix foldL (l : list B) (a0 : A) {struct l} : A :=
@@ -96,9 +96,9 @@ Module FoldLeft.
       MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
-      fixpoint, and not binded by lambdas. Therefore, the type parameters are not
-      eliminated by optimisations. We test here another property, however, namely, how
-      the annotation machinery handles polymophism when the node has a polymoprhic type. *)
+      fixpoint, and not bound by lambdas. Therefore, the type parameters are not
+      eliminated by optimizations. We test here another property, however, namely, how
+      the annotation machinery handles polymorphism when the node has a polymorphic type. *)
   Fixpoint foldLAlt {A B : Type} (f : A -> B -> A) (l : list B) (a0 : A) : A :=
       match l with
       | [] => a0
@@ -135,10 +135,11 @@ Module SafeHead.
   Program Definition safe_head (l : list nat) (non_empty : List.length l > 0) : nat :=
     match l as l' return l' = l -> nat with
     | [] => (* this is an impossible case *)
-      (* NOTE: we use [False_rect] to have more control over the extracted code. *)
-      (* Leaving a hole for the whole branch potentially leads to polymoprhic *)
-      (* definitions in the extracted code and type like [eq], since we would have to leave the whole goal branch transparent (use [Defined] instead of [Qed] ). *)
-      (* In this case, one has to inspect the extracted code and inline such definitions *)
+      (* NOTE: we use [False_rect] to have more control over the extracted code.
+         Leaving a hole for the whole branch potentially leads to polymorphic
+         definitions in the extracted code and type like [eq], since we would have to
+         leave the whole goal branch transparent (use [Defined] instead of [Qed] ).
+         In this case, one has to inspect the extracted code and inline such definitions *)
       fun _ => ex_falso _ _
     | hd :: tl => fun _ => hd
     end eq_refl.
@@ -151,7 +152,8 @@ Module SafeHead.
     intros. cbn. lia.
   Qed.
 
-  (** We inline [False_rect] and [False_rec] to make sure that no polymoprhic definitions are left *)
+  (** We inline [False_rect] and [False_rec] to make sure
+      that no polymorphic definitions are left *)
   Definition safe_head_inline :=
     [<%%ex_falso %%>; <%% False_rect %%>; <%% False_rec %%>].
 

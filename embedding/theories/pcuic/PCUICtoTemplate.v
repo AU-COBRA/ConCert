@@ -1,4 +1,4 @@
-(** * Almost one-to-one tranlsation of PCUIC to Template Coq kernel AST *)
+(** * Almost one-to-one translation of PCUIC to Template Coq kernel AST *)
 From Coq Require Import Bool.
 From Coq Require Import String.
 From Coq Require Import List.
@@ -20,7 +20,7 @@ Definition trans_local_entry (nle : ident * P.local_entry) : TC.Env.context_decl
   | P.LocalDef ld =>
     (* NOTE: it doesn't seem meaningful to have declarations with
        bodies as parameters, so we produce a dummy value here.
-       To produce an actual decalaration with a body we need its type,
+       To produce an actual declaration with a body we need its type,
        and it's not available it this point*)
     mkdecl (aRelevant (nNamed nm)) None (TC.tVar "not supported"%bs)
   | P.LocalAssum la =>

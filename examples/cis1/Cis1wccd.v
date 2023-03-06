@@ -2,7 +2,7 @@
   This file contains an implementation of the example token that complies with the Concordium's CIS1 standard.
   The development is inspired by the Rust implementation: https://github.com/Concordium/concordium-rust-smart-contracts/blob/b49a9f07131b2659de2f7b55eb5e8365d0ed4720/examples/cis1-wccd/src/lib.rs
 
-  We also show that the implementation of the token complies with our formalisation of the CIS1 standard.
+  We also show that the implementation of the token complies with our formalization of the CIS1 standard.
 *)
 
 From Coq Require Import ZArith.
@@ -27,7 +27,7 @@ Section WccdToken.
   Context {BaseTypes : ChainBase}.
   Set Nonrecursive Elimination Schemes.
 
-  (** Similarly to the Concordium implemention we use the smallest token id type, because
+  (** Similarly to the Concordium implementation we use the smallest token id type, because
       the contract hold tokens of only one type *)
   Definition TokenID := unit.
 
@@ -147,14 +147,14 @@ Section WccdToken.
     end.
 
   (** NOTE: in contrast to the Concordium's implementation, we do not
-      allow to add operators to non-existing addresses *)
+      allow adding operators to non-existing addresses *)
   Definition wccd_updateOperator (owner : Address) (params : list (OpUpdateKind * Address)) (prev_st : State)
     : option State :=
     do owner_data <- AddressMap.find owner prev_st;
     let updated_owner_data := owner_data<| wccd_operators := fold_left add_remove params owner_data.(wccd_operators) |> in
     ret (AddressMap.add owner updated_owner_data prev_st).
 
-  (** * wccd receive *)
+  (** * WCCD receive *)
 
   (** We dispatch on a message of type [Msg] and call the corresponding functions with received parameters *)
   Definition wccd_receive
@@ -183,7 +183,7 @@ Section WccdToken.
         ret (next_st, [])
     | Some (wccd_msg_mint receiver) =>
         (* Check that the sender is not the receiver *)
-        do requireTrue (negb (address_eqb receiver ctx.(ctx_from)));
+        do requireTrue (address_neqb receiver ctx.(ctx_from));
         let next_st := increment_balance prev_st receiver (Z.to_nat ctx.(ctx_amount)) in
         (* NOTE: we only update the state and do not notify the receiver *)
         ret (next_st,[])
@@ -196,7 +196,7 @@ Section WccdToken.
 
 End WccdToken.
 
-(** * wccd complies with CIS1 *)
+(** * WCCD complies with CIS1 *)
 
 Module WccdTypes <: CIS1Types.
 

@@ -8,7 +8,7 @@
     an extra entrypoint that allows an admin to mint and burn tokens.
     It is used in the Dexter2 exchange paired with an instance of the
     Dexter2 CPMM contract. The purpose of this contract is to keep track
-    of ownership of the exchanges funds. An user who owns x% of the supply
+    of ownership of the exchanges funds. A user who owns x% of the supply
     of liquidity tokens owns x% of the exchanges trading reserve.
 *)
 From ConCert.Utils Require Import Extras.
@@ -324,7 +324,7 @@ Module Dexter2Lqt (SI : Dexter2LqtSerializable).
                                 (param : mintOrBurn_param)
                                 (state : State)
                                 : result State Error :=
-      do _ <- throwIf (negb (address_eqb sender state.(admin))) default_error;
+      do _ <- throwIf (address_neqb sender state.(admin)) default_error;
       let tokens_ := state.(tokens) in
       let old_balance := with_default 0 (AddressMap.find param.(target) tokens_) in
       let new_balance := (Z.of_N old_balance + param.(quantity))%Z in

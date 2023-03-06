@@ -1,6 +1,6 @@
 # Dexter 2
 
-Formalisation of the Dexter 2 decentralised exchange based on the informal spec https://gitlab.com/dexter2tz/dexter2tz/-/tree/1713941489e0e646b632b42017a041c59158b6fb/docs/informal-spec
+Formalization of the Dexter 2 decentralized exchange based on the informal spec https://gitlab.com/dexter2tz/dexter2tz/-/tree/1713941489e0e646b632b42017a041c59158b6fb/docs/informal-spec
 
 The development consists of the following parts.
 

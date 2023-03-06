@@ -223,14 +223,15 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   | _ => None
   end.
 
-(* TODO: port the pretty-printers to use bytestring and use metacoq's MCString utils *)
+(* TODO: port the pretty-printers to use bytestring and use MetaCoq's MCString utils *)
 
 Definition parens (top : bool) (s : String.string) : String.string :=
   if top then s else "(" ++ s ++ ")".
 
 Definition nl : String.string := String (Ascii.ascii_of_nat 10) EmptyString.
 
-Definition string_of_list_aux {A} (f : A -> String.string) (sep : String.string) (l : list A) : String.string :=
+Definition string_of_list_aux {A} (f : A -> String.string)
+                              (sep : String.string) (l : list A) : String.string :=
   let fix aux l :=
       match l return String.string with
       | nil => ""%string
@@ -242,5 +243,6 @@ Definition string_of_list_aux {A} (f : A -> String.string) (sep : String.string)
 Definition string_of_list {A} (f : A -> String.string) (l : list A) : String.string :=
   ("[" ++ string_of_list_aux f "," l ++ "]")%string.
 
-Definition print_list {A} (f : A -> String.string) (sep : String.string) (l : list A) : String.string :=
+Definition print_list {A} (f : A -> String.string) (sep : String.string)
+                      (l : list A) : String.string :=
   string_of_list_aux f sep l.

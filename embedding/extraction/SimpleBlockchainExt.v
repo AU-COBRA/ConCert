@@ -17,7 +17,8 @@ Import BaseTypes.
 Open Scope list.
 
 (** We create a simply-typed records and data types corresponding for
-the actual definitions of [SmartContracts.Blockchain] which are parameterised with [BaseTypes] *)
+    the actual definitions of [SmartContracts.Blockchain] which are
+    parameterized with [BaseTypes] *)
 
 Module AcornBlockchain.
   Definition Address := address.

@@ -37,7 +37,8 @@ Definition no_check_args :=
 
 Definition result_bytestring_err A := result A bytestring.String.t.
 
-Definition general_extract (p : program) (ignore: list kername) (TT : list (kername * string)) : result_bytestring_err _ :=
+Definition general_extract (p : program) (ignore: list kername)
+                           (TT : list (kername * string)) : result_bytestring_err _ :=
   entry <- match p.2 with
            | tConst kn _ => Ok kn
            | tInd ind _ => Ok (inductive_mind ind)
@@ -212,7 +213,8 @@ End ex6.
 
 Module ex7.
   (* Dearg through lets *)
-  Definition foo (n : nat) (x := 0) (p : x = 0) (m : nat) := match n with 0 => m | _ => n end.
+  Definition foo (n : nat) (x := 0) (p : x = 0) (m : nat) :=
+    match n with 0 => m | _ => n end.
   Definition bar := foo 1 eq_refl 0.
   MetaCoq Quote Recursively Definition ex7 := bar.
 
@@ -414,7 +416,8 @@ End recursor_ex.
 
 Module type_scheme_ex.
 
-  Definition general_extract_tc (p : program) (ignore: list kername) (TT : list (kername * string)) : TemplateMonad _ :=
+  Definition general_extract_tc (p : program) (ignore: list kername)
+                                (TT : list (kername * string)) : TemplateMonad _ :=
   entry <- match p.2 with
            | tConst kn _ => ret kn
            | tInd ind _ => ret (inductive_mind ind)

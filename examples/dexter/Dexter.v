@@ -78,7 +78,7 @@ Section Dexter.
                                              (dexter_caddr : Address)
                                              (state : State)
                                              : result (State * (list ActionBody)) Error :=
-    do _ <- throwIf (negb (address_eqb caller params.(exchange_owner))) default_error;
+    do _ <- throwIf (address_neqb caller params.(exchange_owner)) default_error;
     let tokens_to_sell := Z.of_N params.(tokens_sold) in
     let tokens_price := getInputPrice tokens_to_sell (Z.of_N state.(token_pool)) dexter_asset_reserve in
     (* send out asset transfer to transfer owner, and send a token transfer message to the FA2 token *)

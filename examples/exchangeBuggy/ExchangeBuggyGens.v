@@ -84,7 +84,7 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
   Definition gExchangeChain max_acts_per_block cb length :=
     gChain cb (fun e _ => gExchangeAction e) length 1 max_acts_per_block.
 
-  (* The '1' fixes nr of actions per block to 1 *)
+  (* The '1' fixes the number of actions per block to 1 *)
   Definition token_reachableFrom max_acts_per_block cb pf : Checker :=
     reachableFrom_chaintrace cb (gExchangeChain max_acts_per_block) pf.
 

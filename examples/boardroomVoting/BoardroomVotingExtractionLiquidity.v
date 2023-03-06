@@ -63,7 +63,7 @@ Definition _11 := 11.
 Definition num_parties : nat := seven.
 Definition votes_for : nat := four.
 
-(* a pseudo-random generator for secret keys *)
+(* A pseudo-random generator for secret keys *)
 Definition sk n := (Z.of_nat n + _1234583932) * (modulus - _23241)^_159338231.
 
 (* Make a list of secret keys, here starting at i=7 *)

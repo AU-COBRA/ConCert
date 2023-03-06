@@ -38,7 +38,7 @@ Module CounterRefinementTypes.
   Definition init (ctx : SimpleCallCtx)
                   (setup : Z)
                   : result storage Error :=
-    let ctx_ := ctx in (* prevents optimisations from removing unused [ctx] *)
+    let ctx_ := ctx in (* prevents optimizations from removing unused [ctx] *)
     Ok setup.
 
   Inductive msg := Inc (_ : Z) | Dec (_ : Z).
@@ -102,7 +102,7 @@ Section LiquidityExtractionSetup.
     ; remap <%% Z.leb %%> "leInt"
     ; remap <%% Z.ltb %%> "ltInt"
     ; remap <%% sig %%> "sig_" (* remapping [sig] to the wrapper *)
-    ; remap <%% @proj1_sig %%> "(fun x -> x)" (* this is a safe, but ad-hoc optimisation*)
+    ; remap <%% @proj1_sig %%> "(fun x -> x)" (* this is a safe, but ad-hoc optimization*)
     ; remap <%% Z %%> "int"
     ; remap <%% address %%> "key_hash" (* type of account addresses*)
     ; remap <%% Transaction %%> "operation list"

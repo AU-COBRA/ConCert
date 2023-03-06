@@ -14,7 +14,7 @@ Definition COUNTER_MODULE : ConcordiumMod _ _ :=
      concmd_receive := @ConCert.Examples.Counter.Counter.counter_receive;
      concmd_extra := []; |}.
 
-(* NOTE: it is important to declare a priting config, otherwise MetaCoq evaluation tries to normalise a term with an unresolved instance and runs out of memory. *)
+(* NOTE: it is important to declare a printing config, otherwise MetaCoq evaluation tries to normalize a term with an unresolved instance and runs out of memory. *)
 #[local]
 Instance RustConfig : RustPrintConfig :=
     {| term_box_symbol := "()";

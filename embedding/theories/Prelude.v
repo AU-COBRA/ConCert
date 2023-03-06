@@ -1,6 +1,7 @@
 (** * Prelude -- definitions of basic of data types*)
 
-(** Definitions of basic of data types required for the crowdfunding contract along with notations for developing contract using the deep embedding *)
+(** Definitions of basic of data types required for the crowdfunding
+    contract along with notations for developing contract using the deep embedding *)
 From MetaCoq.Template Require Import All.
 
 From ConCert.Embedding Require Import Ast.
@@ -19,7 +20,9 @@ Import ListNotations.
 Import BaseTypes.
 Open Scope list.
 
-(** Our approximation for finite maps. Eventually, will be replaced with the Oak's standard library implementation. We assume that the standard library is available for a contract developer. *)
+(** Our approximation for finite maps. Eventually, will be replaced with
+    the Oak's standard library implementation. We assume that the standard
+    library is available for a contract developer. *)
 Module Maps.
   Open Scope nat.
   Open Scope string.

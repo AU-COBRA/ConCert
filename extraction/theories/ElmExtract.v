@@ -46,7 +46,9 @@ Class ElmPrintConfig :=
     type_box_symbol : string;
     any_type_symbol : string;
     false_elim_def : string;
-    print_full_names : bool (* use fully-qualified names as identifiers to avoid name clashes *) }.
+    (* use fully-qualified names as identifiers to avoid name clashes *)
+    print_full_names : bool
+  }.
 
 (** A default false_elim implementation as a forever spinning loop *)
 Definition elm_false_rec :=
@@ -259,7 +261,8 @@ Definition print_define_term
 
 Local Open Scope bool.
 
-(* TODO: Eventually, we might want to include some checks is the operators actually meets the syntactic creteria of Elm *)
+(* TODO: Eventually, we might want to include some checks is
+   the operators actually meets the syntactic criteria of Elm *)
 Definition get_infix (s : string) : option string :=
   let len := String.length s in
   let begins := substring_count 1 s in
@@ -269,13 +272,17 @@ Definition get_infix (s : string) : option string :=
   else
     None.
 
-(** Print a constructor as an infix operatior in patterns.
+(** Print a constructor as an infix operator in patterns.
 
    E.g. for [infix_op = "::"] it expects the branch context contains
    two names (the context is reversed)
    [nNamed "xs", nNamed "x"],
    so the corresponding pattern will look like [x :: xs => ...] *)
-Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit) (infix_op : string) (Γ : list ident) (br_ctx : list name) (br : term) :=
+Definition print_infix_match_branch (print : list ident -> term -> PrettyPrinter unit)
+                                    (infix_op : string)
+                                    (Γ : list ident)
+                                    (br_ctx : list name)
+                                    (br : term) :=
   match br_ctx with
     | [name2; name1] =>
       name1 <- fresh_ident name1 Γ;;
@@ -408,7 +415,8 @@ Fixpoint print_term (Γ : list ident) (t : term) : PrettyPrinter unit :=
            push_indent (ctor_indent + indent_size);;
 
            let ctor_name := get_ctor_name (fst (inductive_mind ind), ctor_name) in
-           (* NOTE: if the constructor name is some operator in parenthesis, we apply a special prining procedure for infix constructors *)
+           (* NOTE: if the constructor name is some operator in parentheses,
+              we apply a special printing procedure for infix constructors *)
            match get_infix ctor_name with
            | Some op => print_infix_match_branch print_term op Γ bctx t
            | None =>
