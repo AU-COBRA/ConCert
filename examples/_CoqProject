@@ -142,3 +142,13 @@ crowdfunding/CrowdfundingDataExt.v
 crowdfunding/CrowdfundingExt.v
 crowdfunding/CrowdfundingCameLIGO.v
 crowdfunding/CrowdfundingLiquidity.v
+
+-Q piggybank ConCert.Examples.PiggyBank
+piggybank/PiggyBank.v
+piggybank/PiggyBankCorrect.v
+piggybank/PiggyBankExtractLIGO.v
+piggybank/PiggyBankExtractLiquidity.v
+piggybank/PiggyBankExtractRust.v
+piggybank/PiggyBankPrinters.v
+piggybank/PiggyBankGens.v
+piggybank/PiggyBankTests.v
