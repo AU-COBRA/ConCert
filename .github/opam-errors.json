@@ -1,0 +1,21 @@
+{
+    "problemMatcher": [
+        {
+            "owner": "opam",
+            "pattern": [
+                {
+                    "regexp": "^([^\\s].*): \\x1b\\[[0-9;]*m(Errors|Warnings)\\.\\x1b\\[[0-9;]*m$",
+                    "file": 1,
+                    "kind": "file"
+                },
+                {
+                    "regexp": "^\\s+\\x1b\\[[0-9;]*m(error|warning)\\x1b\\[[0-9;]*m\\s+(\\d+):\\s+(.*)$",
+                    "severity": 1,
+                    "code": 2,
+                    "message": 3,
+                    "loop": true
+                }
+            ]
+        }
+    ]
+}
