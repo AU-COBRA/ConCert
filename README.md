@@ -124,7 +124,30 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   </details>
 - ["Formalising Decentralised Exchanges in Coq"](https://arxiv.org/abs/2203.08016).
   Eske Hoy Nielsen, Danil Annenkov and Bas Spitters.
-  Preprint.
+  CPP 2023.
+  <br>
+  <details>
+    <summary>Cite paper</summary>
+    
+    ```
+    @inproceedings{10.1145/3573105.3575685,
+        author = {Nielsen, Eske Hoy and Annenkov, Danil and Spitters, Bas},
+        title = {Formalising Decentralised Exchanges in Coq},
+        year = {2023},
+        isbn = {9798400700262},
+        publisher = {Association for Computing Machinery},
+        address = {New York, NY, USA},
+        url = {https://doi.org/10.1145/3573105.3575685},
+        doi = {10.1145/3573105.3575685},
+        booktitle = {Proceedings of the 12th ACM SIGPLAN International Conference on Certified Programs and Proofs},
+        pages = {290–302},
+        numpages = {13},
+        keywords = {smart contracts, Coq, decentralized finance, blockchain, software correctness},
+        location = {Boston, MA, USA},
+        series = {CPP 2023}
+    }
+    ```
+  </details>
 - ["Code Extraction from Coq to ML-like languages"](papers/ML-family.pdf).
   Danil Annenkov, Mikkel Milo and Bas Spitters.
   ["ML'21"](https://icfp21.sigplan.org/details/mlfamilyworkshop-2021-papers/8/Code-Extraction-from-Coq-to-ML-like-languages) at ICFP'21.
@@ -244,56 +267,3 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
 
 ## Videos
 A video collection, presenting various parts of ConCert can be found on [YouTube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
-
-### Citing the papers
-
-```
-@article{annenkov_milo_nielsen_spitters_2022,
-   author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
-   title={{Extracting functional programs from Coq, in Coq}},
-   volume={32},
-   DOI={10.1017/S0956796822000077},
-   journal={Journal of Functional Programming},
-   publisher={Cambridge University Press},
-   year={2022},
-   pages={e11}
-   }
-
-@inproceedings{ConCert-extraction-testing,
-  author = {Annenkov, Danil and Milo, Mikkel and Nielsen, Jakob Botsch and Spitters, Bas},
-  title = {Extracting Smart Contracts Tested and Verified in Coq},
-  year = {2021},
-  isbn = {9781450382991},
-  publisher = {Association for Computing Machinery},
-  url = {https://doi.org/10.1145/3437992.3439934},
-  doi = {10.1145/3437992.3439934},
-  pages = {105–121},
-  numpages = {17},
-  location = {Virtual, Denmark},
-  series = {CPP 2021}
-}
-
-@article{ConCert,
-  title={ConCert: a smart contract certification framework in Coq},
-  ISBN={9781450370974},
-  url={https://dx.doi.org/10.1145/3372885.3373829},
-  DOI={10.1145/3372885.3373829},
-  journal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
-  publisher={ACM},
-  author={Annenkov, Danil and Nielsen, Jakob Botsch and Spitters, Bas},
-  year={2020},
-  month={Jan}
-}
-
-@inproceedings{smart-contract-interactions,
-  author    = {Jakob Botsch Nielsen and
-               Bas Spitters},
-  title     = {Smart Contract Interactions in Coq},
-  booktitle = {{FM} Workshops {(1)}},
-  series    = {Lecture Notes in Computer Science},
-  volume    = {12232},
-  pages     = {380--391},
-  publisher = {Springer},
-  year      = {2019}
-}
-```
