@@ -27,7 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
     container:
       image: aucobra/concert:deps-8.16.1-with-compilers
       options: --user root
@@ -149,11 +148,21 @@ jobs:
         user-email: danil.v.annenkov@gmail.com
         commit-message: See ORIGIN_COMMIT from $GITHUB_REF
         target-branch: master
-    - name: Deploy the documentation to GitHub Pages
+    - name: Prepare documentation for deployment
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v3
+      uses: actions/upload-pages-artifact@v1
       with:
-        target_branch: gh-pages
-        build_dir: docs
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        path: docs
+  deploy-docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
