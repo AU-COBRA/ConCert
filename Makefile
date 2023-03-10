@@ -43,13 +43,12 @@ install: all
 	+make -C extraction install
 .PHONY: install
 
-uninstall: all
+uninstall:
 	+make -C utils uninstall
 	+make -C execution uninstall
 	+make -C embedding uninstall
 	+make -C typed-extraction uninstall
 	+make -C extraction uninstall
-.PHONY: uninstall
 
 test-extraction:
 	+make -C extraction test-extraction
@@ -151,6 +150,7 @@ html: all
 		-R examples/boardroomVoting ConCert.Examples.BoardroomVoting \
 		-R examples/counter ConCert.Examples.Counter \
 		-R examples/crowdfunding ConCert.Examples.Crowdfunding \
+		-R examples/piggybank ConCert.Examples.PiggyBank \
 		-d docs `find . -type f \( -wholename "*theories/*" -o -wholename "*examples/*" -o -wholename "*extraction/*" -o -wholename "*test/*" \) -name "*.v" ! -name "AllTests.v" ! -wholename "./_opam/*"`
 	cp extra/resources/coqdocjs/*.js docs
 	cp extra/resources/coqdocjs/*.css docs
