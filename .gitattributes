@@ -1,0 +1,13 @@
+*                   text=auto
+
+*.rs                text linguist-language=rust
+*.toml              text linguist-language=toml
+
+*.v                 text linguist-language=coq
+*.ml*               text linguist-language=OCaml
+
+CoqMakefile.local   text linguist-language=Makefile
+*.mligo             text linguist-language=CameLIGO
+*.elm               text linguist-language=elm
+*.liq               text linguist-language=Liquidity
+*.midlang           text linguist-language=MidLang
