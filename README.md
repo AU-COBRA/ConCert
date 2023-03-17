@@ -14,7 +14,7 @@ ConCert can find real-world attacks as explained
 ## How to build
 
 
-Our development works with Coq 8.16 and depends on MetaCoq, std++, and coq-equations.
+Our development works with Coq 8.14-8.15 and depends on MetaCoq, std++, and coq-equations.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
@@ -29,7 +29,7 @@ opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inri
 eval $(opam env)
 ```
 
-If Coq 8.16 is already installed, run
+If Coq 8.14 or 8.15 is already installed, run
 
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git

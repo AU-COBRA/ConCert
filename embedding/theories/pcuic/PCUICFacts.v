@@ -274,7 +274,7 @@ Section Values.
           rewrite <- PeanoNat.Nat.ltb_lt in *.
           destruct (lookup_i_length _ (n-n1) Hc') as [e0 He0].
           rewrite He0. simpl.
-          eapply All_lookup_i with (ρ := ρ) (P := fun e1 => iclosed_n n1 e1 = true); eauto.
+          eapply (All_lookup_i (ρ) _ _ (fun e1 => iclosed_n n1 e1 = true)); eauto.
           apply (All_impl (P := fun e1 => iclosed_n 0 (snd e1) = true)); eauto.
           intros a H. unfold compose.
           change (iclosed_n (0+n1) (snd a) = true); now apply iclosed_m_n.

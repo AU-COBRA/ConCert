@@ -34,10 +34,7 @@ Definition trans_one_ind_entry (d : P.one_inductive_entry) : TC.one_inductive_en
      TC.mind_entry_lc := map trans d.(P.mind_entry_lc) |}.
 
 Definition trans_universes_decl (ud : universes_decl) : universes_entry :=
-  match ud with
-  | Monomorphic_ctx => Monomorphic_entry ContextSet.empty
-  | Polymorphic_ctx (ln, cst) => Polymorphic_entry (AUContext.repr (ln,cst))
-  end.
+  universes_entry_of_decl ud.
 
 Definition trans_minductive_entry (e : P.mutual_inductive_entry) : TC.mutual_inductive_entry :=
   {| TC.mind_entry_record := e.(P.mind_entry_record);
