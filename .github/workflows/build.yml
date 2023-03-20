@@ -85,3 +85,49 @@ jobs:
           echo "::group::Build examples"
           opam exec -- make -j2 examples
           echo "::endgroup::"
+
+      - name: Build documentation
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          echo "::group::Running coqdoc"
+          opam exec -- make -j2 html
+          echo "::endgroup::"
+
+          echo "::group::Install dependencies"
+          opam install -y coq-dpdgraph
+          sudo apt install -y graphviz
+          echo "::endgroup::"
+
+          echo "::group::Generate dependency graphs"
+          rm -rf docs/graphs
+          mkdir -p docs
+          mkdir -p docs/graphs
+
+          opam exec -- make dependency-graphs
+          mv utils/svg/* docs/graphs/
+          mv execution/svg/* docs/graphs/
+          mv embedding/svg/* docs/graphs/
+          mv extraction/svg/* docs/graphs/
+          mv examples/svg/* docs/graphs/
+          echo "::endgroup::"
+
+      - name: Prepare documentation for deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: docs
+
+  deploy-docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
