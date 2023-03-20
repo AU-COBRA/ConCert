@@ -22,148 +22,66 @@ on:
     - 'extra/docker/**'
 permissions:
   contents: read
+env:
+  OCAML_COMILER_VERSION: "4.13.1"
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    container:
-      image: aucobra/concert:deps-8.16.1-with-compilers
-      options: --user root
     steps:
-    - name: Checkout branch ${{ github.ref_name }}
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
-    - name: Setup environment
-      run: |
-        echo "::group::Setting up switch"
-        echo "HOME=/home/coq" >> $GITHUB_ENV
-        export HOME=/home/coq
-        echo "/home/coq/.cargo/bin" >> $GITHUB_PATH
-        PATH=/home/coq/.cargo/bin:$PATH
-        eval $(opam env --switch=${COMPILER} --set-switch)
-        env
-        opam switch
-        echo "::endgroup::"
+      - name: Checkout branch ${{ github.ref_name }}
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-        echo "::group::Setting up problem matcher"
-        echo "::add-matcher::./.github/coq-errors.json"
-        echo "::endgroup::"
-    - name: Build core
-      run: |
-        echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER} --set-switch)
-        echo "::endgroup::"
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v3
+        with:
+          path: "~/.opam"
+          key: opam-${{env.OCAML_COMILER_VERSION}}-${{hashFiles('.github/coq-concert.opam.locked')}}
+          restore-keys: |
+            opam-${{env.OCAML_COMILER_VERSION}}-
 
-        echo "::group::Build utilities"
-        make -j2 utils
-        echo "::endgroup::"
+      - name: Set up OCaml
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{env.OCAML_COMILER_VERSION}}
 
-        echo "::group::Build execution layer"
-        make -j2 execution
-        echo "::endgroup::"
+      - name: Build dependencies
+        if: ${{ ! steps.opam-cache.outputs.cache-hit }}
+        run: |
+          opam repo add coq-released https://coq.inria.fr/opam/released
+          opam install --deps-only -j2 .github/coq-concert.opam.locked
+          opam clean -a -c -s --logs
 
-        echo "::group::Build embedding layer"
-        make -j2 embedding
-        echo "::endgroup::"
+      - name: Set up environment
+        run: |
+          echo "::group::Setting up problem matcher"
+          echo "::add-matcher::./.github/coq-errors.json"
+          echo "::endgroup::"
 
-        echo "::group::Build extraction layer"
-        make -j2 typed-extraction extraction
-        echo "::endgroup::"
-    - name: Build examples
-      run: |
-        echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER} --set-switch)
-        echo "::endgroup::"
+      - name: Build core
+        run: |
+          echo "::group::Build utilities"
+          opam exec -- make -j2 utils
+          echo "::endgroup::"
 
-        echo "::group::Build examples"
-        make -j2 examples
-        echo "::endgroup::"
-    - name: Test extraction
-      run: |
-        echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER} --set-switch)
-        echo "::endgroup::"
+          echo "::group::Build execution layer"
+          opam exec -- make -j2 execution
+          echo "::endgroup::"
 
-        echo "::group::Running tests"
-        make -j2 test-extraction
-        echo "::endgroup::"
+          echo "::group::Build embedding layer"
+          opam exec -- make -j2 embedding
+          echo "::endgroup::"
 
-        echo "::group::Cleaning up"
-        make -j2 clean-extraction-out-files
-        make -j2 clean-compiled-extraction
-        echo "::endgroup::"
-    - name: Build documentation
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      run: |
-        echo "::group::Setting up switch"
-        eval $(opam env --switch=${COMPILER} --set-switch)
-        echo "::endgroup::"
+          echo "::group::Build extraction layer"
+          opam exec -- make -j2 typed-extraction extraction
+          echo "::endgroup::"
 
-        echo "::group::Running coqdoc"
-        make -j2 html
-        echo "::endgroup::"
-
-        echo "::group::Install dependencies"
-        opam install -y coq-dpdgraph
-        sudo apt install -y graphviz
-        echo "::endgroup::"
-
-        echo "::group::Generate dependency graphs"
-        rm -rf docs/graphs
-        mkdir -p docs
-        mkdir -p docs/graphs
-
-        make dependency-graphs
-        mv utils/svg/* docs/graphs/
-        mv execution/svg/* docs/graphs/
-        mv embedding/svg/* docs/graphs/
-        mv extraction/svg/* docs/graphs/
-        mv examples/svg/* docs/graphs/
-        echo "::endgroup::"
-    - name: Upload Liquidity extraction logs
-      uses: actions/upload-artifact@v3
-      with:
-        name: Liquidity logs
-        path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
-        retention-days: 14
-    - name: Prepare extraction results
-      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-      run: |
-        cp LICENSE extraction/tests/extracted-code/LICENSE
-        cp extra/extraction-results.md extraction/tests/extracted-code/README.md
-        cp .gitattributes extraction/tests/extracted-code/.gitattributes
-        find extraction/tests/extracted-code -name 'placeholder' -delete
-        find extraction/tests/extracted-code/rust-extract -name '*.main' -delete
-    - name: Push to the extraction results repository
-      # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
-      if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-      uses: cpina/github-action-push-to-another-repository@main
-      env:
-        SSH_DEPLOY_KEY: ${{ secrets.EXTRACTION_RESULTS_DEPLOY_KEY }}
-      with:
-        source-directory: 'extraction/tests/extracted-code'
-        destination-github-username: 'AU-COBRA'
-        destination-repository-name: 'extraction-results'
-        user-email: danil.v.annenkov@gmail.com
-        commit-message: See ORIGIN_COMMIT from $GITHUB_REF
-        target-branch: master
-    - name: Prepare documentation for deployment
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      uses: actions/upload-pages-artifact@v1
-      with:
-        path: docs
-  deploy-docs:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v2
+      - name: Build examples
+        run: |
+          echo "::group::Build examples"
+          opam exec -- make -j2 examples
+          echo "::endgroup::"
