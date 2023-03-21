@@ -51,7 +51,7 @@ jobs:
           ocaml-version: ${{env.OCAML_COMILER_VERSION}}
 
       - name: Build dependencies
-        if: ${{ ! steps.opam-cache.outputs.cache-hit }}
+        #if: ${{ !steps.opam-cache.outputs.cache-hit }}
         run: |
           opam repo add coq-released https://coq.inria.fr/opam/released
           opam install --deps-only -j${{ env.JOBS }} .github/coq-concert.opam.locked

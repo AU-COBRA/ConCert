@@ -1,0 +1,30 @@
+name: Refresh cache
+on:
+  schedule:
+    - cron: 0 1 * * MON
+permissions:
+  contents: read
+env:
+  OCAML_COMILER_VERSION: "4.13.1"
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch ${{ github.ref_name }}
+        uses: actions/checkout@v3
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v3
+        with:
+          path: "~/.opam"
+          fail-on-cache-miss: true
+          key: opam-${{env.OCAML_COMILER_VERSION}}-${{hashFiles('.github/coq-concert.opam.locked')}}
+          restore-keys: |
+            opam-${{env.OCAML_COMILER_VERSION}}-
+
+      - name: Set up OCaml
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{env.OCAML_COMILER_VERSION}}
+      - run: opam list
