@@ -1,4 +1,4 @@
-all: utils execution embedding typed-extraction extraction
+all: utils execution embedding extraction
 .PHONY: all
 
 utils:
@@ -13,11 +13,7 @@ embedding: utils execution
 	+make -C embedding
 .PHONY: embedding
 
-typed-extraction:
-	+make -C typed-extraction
-.PHONY: typed-extraction
-
-extraction: utils execution typed-extraction
+extraction: utils execution
 	+make -C extraction
 .PHONY: extraction
 
@@ -29,7 +25,6 @@ clean:
 	+make -C utils clean
 	+make -C execution clean
 	+make -C embedding clean
-	+make -C typed-extraction clean
 	+make -C extraction clean
 	+make -C examples clean
 	rm -rf docs
@@ -39,7 +34,6 @@ install: all
 	+make -C utils install
 	+make -C execution install
 	+make -C embedding install
-	+make -C typed-extraction install
 	+make -C extraction install
 .PHONY: install
 
@@ -47,7 +41,6 @@ uninstall:
 	+make -C utils uninstall
 	+make -C execution uninstall
 	+make -C embedding uninstall
-	+make -C typed-extraction uninstall
 	+make -C extraction uninstall
 
 test-extraction:
@@ -130,8 +123,6 @@ html: all
 		-R embedding/theories ConCert.Embedding \
 		-R embedding/extraction ConCert.Embedding.Extraction \
 		-R embedding/examples ConCert.Embedding.Examples \
-		-R typed-extraction/theories MetaCoq.TypedExtraction \
-		-R typed-extraction/tests MetaCoq.TypedExtraction.Tests \
 		-R extraction/theories ConCert.Extraction \
 		-R extraction/plugin/theories ConCert.Extraction \
 		-R extraction/tests ConCert.Extraction.Tests \

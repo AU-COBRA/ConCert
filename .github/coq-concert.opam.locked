@@ -13,10 +13,15 @@ depends: [
   "coq" {= "8.16.1"}
   "coq-bignums" {= "9.0.0+coq8.16"}
   "coq-equations" {= "1.3+8.16"}
-  "coq-metacoq-erasure" {= "1.1.1+8.16"}
-  "coq-metacoq-pcuic" {= "1.1.1+8.16"}
-  "coq-metacoq-safechecker" {= "1.1.1+8.16"}
-  "coq-metacoq-template" {= "1.1.1+8.16"}
+  "coq-metacoq-common" {= "8.16.dev"}
+  "coq-metacoq-erasure" {= "8.16.dev"}
+  "coq-metacoq-erasure-plugin" {= "8.16.dev"}
+  "coq-metacoq-pcuic" {= "8.16.dev"}
+  "coq-metacoq-safechecker" {= "8.16.dev"}
+  "coq-metacoq-safechecker-plugin" {= "8.16.dev"}
+  "coq-metacoq-template" {= "8.16.dev"}
+  "coq-metacoq-template-pcuic" {= "8.16.dev"}
+  "coq-metacoq-utils" {= "8.16.dev"}
   "coq-quickchick" {= "1.6.4"}
   "coq-stdpp" {= "1.8.0"}
 ]
@@ -30,3 +35,41 @@ install: [
   [make "-C" "examples" "install"] {with-test}
 ]
 dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
+pin-depends: [
+  [
+    "coq-metacoq-common.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-erasure.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-erasure-plugin.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-pcuic.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-safechecker.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-safechecker-plugin.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-template.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-template-pcuic.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+  [
+    "coq-metacoq-utils.8.16.dev"
+    "git+https://github.com/MetaCoq/metacoq.git#ccce70442fb3eb65ed4365cc54a513a811d30db0"
+  ]
+]
