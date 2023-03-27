@@ -46,7 +46,7 @@ jobs:
             opam-${{env.OCAML_COMILER_VERSION}}-
 
       - name: Set up OCaml
-        uses: avsm/setup-ocaml@v1
+        uses: avsm/setup-ocaml@v2
         with:
           ocaml-version: ${{env.OCAML_COMILER_VERSION}}
 
