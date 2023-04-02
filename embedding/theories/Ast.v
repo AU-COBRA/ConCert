@@ -6,7 +6,7 @@ From ConCert.Utils Require Import Env.
 
 Import ListNotations.
 
-Module BasicTC := MetaCoq.Template.BasicAst.
+Module BasicTC := MetaCoq.Common.BasicAst.
 Import Ast.
 
 (** Aliases *)

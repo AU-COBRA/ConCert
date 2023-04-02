@@ -28,11 +28,11 @@ From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import ExAst.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Template Require Import MCList.
-From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Utils Require Import monad_utils.
 
 Local Open Scope string_scope.
 Local Open Scope program_scope.

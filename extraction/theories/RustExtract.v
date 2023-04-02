@@ -1,10 +1,10 @@
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import MCList.
-From MetaCoq.TypedExtraction Require Import ExAst.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import CertifyingInlining.
-From MetaCoq.TypedExtraction Require Import Optimize.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Erasure.Typed Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
+From MetaCoq.Erasure.Typed Require Import Optimize.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import TopLevelFixes.
 From Coq Require Import PeanoNat.
@@ -17,12 +17,12 @@ From ConCert.Extraction Require Import PrettyPrinterMonad.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
-Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
+Module T2P := MetaCoq.TemplatePCUIC.TemplateToPCUIC.
 Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.ErasureFunction.
-Module Ex := MetaCoq.TypedExtraction.ExAst.
+Module Ex := MetaCoq.Erasure.Typed.ExAst.
 
 Local Open Scope string.
 

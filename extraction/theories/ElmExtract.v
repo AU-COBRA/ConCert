@@ -1,7 +1,7 @@
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import ExAst.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
@@ -15,12 +15,12 @@ Import PrettyPrinterMonad.
 
 Module P := MetaCoq.PCUIC.PCUICAst.
 Module PT := MetaCoq.PCUIC.PCUICTyping.
-Module T2P := MetaCoq.PCUIC.TemplateToPCUIC.
+Module T2P := MetaCoq.TemplatePCUIC.TemplateToPCUIC.
 Module E := MetaCoq.Erasure.EAst.
 Module T := MetaCoq.Template.Ast.
 Module TUtil := MetaCoq.Template.AstUtils.
 Module EF := MetaCoq.Erasure.ErasureFunction.
-Module Ex := MetaCoq.TypedExtraction.ExAst.
+Module Ex := MetaCoq.Erasure.Typed.ExAst.
 
 Local Open Scope string.
 

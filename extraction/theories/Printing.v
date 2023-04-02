@@ -1,5 +1,5 @@
-From MetaCoq.Template Require Import BasicAst.
-From MetaCoq.Template Require Import MCString.
+From MetaCoq.Common Require Import BasicAst.
+From MetaCoq.Utils Require Import MCString.
 
 Record remapped_inductive := build_remapped_inductive {
   re_ind_name : string;

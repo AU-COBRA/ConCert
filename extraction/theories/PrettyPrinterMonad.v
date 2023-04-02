@@ -1,9 +1,9 @@
 From Coq Require Import List.
 From Coq Require Import Ascii.
 From Coq Require Import String.
-From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.Utils Require Import monad_utils.
 From MetaCoq.SafeChecker Require Import PCUICErrors.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import Common.
 
 Import monad_utils.MCMonadNotation.

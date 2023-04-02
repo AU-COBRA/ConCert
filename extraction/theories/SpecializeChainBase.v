@@ -17,10 +17,17 @@
 (* From Coq Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import bytestring.
+From MetaCoq.Utils Require Import MCString.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Utils Require Import MCProd.
+From Coq Require Import List.
 
+Import ListNotations.
 Import MCMonadNotation.
 
 Local Open Scope bs_scope.

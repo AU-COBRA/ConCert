@@ -1,12 +1,12 @@
 From Coq Require Import String.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import LiftSubst.
 From MetaCoq.Template Require Import AstUtils.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq.Template Require Import Typing.
-From MetaCoq.Template Require Import utils.
+From MetaCoq.Utils Require Import utils.
 From MetaCoq.Erasure Require EAst.
 From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
 From MetaCoq.SafeChecker Require Import PCUICWfEnvImpl.

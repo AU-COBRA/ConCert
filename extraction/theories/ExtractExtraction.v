@@ -1,6 +1,6 @@
 (* This file is based on erasure/theories/Extraction.v from MetaCoq *)
 From Coq Require Import Ascii FSets ExtrOcamlBasic ExtrOCamlFloats ExtrOCamlInt63.
-From MetaCoq.Template Require Import utils.
+From MetaCoq.Utils Require Import utils.
 
 (* Ignore [Decimal.int] before the extraction issue is solved:
     https://github.com/coq/coq/issues/7017. *)
@@ -18,7 +18,7 @@ Set Warnings "-extraction-reserved-identifier".
 
 From MetaCoq.Erasure Require Import EAst EAstUtils EInduction ELiftSubst EGlobalEnv Extract ErasureFunction Erasure.
 From ConCert.Extraction Require Import PluginExtract.
-From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.Erasure.Typed Require Import Utils.
 
 
 Extraction Inline Equations.Prop.Classes.noConfusion.
@@ -52,6 +52,6 @@ bytestrings from MetaCoq that leads to clashes. E.g. we cannot use
 Cd "plugin/src".
 Separate Extraction PluginExtract.extract
          (* The following directives ensure separate extraction does not produce name clashes *)
-          Bool Nat Coq.Strings.String bytestring.String Extraction.Common TemplateMonad.Common utils ELiftSubst EGlobalEnv Template.Transform ResultMonad.
+          Bool Nat Coq.Strings.String bytestring.String Extraction.Common TemplateMonad.Common utils ELiftSubst EGlobalEnv Common.Transform ResultMonad.
          (* Bool Nat Coq.Strings.String Common utils ELiftSubst EGlobalEnv PCUICLiftSubst PCUICUnivSubst ResultMonad SafeTemplateChecker. *)
 Cd "../..".

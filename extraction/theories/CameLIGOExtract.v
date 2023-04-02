@@ -1,5 +1,6 @@
 From Coq Require Import String.
 From Coq Require Import List.
+From Coq Require Import ZArith_base.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Serializable.
@@ -7,20 +8,23 @@ From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From MetaCoq.TypedExtraction Require Import CertifyingInlining.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
-From MetaCoq.TypedExtraction Require Import ExAst.
-From MetaCoq.TypedExtraction Require Import Optimize.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import TypeAnnotations.
-From MetaCoq.TypedExtraction Require Import Annotations.
-From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import Optimize.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import TypeAnnotations.
+From MetaCoq.Erasure.Typed Require Import Annotations.
+From MetaCoq.Erasure.Typed Require Import Utils.
 From ConCert.Utils Require Import Env.
-From MetaCoq.Template Require Import Kernames.
-From MetaCoq.Template Require monad_utils.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import MCSquash.
+From MetaCoq.Utils Require Import MCPrelude.
+From MetaCoq.Utils Require Import MCProd.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import TemplateMonad.
 
-Import monad_utils.MCMonadNotation ListNotations.
+Import MCMonadNotation ListNotations.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation error : Type) :=
   { lmd_module_name : string ;
@@ -62,6 +66,7 @@ Definition cameligo_args :=
                                    true] |}.
 
 Import PCUICAst PCUICTyping.
+Import bytestring.
 Definition annot_extract_env_cameligo
            (Σ : PCUICEnvironment.global_env)
            (wfΣ : ∥wf Σ∥)
@@ -343,7 +348,7 @@ Definition CameLIGO_prepare_extraction {msg ctx params storage operation error :
                                                   build_call_ctx
                                                   init_nm receive_nm
                                                   m) in
-  tmDefinition (bytestring.String.of_string m.(lmd_module_name) ^ "_prepared") res.
+  tmDefinition (bytestring.String.of_string (m.(lmd_module_name) ^ "_prepared")) res.
 
 (** Bundles together quoting, inlining, erasure and pretty-printing.
     Convenient to use, but might be slow, because performance of [tmEval lazy] is not great. *)
@@ -450,6 +455,6 @@ Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (def : A) : TemplateMonad String.string :=
     '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
     let seeds := KernameSetProp.of_list [def_nm] in
-    tmDefinition (def_nm.2 ^ "_prepared") (unwrap_string_sum (simple_def_print TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
+    tmDefinition (def_nm.2 ++ "_prepared") (unwrap_string_sum (simple_def_print TT_defs TT_ctors (KernameSet.singleton def_nm) prelude harness Σ)).
 
 End LigoExtract.

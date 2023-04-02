@@ -1,7 +1,12 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Common Require Import BasicAst.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import MCProd.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Utils Require Import MCString.
+From MetaCoq.Utils Require Import bytestring.
 From MetaCoq.Template Require Import Loader.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -56,9 +61,9 @@ Definition kername_of_string (s : string) : kername :=
 
 (** The printing functions below are similar to the ones from MetaCoq,
     but we use different separators for different parts of the [kername] *)
-
+Notation s_to_bs := bytestring.String.of_string.
 Definition string_of_dirpath (dp : dirpath) : string :=
-  TCString.to_string (String.concat "/" (rev dp)).
+  TCString.to_string (TCString.concat (s_to_bs "/") (rev dp)).
 
 Fixpoint string_of_modpath (mp : modpath) : string :=
   match mp with
@@ -225,8 +230,8 @@ Definition trans_one_constr (ind_name : ename) (nparam : nat) (c : constr) : ter
 Fixpoint gen_params n := match n with
                          | O => []
                          | S n' => let nm := ("A" ++ string_of_nat n)%bs in
-                                  let decl := LocalAssum (tSort Universe.type0) in
-                                  gen_params n' ++ [(nm,decl)]
+                                  let decl := (tSort Universe.type0) in
+                                  gen_params n' ++ [mkdecl (aRelevant (nNamed nm)) None (decl)]
                          end.
 
 Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=

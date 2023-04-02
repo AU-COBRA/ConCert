@@ -19,13 +19,11 @@ PCUICAst
 PCUICAstUtils
 PCUICChecker
 PCUICCumulativity
-PCUICEquality
 PCUICEqualityDec
 PCUICLiftSubst
 PCUICPretty
 PCUICErrors
 PCUICCases
-PCUICWfUniverses
 PCUICNormal
 PCUICPosition
 PCUICReduction

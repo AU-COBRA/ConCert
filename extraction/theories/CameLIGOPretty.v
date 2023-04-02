@@ -12,15 +12,15 @@
     have only one argument. So, we pack multiple arguments in a tuple.
     In order for that to be correct, we assume that all fixpoints are
     fully applied. *)
-From MetaCoq.TypedExtraction Require Import Utils.
-From MetaCoq.TypedExtraction Require Import ExAst.
-From MetaCoq.TypedExtraction Require Import Annotations.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import Utils.
+From MetaCoq.Erasure.Typed Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import Annotations.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Template Require Import MCList.
-From MetaCoq.Template Require Import MCPrelude.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Utils Require Import MCPrelude.
 From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import StringExtra.
