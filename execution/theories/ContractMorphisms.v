@@ -18,28 +18,14 @@ From ConCert.Utils Require Import RecordUpdate.
 Axiom todo : string -> forall {A}, A.
 
 (* some auxiliary functions *)
-Definition curry_fun3 {A B C D : Type} (f : A * B * C -> D) : A -> B -> C -> D := 
-    fun (a : A) => fun (b : B) => fun (c : C) => f (a,b,c).
-Definition uncurry_fun3 {A B C D : Type} (f : A -> B -> C -> D) : A * B * C -> D :=
-    fun (x : A * B * C) => 
-        let '(a, b, c) := x in f a b c.
-Definition curry_fun4 {A B C D E : Type} (f : A * B * C * D -> E) : A -> B -> C -> D -> E :=
-    fun (a : A) => fun (b : B) => fun (c : C) => fun (d : D) => f (a,b,c,d).
-Definition uncurry_fun4 {A B C D E : Type} (f : A -> B -> C -> D -> E) : A * B * C * D -> E :=
-    fun (x : A * B * C * D) => 
-        let '(a, b, c, d) := x in f a b c d.
-Definition serialize_function {A B} `{Serializable A} `{Serializable B} 
-    (f : A -> B) (sv : SerializedValue) : SerializedValue := 
-    match deserialize sv with 
-    | None => sv (* ideally would not be deserializable *)
-    | Some a => serialize (f a)
-    end.
-Definition option_fun {A B} (f : A -> B) (op_a : option A) : option B := 
-    match op_a with 
-    | Some a => Some (f a)
-    | None => None 
-    end.
-
+Definition curry_3 {A B C D : Type} (f : A * B * C -> D) : A -> B -> C -> D := 
+    (compose curry curry) f.
+Definition curry_4 {A B C D E : Type} (f : A * B * C * D -> E) : A -> B -> C -> D -> E :=
+    curry (curry (curry f)).
+Definition uncurry_3 {A B C D : Type} (f : A -> B -> C -> D) : A * B * C -> D :=
+    (compose uncurry uncurry) f.
+Definition uncurry_4 {A B C D E : Type} (f : A -> B -> C -> D -> E) : A * B * C * D -> E :=
+    uncurry (uncurry (uncurry f)).
 
 Section ContractMorphisms.
 Context { Base : ChainBase }.
@@ -61,8 +47,8 @@ Record InitCM
         (* proof of commutativity *)
         init_commutes : 
             forall x : Chain * ContractCallContext * Setup,
-                uncurry_fun3 C'.(init) (init_inputs x) = 
-                init_outputs (uncurry_fun3 C.(init) x) ;
+                uncurry_3 C'.(init) (init_inputs x) = 
+                init_outputs (uncurry_3 C.(init) x) ;
     }.
 
 (** The receive component *)
@@ -80,8 +66,8 @@ Record RecvCM
         (* proof of commutativity *)
         recv_commutes : 
             forall (x : Chain * ContractCallContext * State * option Msg), 
-                uncurry_fun4 C'.(receive) (recv_inputs x) = 
-                recv_outputs (uncurry_fun4 C.(receive) x) ;
+                uncurry_4 C'.(receive) (recv_inputs x) = 
+                recv_outputs (uncurry_4 C.(receive) x) ;
     }.
 
 (** The definition *)
@@ -126,8 +112,8 @@ Definition init_morphs_commute
         Chain * ContractCallContext * Setup') 
     (init_outputs : result State Error -> result State' Error') :=
     forall x : Chain * ContractCallContext * Setup,
-        uncurry_fun3 init' (init_inputs x) = 
-        init_outputs (uncurry_fun3 init x).
+        uncurry_3 init' (init_inputs x) = 
+        init_outputs (uncurry_3 init x).
 
 Definition recv_morphs_commute 
     { Msg Msg' State State' Error Error' : Type }
@@ -140,8 +126,8 @@ Definition recv_morphs_commute
     (recv_outputs : result (State * list ActionBody) Error -> 
         result (State' * list ActionBody) Error') : Prop :=
         forall (x : Chain * ContractCallContext * State * option Msg), 
-            uncurry_fun4 recv' (recv_inputs x) = 
-            recv_outputs (uncurry_fun4 recv x).
+            uncurry_4 recv' (recv_inputs x) = 
+            recv_outputs (uncurry_4 recv x).
 
 End MorphismUtilities.
 
@@ -160,7 +146,7 @@ Proof.
         set (init_outputs := id_fun (result State Error)).
         apply (build_init_cm Setup Setup Msg Msg State State Error Error H H0 H1 H2 H H0 H1 H2 C C init_inputs init_outputs).
         intro. destruct x. destruct p.
-        unfold uncurry_fun3. 
+        unfold uncurry_3. 
         unfold init_inputs. unfold init_outputs. 
         unfold id_fun. simpl.
         reflexivity.
@@ -168,13 +154,13 @@ Proof.
         set (recv_outputs := id_fun (result (State * list ActionBody) Error)).
         apply (build_recv_cm Setup Setup Msg Msg State State Error Error H H0 H1 H2 H H0 H1 H2 C C recv_inputs recv_outputs).
         intro. destruct x. repeat destruct p.
-        unfold uncurry_fun4. 
+        unfold uncurry_4. 
         unfold recv_inputs. unfold recv_outputs. 
         unfold id_fun. simpl.
         reflexivity.
 Qed.
 
-(* an explicity construction *)
+(* an explicit construction *)
 Lemma init_commutes_id 
     { Setup Msg State Error : Type }
     `{Serializable Msg}  `{Serializable Setup}  `{Serializable State} `{Serializable Error}
@@ -445,14 +431,6 @@ Definition is_iso_cm
     composition_cm g f = id_cm C /\ 
     composition_cm f g = id_cm C'.
 
-Definition contracts_isomorphic 
-        { Setup Setup' Msg Msg' State State' Error Error' : Type }
-        `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-        `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-        (C : Contract Setup Msg State Error) (C' : Contract Setup' Msg' State' Error') := 
-    exists (f : ContractMorphism C C') (g : ContractMorphism C' C),
-    is_iso_cm f g.
-
 Lemma iso_cm_components 
         { Setup Setup' Msg Msg' State State' Error Error' : Type }
         `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
@@ -687,7 +665,7 @@ Lemma null_init_commutes : init_morphs_commute C.(init) null_contract.(init) mor
 Proof.
     unfold init_morphs_commute. 
     intro. destruct x as [x' s]. destruct x' as [c ctx]. simpl.
-    unfold uncurry_fun3. unfold null_init. unfold morph_init_o.
+    unfold uncurry_3. unfold null_init. unfold morph_init_o.
     now destruct (init C c ctx s).
 Qed.
 
@@ -709,7 +687,7 @@ Lemma null_recv_commutes : recv_morphs_commute C.(receive) null_contract.(receiv
 Proof.
     unfold recv_morphs_commute. intro.
     destruct x as [x' op_msg]. destruct x' as [x'' st]. destruct x'' as [c ctx]. simpl.
-    unfold uncurry_fun4. unfold null_recv. unfold morph_recv_o.
+    unfold uncurry_4. unfold null_recv. unfold morph_recv_o.
     now destruct (receive C c ctx st op_msg).
 Qed.
 
@@ -793,7 +771,7 @@ Lemma init_commutes_simple
 Proof.
     unfold init_morphs_commute. 
     intro. destruct x. destruct p.
-    unfold uncurry_fun3. simpl.
+    unfold uncurry_3. simpl.
     rewrite <- (init_coherence c c0 s).
     unfold init_outputs. 
     reflexivity.
@@ -833,16 +811,16 @@ Lemma recv_commutes_simple
     (* coherence conditions *)
     (recv_coherence : forall c ctx st op_msg, 
         (recv_result_transform state_morph error_morph) ((receive C1) c ctx st op_msg) = 
-        (receive C2) c ctx (state_morph st) (option_fun msg_morph op_msg)) : 
+        (receive C2) c ctx (state_morph st) (option_map msg_morph op_msg)) : 
     recv_morphs_commute
         C1.(receive) C2.(receive)
         (fun (x : Chain * ContractCallContext * State * option Msg) => 
-            let '(c, ctx, st, op_msg) := x in (c, ctx, state_morph st, option_fun msg_morph op_msg))
+            let '(c, ctx, st, op_msg) := x in (c, ctx, state_morph st, option_map msg_morph op_msg))
         (recv_result_transform state_morph error_morph).
 Proof.
     unfold recv_morphs_commute. 
     intro. destruct x. repeat destruct p.
-    unfold uncurry_fun4. simpl.
+    unfold uncurry_4. simpl.
     rewrite <- (recv_coherence c c0 s o).
     unfold recv_outputs.
     reflexivity.
@@ -861,11 +839,11 @@ Definition simple_cm_recv
     (* coherence conditions *)
     (recv_coherence : forall c ctx st op_msg, 
         (recv_result_transform state_morph error_morph) ((receive C1) c ctx st op_msg) = 
-        (receive C2) c ctx (state_morph st) (option_fun msg_morph op_msg)) : 
+        (receive C2) c ctx (state_morph st) (option_map msg_morph op_msg)) : 
     RecvCM C1 C2 := {| 
         recv_inputs := 
             (fun (x : Chain * ContractCallContext * State * option Msg) => 
-                let '(c, ctx, st, op_msg) := x in (c, ctx, state_morph st, option_fun msg_morph op_msg)) ; 
+                let '(c, ctx, st, op_msg) := x in (c, ctx, state_morph st, option_map msg_morph op_msg)) ; 
         recv_outputs := 
             (recv_result_transform state_morph error_morph) ; 
         recv_commutes := recv_commutes_simple msg_morph state_morph error_morph recv_coherence ;
@@ -888,745 +866,510 @@ Definition simple_cm
         (init_result_transform state_morph error_morph) ((init C1) c ctx s) = (init C2) c ctx (setup_morph s))
     (recv_coherence : forall c ctx st op_msg, 
         (recv_result_transform state_morph error_morph) ((receive C1) c ctx st op_msg) = 
-        (receive C2) c ctx (state_morph st) (option_fun msg_morph op_msg)) : 
+        (receive C2) c ctx (state_morph st) (option_map msg_morph op_msg)) : 
     ContractMorphism C1 C2 := {| 
         cm_init := simple_cm_init setup_morph state_morph error_morph init_coherence ;
         cm_recv := simple_cm_recv msg_morph   state_morph error_morph recv_coherence ;
     |}.
 
-End SimpleContractMorphism.
-
-
-(** In this Section, we lift a contract morphism f to a transformation of bstate and trace.
-    The main result, cm_lift, is proved by induction over the trace.
-        The section is organized as follows:
-        1. Section ChainStateMorphism: 
-            - We define a morphism of environments and chainstates, parameterized by f
-            - We define the trivial morphism on trivial chainstates
-        1. Section BStateTransform:
-            - We define a transformation of bstate over f, bstate_transform_step, along with
-              a chainstate morphism from a state bstate to (bstate_transform_step bstate).
-            - This is done in chainstate_morphism_step.
-        2. Section CMLiftInductiveStep:
-            - We prove various lemmas for the inductive step of our proof. Each of these
-              has the prefix chainstep_transform_
-            - The inductive step is proved in the results chainstep_transform_step and 
-              caddr_implication_step
-        5. Finally, we prove the main result cm_lift
-*)
-Section ContractMorphismLift.
-Context 
-    (* we can lift a morphism of contracts, parameterized by the morphpism f and the address of C1 *)
+(* a predicate to indicate that a contract morphism is simple *)
+Definition is_simple_cm
     { Setup Setup' Msg Msg' State State' Error Error' : Type }
     `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
     `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-    {C1 : Contract Setup Msg State Error} {C2 : Contract Setup' Msg' State' Error'}
-    {f : ContractMorphism C1 C2}.
-
-Variable 
-    (* f must be decomposable as follows *)
+    {C1 : Contract Setup Msg State Error} 
+    {C2 : Contract Setup' Msg' State' Error'} 
+    (f : ContractMorphism C1 C2) : Prop := 
+    exists 
+    (* the components of f *)
     (msg_morph   : Msg   -> Msg')
     (setup_morph : Setup -> Setup')
     (state_morph : State -> State')
     (error_morph : Error -> Error')
-    (* with coherence conditions satisfied *)
+    (* coherence conditions *)
     (init_coherence : forall c ctx s, 
         (init_result_transform state_morph error_morph) ((init C1) c ctx s) = (init C2) c ctx (setup_morph s))
     (recv_coherence : forall c ctx st op_msg, 
         (recv_result_transform state_morph error_morph) ((receive C1) c ctx st op_msg) = 
-        (receive C2) c ctx (state_morph st) (option_fun msg_morph op_msg))
-    (* f is decomposable *)
-    (f_decomposable : 
-        f = simple_cm msg_morph setup_morph state_morph error_morph init_coherence recv_coherence).
+        (receive C2) c ctx (state_morph st) (option_map msg_morph op_msg)),
+    f = simple_cm msg_morph setup_morph state_morph error_morph init_coherence recv_coherence.
 
 (* TODO *)
-Definition wc_dec_eq : forall w1 w2 : WeakContract, {w1 = w2} + {w1 <> w1} := todo "".
-Declare Scope wc_scope.
-Delimit Scope wc_scope with wc.
-Bind Scope wc_scope with WeakContract.
-Infix "=?" := wc_dec_eq (at level 70) : wc_scope.
+(* a tactic for proving a morphism is simple 
+Ltac show_is_simple_cm := 
+    match goal with 
+    | |- is_simple_cm _ => 
+    end.
+*)
 
-Section ChainStateMorphism.
-(* Given f, we can transform actions *)
-Definition action_transform (native_env : Environment) (a : Action) : Action := {| 
-    act_origin := act_origin a ;
-    act_from := act_from a ;
-    act_body := 
-        match act_body a with 
-        (* contract calls into C1 change to calls into C2 *)
-        | act_call to amt msg => 
-            match env_contracts native_env to with 
-            | Some wc => 
-                if (wc =? contract_to_weak_contract C1)%wc
-                then act_call to amt (serialize_function msg_morph msg)
-                else act_body a
-            | None => act_body a
-            end
-        (* we deploy C2 instead of C1 *)
-        | act_deploy amt c setup => 
-            if (c =? contract_to_weak_contract C1)%wc
-            then act_deploy amt (contract_to_weak_contract C2) (serialize_function setup_morph setup)
-            else act_body a
-        (* all amounts stay the same, so we do not change transfers *)
-        | act_transfer _ _ => act_body a 
-        end
-|}.
-
-(* A morphism of Environments, parameterized implicitly over f by swapping out C2 for C1 *)
-Record EnvironmentMorphism (e1 e2 : Environment) := 
-    build_env_morphism {
-        chain_eq' : env_chain e1 = env_chain e2 ;
-        account_balances_eq' :
-            forall a, env_account_balances e1 a = env_account_balances e2 a ;
-        contracts_morph :
-            forall a, 
-                env_contracts e2 a = 
-                match env_contracts e1 a with 
-                | Some wc => 
-                    if (wc =? contract_to_weak_contract C1)%wc 
-                    then Some (contract_to_weak_contract C2) 
-                    else Some wc
-                | None => None 
-                end ;
-        contract_states_morph : 
-            forall a, 
-                env_contract_states e2 a = 
-                match env_contracts e1 a with 
-                | Some wc => 
-                    if (wc =? contract_to_weak_contract C1)%wc 
-                    then (option_fun (serialize_function state_morph)) (env_contract_states e1 a)
-                    else env_contract_states e1 a
-                | None => env_contract_states e1 a
-                end ;
-}.
-
-(* A morphism of ChainStates, parameterized implicitly over f *)
-Record ChainStateMorphism (cstate1 cstate2 : ChainState) := 
-    build_chainstate_morphism {
-        env_morph   : EnvironmentMorphism cstate1 cstate2 ;
-        queue_morph : chain_state_queue cstate2 = 
-                      List.map (action_transform cstate1) (chain_state_queue cstate1) ;
-    }.
-
-Lemma empty_chainstate_morphism : ChainStateMorphism empty_state empty_state. 
-Proof.
-    apply build_chainstate_morphism; auto.
-    apply build_env_morphism; auto.
-Qed.
-
-End ChainStateMorphism.
-
-
-Section BStateTransform.
-(* given a bstate, construct one over f that will (trivially) yield a ChainStateMorphism *)
-Definition bstate_transform_step (bstate : ChainState) : ChainState := 
-        let env := {| 
-            (* the same as bstate *)
-            env_chain := env_chain bstate ; 
-            (* the same as bstate *)
-            env_account_balances := env_account_balances bstate ; 
-            (* the contracts are transformed via the contract morphism *)
-            env_contracts := fun a =>
-                match env_contracts bstate a with 
-                | Some wc => 
-                    if (wc =? contract_to_weak_contract C1)%wc 
-                    then Some (contract_to_weak_contract C2)
-                    else Some wc 
-                | None => None
-                end ;
-            (* the contract states are transformed via the contract morphism *)
-            env_contract_states := fun a => 
-                match env_contracts bstate a with 
-                | Some wc => 
-                    if (wc =? contract_to_weak_contract C1)%wc 
-                    then (option_fun (serialize_function state_morph)) (env_contract_states bstate a)
-                    else env_contract_states bstate a
-                | None => env_contract_states bstate a
-                end ;
-        |} in
-        (* we just use the queue again from bstate1' *)
-        let queue := List.map (action_transform bstate) (chain_state_queue bstate) in 
-        (* return the new cstate *)
-        {| chain_state_env := env ; chain_state_queue := queue ; |}.
-
-(* Some lemmas to construct something in ChainStateMorphism bstate (bstate_transform_step bstate) *)
-Lemma env_morph_step_chain_eq (bstate1 : ChainState) : 
-        let bstate2 := bstate_transform_step bstate1 in
-        env_chain bstate1 = env_chain bstate2.
-Proof. auto. Qed.
-
-Definition env_morph_step_balances (bstate1 : ChainState) : 
-    let bstate2 := bstate_transform_step bstate1 in
-    forall a, env_account_balances bstate1 a = env_account_balances bstate2 a.
-Proof. auto. Qed.
-
-Definition env_morph_step_contracts (bstate1 : ChainState) :  
-    let bstate2 := bstate_transform_step bstate1 in
-    forall a, 
-        env_contracts bstate2 a = 
-        match env_contracts bstate1 a with 
-        | Some wc => 
-            if (wc =? contract_to_weak_contract C1)%wc 
-            then Some (contract_to_weak_contract C2) 
-            else Some wc
-        | None => None 
-        end.
+(* a trivial lemma for convenience *)
+Lemma simple_cm_is_simple
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C1 : Contract Setup Msg State Error} 
+    {C2 : Contract Setup' Msg' State' Error'}
+    (* the components of f *)
+    {msg_morph   : Msg   -> Msg'}
+    {setup_morph : Setup -> Setup'}
+    {state_morph : State -> State'}
+    {error_morph : Error -> Error'}
+    (* coherence conditions *)
+    {init_coherence : forall c ctx s, 
+        (init_result_transform state_morph error_morph) ((init C1) c ctx s) = (init C2) c ctx (setup_morph s)}
+    {recv_coherence : forall c ctx st op_msg, 
+        (recv_result_transform state_morph error_morph) ((receive C1) c ctx st op_msg) = 
+        (receive C2) c ctx (state_morph st) (option_map msg_morph op_msg)} : 
+    is_simple_cm (simple_cm msg_morph setup_morph state_morph error_morph init_coherence recv_coherence).
 Proof. 
-    intros. 
-    unfold bstate2.
-    unfold bstate_transform_step. 
-    simpl. reflexivity.
-Qed.
-
-Definition env_morph_step_states (bstate1 : ChainState) : 
-    let bstate2 := bstate_transform_step bstate1 in
-    forall a,
-        env_contract_states bstate2 a = 
-        match env_contracts bstate1 a with 
-        | Some wc => 
-            if (wc =? contract_to_weak_contract C1)%wc 
-            then (option_fun (serialize_function state_morph)) (env_contract_states bstate1 a)
-            else env_contract_states bstate1 a
-        | None => env_contract_states bstate1 a
-        end.
-Proof.
-    intros.
-    unfold bstate2.
-    unfold bstate_transform_step.
-    simpl. reflexivity.
-Qed.
-
-Definition env_morph_step (bstate1 : ChainState) : 
-    let bstate2 := bstate_transform_step bstate1 in
-    EnvironmentMorphism bstate1 bstate2 := {| 
-        chain_eq' := env_morph_step_chain_eq bstate1 ; 
-        account_balances_eq' := env_morph_step_balances bstate1 ; 
-        contracts_morph := env_morph_step_contracts bstate1 ; 
-        contract_states_morph := env_morph_step_states bstate1 ;
-    |}.    
-
-Lemma queue_morphism_step (bstate1 : ChainState) : 
-    let bstate2 := bstate_transform_step bstate1 in  
-    chain_state_queue bstate2
-    = List.map (action_transform bstate1) (chain_state_queue bstate1).
-Proof. auto. Qed.
-
-(* We have ChainStateMorphism bstate (bstate_transform_step bstate) *)
-Definition chainstate_morphism_step (bstate1' : ChainState) : 
-    let bstate2' := bstate_transform_step bstate1' in  
-    (ChainStateMorphism bstate1' bstate2') := {|  
-        env_morph   := env_morph_step bstate1' ; 
-        queue_morph := queue_morphism_step bstate1' |}.
-
-End BStateTransform.
-
-
-Section CMLiftInductiveStep.
-(* the main result of this section is chainstep_transform_step, for which we need 
-   several lemmas, each of which are prefixed with chainstep_transform_ *)
-
-(* construct the step from bstate2 to bstate2' *)
-Lemma chainstep_transform_empty_queue 
-    (cstate1 cstate2 : ChainState) 
-    (m : ChainStateMorphism cstate1 cstate2) : 
-    chain_state_queue cstate1 = nil -> chain_state_queue cstate2 = nil.
-Proof. 
-    intro. rewrite (queue_morph cstate1 cstate2 m). rewrite H7. simpl. reflexivity.
-Qed.
-
-Lemma chainstep_transform_next_block_valid
-    (cstate1 cstate2 : ChainState) 
-    (m : ChainStateMorphism cstate1 cstate2)
-    (header : BlockHeader) : 
-    IsValidNextBlock header cstate1 -> IsValidNextBlock header cstate2.
-Proof.
-    intro. destruct H7.
-    assert (env_chain cstate1 = env_chain cstate2); 
-    try exact (chain_eq' cstate1 cstate2 (env_morph cstate1 cstate2 m)).
-    rewrite H7 in valid_height.
-    rewrite H7 in valid_slot.
-    rewrite H7 in valid_finalized_height. 
-    exact (build_is_valid_next_block header cstate2 valid_height valid_slot valid_finalized_height valid_creator valid_reward).
-Qed.
-
-Lemma chainstep_transform_no_acts_from_accounts
-    (bstate1' : ChainState) : 
-    let bstate2' := bstate_transform_step bstate1' in  
-    Forall act_is_from_account (chain_state_queue bstate1') -> 
-    Forall act_is_from_account (chain_state_queue bstate2').
-Proof.
-    intros. 
-    unfold bstate2'.
-    simpl.
-    induction (chain_state_queue bstate1').
-    - auto.
-    - simpl. apply Forall_cons_iff in H7. destruct H7. apply IHl in H8.
-        apply Forall_cons.
-        + exact H7.
-        + exact H8.
-Qed.
-
-Lemma chainstep_transform_origin_eq_from
-    (bstate1' : ChainState) : 
-    let bstate2' := bstate_transform_step bstate1' in  
-    Forall act_origin_is_eq_from (chain_state_queue bstate1') -> 
-    Forall act_origin_is_eq_from (chain_state_queue bstate2').
-Proof.
-    intros. 
-    unfold bstate2'.
-    simpl.
-    induction (chain_state_queue bstate1').
-    - auto.
-    - simpl. apply Forall_cons_iff in H7. destruct H7. apply IHl in H8.
-        apply Forall_cons.
-        + exact H7.
-        + exact H8.
-Qed.
-
-Lemma chainstep_transform_step_env_chain_eq
-    (bstate1 bstate2 : ChainState)
-    (c_morph : ChainStateMorphism bstate1 bstate2) : 
-    env_chain bstate1 = env_chain bstate2.
-Proof.
-    exact (chain_eq' bstate1 bstate2 (env_morph bstate1 bstate2 c_morph)).
-Qed.
-
-Lemma env_equiv_carries_over_env_morphism 
-    (bstate1 bstate1' bstate2 bstate2' : Environment)
-    (e_morph  : EnvironmentMorphism bstate1  bstate2)
-    (e_morph' : EnvironmentMorphism bstate1' bstate2') :
-    EnvironmentEquiv bstate1 bstate1' -> 
-    EnvironmentEquiv bstate2 bstate2'.
-Proof.
-    intro EE1. destruct EE1. 
-    (* prove chain_eq *)
-    assert (env_chain bstate2 = env_chain bstate2').
-    rewrite (chain_eq' bstate1  bstate2  e_morph)  in chain_eq.
-    rewrite (chain_eq' bstate1' bstate2' e_morph') in chain_eq.
-    exact chain_eq.
-    (* prove account_balances_eq *)
-    assert (forall a, env_account_balances bstate2 a = env_account_balances bstate2' a).
-    intro.
-    rewrite <- (account_balances_eq' bstate1  bstate2  e_morph  a).
-    rewrite <- (account_balances_eq' bstate1' bstate2' e_morph' a).
-    exact (account_balances_eq a).
-    (* prove contracts_eq *)
-    assert (forall a, env_contracts bstate2 a = env_contracts bstate2' a).
-    intro.
-    rewrite (contracts_morph bstate1  bstate2  e_morph  a).
-    rewrite (contracts_morph bstate1' bstate2' e_morph' a).
-    rewrite <- (contracts_eq a). reflexivity.
-    (* prove contract_states_eq *)
-    assert (forall a, env_contract_states bstate2 a = env_contract_states bstate2' a).
-    intro.
-    rewrite (contract_states_morph bstate1  bstate2  e_morph  a).
-    rewrite (contract_states_morph bstate1' bstate2' e_morph' a).
-    rewrite <- (contracts_eq a).
-    rewrite <- (contract_states_eq a). reflexivity.
-    (* construct the result *)
-    exact {| chain_eq := H7 ; 
-             account_balances_eq := H8 ;
-             contracts_eq := H9 ;
-             contract_states_eq := H10 ; |}.
-Qed.
-
-(* then prove that adding a block preserves the cstate morphism *)
-Lemma env_morph_preserved_under_adding_block 
-    (bstate1 bstate2 : ChainState)
-    (e_morph : EnvironmentMorphism bstate1 bstate2)
-    (header : BlockHeader) : 
-    let bstate1' := (add_new_block_to_env header bstate1) in 
-    let bstate2' := (add_new_block_to_env header bstate2) in 
-    EnvironmentMorphism bstate1' bstate2'.
-Proof.
-    intros.
-    (* prove chain_eq' *)
-    assert (env_chain bstate1' = env_chain bstate2'). auto.
-    (* prove account_balances_eq' *)
-    assert (forall a, 
-        env_account_balances bstate1' a = env_account_balances bstate2' a).
-    unfold bstate1'. unfold bstate2'.
-    unfold add_new_block_to_env. 
-    intro. simpl.
-    rewrite <- (account_balances_eq' bstate1 bstate2 e_morph a). reflexivity.
-    (* prove contracts_morph *)
-    assert (forall a, 
-        env_contracts bstate2' a = 
-        match env_contracts bstate1' a with 
-        | Some wc => 
-            if (wc =? contract_to_weak_contract C1)%wc 
-            then Some (contract_to_weak_contract C2) 
-            else Some wc
-        | None => None 
-        end). 
-    unfold bstate1'. unfold bstate2'.
-    unfold add_new_block_to_env. 
-    intro. simpl. 
-    exact (contracts_morph bstate1 bstate2 e_morph a).
-    (* prove contract_states_morph *)
-    assert (forall a, 
-        env_contract_states bstate2' a = 
-        match env_contracts bstate1' a with 
-        | Some wc => 
-            if (wc =? contract_to_weak_contract C1)%wc 
-            then (option_fun (serialize_function state_morph)) (env_contract_states bstate1' a)
-            else env_contract_states bstate1' a
-        | None => env_contract_states bstate1' a
-        end).
-    unfold bstate1'. unfold bstate2'.
-    unfold add_new_block_to_env. 
-    intro. simpl. 
-    exact (contract_states_morph bstate1 bstate2 e_morph a).
-    (* construct the result *)
-    exact {| chain_eq' := H7 ; 
-             account_balances_eq' := H8 ;
-             contracts_morph := H9 ;
-             contract_states_morph := H10 ; |}.
-Qed.
-
-Lemma chainstep_transform_new_env_equiv_add_block
-    (bstate1 bstate2 bstate1' : ChainState)
-    (e_morph : EnvironmentMorphism bstate1 bstate2) 
-    (header : BlockHeader) : 
-    let bstate2' := bstate_transform_step bstate1' in  
-    EnvironmentEquiv bstate1' (add_new_block_to_env header bstate1) -> 
-    EnvironmentEquiv bstate2' (add_new_block_to_env header bstate2).
-Proof.
-    intros bstate2' EE1.
-    assert (EnvironmentMorphism (add_new_block_to_env header bstate1) (add_new_block_to_env header bstate2)); 
-    try exact (env_morph_preserved_under_adding_block bstate1 bstate2 e_morph header).
-    assert (EnvironmentMorphism bstate1' bstate2');
-    try exact (env_morph_step bstate1').
-    exact (symmetry (env_equiv_carries_over_env_morphism
-        (add_new_block_to_env header bstate1) bstate1'
-        (add_new_block_to_env header bstate2) bstate2'
-        H7 H8  (symmetry EE1))).
-Qed.
-
-Lemma permutation_preserved_over_map {A B : Type} : 
-    forall (g : A -> B) (l1 l2 : list A),
-    Permutation l1 l2 -> 
-    Permutation (List.map g l1) (List.map g l2).
-Proof.
-    intros.
-    induction H7.
-    - auto.
-    - simpl. exact (perm_skip (g x) IHPermutation).
-    - simpl. exact (perm_swap (g x) (g y) (map g l)).
-    - exact (perm_trans IHPermutation1 IHPermutation2).
-Qed.
-
-Lemma chainstep_transform_new_permuted 
-    (bstate1 bstate2 bstate1' : ChainState)
-    (env_equiv : EnvironmentEquiv bstate1 bstate1') 
-    (c_morph : ChainStateMorphism bstate1 bstate2) : 
-    let bstate2' := bstate_transform_step bstate1' in 
-    Permutation (chain_state_queue bstate1) (chain_state_queue bstate1') -> 
-    Permutation (chain_state_queue bstate2) (chain_state_queue bstate2').
-Proof.
-    intros.
-    simpl. rewrite (queue_morph bstate1 bstate2 c_morph).
-    assert (action_transform bstate1 = action_transform bstate1').
-    - apply functional_extensionality. intro a.
-        unfold action_transform. f_equal.
-        destruct (act_body a); auto.
-        rewrite (contracts_eq bstate1 bstate1' env_equiv to). auto.
-    - rewrite <- H8. 
-        exact (permutation_preserved_over_map (action_transform bstate1) (chain_state_queue bstate1) (chain_state_queue bstate1') H7).
-Qed.
-
-Lemma chainstep_transform_new_env_equiv_permute 
-    (bstate1 bstate2 bstate1' : ChainState)
-    (e_morph : EnvironmentMorphism bstate1 bstate2) : 
-    let bstate2' := bstate_transform_step bstate1' in 
-    EnvironmentEquiv bstate1' bstate1 -> 
-    EnvironmentEquiv bstate2' bstate2.
-Proof.
-    intros bstate2' EE1.
-    exact 
-    (symmetry
-    (env_equiv_carries_over_env_morphism 
-        bstate1 bstate1' bstate2 bstate2' 
-        e_morph
-        (env_morph_step bstate1')
-        (symmetry EE1))).
-Qed.
-
-Lemma chainstep_transform_new_queue_prev 
-    (bstate1 bstate2 : ChainState)
-    (c_morph : ChainStateMorphism bstate1 bstate2) : 
-    forall (act : Action) (acts : list Action),
-    chain_state_queue bstate1 = act :: acts -> 
-    let new_act := action_transform bstate1 act in 
-    let new_acts := List.map (action_transform bstate1) acts in
-    chain_state_queue bstate2 = new_act :: new_acts.
-Proof.
-    intros.
-    unfold new_act. unfold new_acts.
-    rewrite (queue_morph bstate1 bstate2 c_morph). 
-    rewrite H7.
+    unfold is_simple_cm.
+    exists msg_morph. exists setup_morph. exists state_morph. 
+    exists error_morph. exists init_coherence. exists recv_coherence.
     auto.
 Qed.
 
-Lemma chainstep_transform_new_act_eval_true 
-    (bstate1 bstate2 bstate1' : ChainState)
-    (c_morph : ChainStateMorphism bstate1 bstate2) : 
-    forall (act : Action) (new_acts : list Action),
-    let act' := action_transform bstate1 act in
-    let new_acts' := List.map (action_transform bstate1') new_acts in
-    let bstate2' := bstate_transform_step bstate1' in
-    ActionEvaluation bstate1 act  bstate1' new_acts ->
-    ActionEvaluation bstate2 act' bstate2' new_acts'.
-Proof. Admitted.
-
-(* TODO transform bstate back *)
-Lemma act_eval_pullback 
-    (bstate1 bstate2 : ChainState) 
-    (c_morph : ChainStateMorphism bstate1 bstate2)
-    (bstate : Environment) (act : Action) (new_acts : list Action) : 
-    let act' := action_transform bstate1 act in 
-    ActionEvaluation bstate2 act' bstate new_acts ->
-    ActionEvaluation bstate1 act  bstate new_acts.
-Proof. Admitted.
-
-Lemma chainstep_transform_new_act_eval_false
-    (bstate1 bstate2 : ChainState) 
-    (c_morph : ChainStateMorphism bstate1 bstate2)
-    (act : Action) : 
-    let act' := action_transform bstate1 act in 
-    (forall bstate new_acts, ActionEvaluation bstate1 act  bstate new_acts -> False) ->
-    (forall bstate new_acts, ActionEvaluation bstate2 act' bstate new_acts -> False).
-Proof.
-    intros.
-    apply (H7 bstate new_acts).
-    apply (act_eval_pullback bstate1 bstate2 c_morph bstate act new_acts).
-    exact X.
+(* simple morphisms compose to simple morphisms *)
+Lemma composition_simple_cm
+    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
+    `{Serializable Msg}    `{Serializable Setup}    `{Serializable State}    `{Serializable Error}
+    `{Serializable Msg'}   `{Serializable Setup'}   `{Serializable State'}   `{Serializable Error'}
+    `{Serializable Msg''}  `{Serializable Setup''}  `{Serializable State''}  `{Serializable Error''}
+    { C : Contract Setup Msg State Error } 
+    { C' : Contract Setup' Msg' State' Error' }
+    { C'' : Contract Setup'' Msg'' State'' Error'' } 
+    (g : ContractMorphism C' C'')
+    (f : ContractMorphism C  C') :
+    is_simple_cm g -> 
+    is_simple_cm f -> 
+    is_simple_cm (composition_cm g f).
+Proof. 
+    unfold is_simple_cm.
+    intros g_simple f_simple.
+    (* extract functions from g *)
+    destruct g_simple as [g_msg g_simple].
+    destruct g_simple as [g_setup g_simple].
+    destruct g_simple as [g_state g_simple].
+    destruct g_simple as [g_error g_simple].
+    destruct g_simple as [g_init g_simple].
+    destruct g_simple as [g_recv g_simple].
+    (* extract functions from f *)
+    destruct f_simple as [f_msg f_simple].
+    destruct f_simple as [f_setup f_simple].
+    destruct f_simple as [f_state f_simple].
+    destruct f_simple as [f_error f_simple].
+    destruct f_simple as [f_init f_simple].
+    destruct f_simple as [f_recv f_simple].
+    (* construct g \circ f *)
+    exists (compose g_msg f_msg).
+    exists (compose g_setup f_setup).
+    exists (compose g_state f_state).
+    exists (compose g_error f_error).
+    (* proof of init coherence *)
+    assert (forall (c : Chain) (ctx : ContractCallContext) (s : Setup),
+        init_result_transform 
+            (compose g_state f_state)
+            (compose g_error f_error) (init C c ctx s) =
+        init C'' c ctx (compose g_setup f_setup s)).
+    intros. simpl.
+    rewrite <- g_init.
+    rewrite <- f_init.
+    unfold init_result_transform. destruct (init C c ctx s); auto.
+    rename H11 into gf_init. 
+    exists gf_init. 
+    (* proof of recv coherence *)
+    assert (forall (c : Chain) (ctx : ContractCallContext) (st : State) (op_msg : option Msg),
+        recv_result_transform 
+            (compose g_state f_state)
+            (compose g_error f_error) (receive C c ctx st op_msg) =
+        receive C'' c ctx (compose g_state f_state st) (option_map (compose g_msg f_msg) op_msg)).
+    intros. simpl.
+    replace (option_map (compose g_msg f_msg) op_msg) with (option_map g_msg (option_map f_msg op_msg)).
+    rewrite <- g_recv.
+    rewrite <- f_recv.
+    unfold recv_result_transform. destruct (receive C c ctx st op_msg); simpl; auto. destruct t; auto.
+    destruct op_msg; auto.
+    rename H11 into gf_recv.
+    exists gf_recv.
+    (* rewrite the LHS *)
+    rewrite g_simple. rewrite f_simple.
+    unfold composition_cm. unfold simple_cm.
+    apply is_eq_cm.
+    - apply is_eq_cm_init. 
+        + simpl. apply functional_extensionality. 
+          intro. destruct x. destruct p. auto.
+        + simpl. apply functional_extensionality.
+          intro. destruct x; auto.
+    - apply is_eq_cm_recv.
+        + simpl. apply functional_extensionality.
+          intro. destruct x. repeat destruct p. simpl. destruct o; auto.
+        + simpl. apply functional_extensionality.
+          intro. destruct x. destruct t. all: auto.
 Qed.
 
-Lemma list_map_concat {A B : Type} {g : A -> B} : 
-    forall (l1 l2 : list A), 
-    List.map g (l1 ++ l2) = (List.map g l1) ++ (List.map g l2).
+(* the identity is a simple morphism *)
+Lemma identity_simple 
+    { Setup Msg State Error : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State} `{Serializable Error}
+    (C : Contract Setup Msg State Error) : 
+    is_simple_cm (id_cm C).
+Proof. 
+    unfold is_simple_cm.
+    exists (id_fun Msg).
+    exists (id_fun Setup).
+    exists (id_fun State).
+    exists (id_fun Error).
+    assert (forall (c : Chain) (ctx : ContractCallContext) (s : Setup),
+            init_result_transform (id_fun State) (id_fun Error) (init C c ctx s) =
+            init C c ctx (id_fun Setup s)).
+    intros. unfold init_result_transform. unfold id_fun; simpl. destruct (init C c ctx s); auto.
+    rename H3 into id_init.
+    exists id_init.
+    assert (forall (c : Chain) (ctx : ContractCallContext) (st : State) (op_msg : option Msg),
+            recv_result_transform (id_fun State) (id_fun Error) (receive C c ctx st op_msg) =
+            receive C c ctx (id_fun State st) (option_map (id_fun Msg) op_msg)).
+    intros. unfold recv_result_transform. unfold option_map. unfold id_fun; simpl.
+    destruct op_msg.
+    destruct (receive C c ctx st (Some m)); auto. destruct t; auto.
+    destruct (receive C c ctx st None); auto. destruct t; auto.
+    rename H3 into id_recv.
+    exists id_recv.
+    (* prove that id_cm C is simple wrt the above definitions *)
+    unfold id_cm. unfold simple_cm.
+    apply is_eq_cm.
+    - apply is_eq_cm_init.
+        + simpl. unfold id_fun. apply functional_extensionality. 
+          intro. destruct x. destruct p. auto.
+        + simpl. unfold id_fun. apply functional_extensionality. 
+          intro. destruct x; auto.
+    - apply is_eq_cm_recv.
+        + simpl. unfold id_fun. apply functional_extensionality. 
+          intro. destruct x. repeat destruct p. destruct o; auto.
+        + simpl. unfold id_fun. apply functional_extensionality. 
+          intro. destruct x; auto. destruct t. auto.
+Qed.
+
+End SimpleContractMorphism.
+
+
+Section ChainMorphism.
+
+(* We introduce the notion of a morphism of chains, which is a morphism on linked lists. *)
+Record ChainMorphism := build_chain_morphism {
+    chainstate_morph : ChainState -> ChainState ; 
+    empty_fixpoint : chainstate_morph empty_state = empty_state ; 
+    chainstep_morph : 
+        forall bstate1 bstate2, 
+        ChainStep bstate1 bstate2 -> 
+        ChainStep (chainstate_morph bstate1) (chainstate_morph bstate2) ;
+}.
+
+(** Composition of chain morphisms *)
+(* an auxiliary lemma *)
+Lemma compose_fixpoint_result (chm1 chm2 : ChainMorphism) : 
+    compose (chainstate_morph chm2) (chainstate_morph chm1) empty_state = 
+    empty_state.
+Proof.
+    unfold compose.
+    rewrite (empty_fixpoint chm1).
+    rewrite (empty_fixpoint chm2).
+    reflexivity.
+Qed.
+
+(* definition of composition *)
+Definition composition_chm (chm2 chm1 : ChainMorphism) : ChainMorphism := {| 
+    chainstate_morph := compose (chainstate_morph chm2) (chainstate_morph chm1) ;
+    empty_fixpoint   := compose_fixpoint_result (chm1) (chm2) ;
+    chainstep_morph  := (fun b1 b2 => 
+        compose 
+            (chainstep_morph chm2 
+                (chainstate_morph chm1 b1) 
+                (chainstate_morph chm1 b2)) 
+            (chainstep_morph chm1 b1 b2)) ;
+|}.
+
+(* composition is associative *)
+Lemma composition_assoc_chm : forall chm1 chm2 chm3, 
+    composition_chm (composition_chm chm3 chm2) chm1 = 
+    composition_chm chm3 (composition_chm chm2 chm1).
+Proof.
+    intros. unfold composition_chm. 
+    f_equal. apply proof_irrelevance.
+Qed.
+
+(* the identity chain morphism *)
+Lemma empty_fixpoint_id : 
+    @id ChainState empty_state = empty_state.
+Proof. auto. Qed.
+
+Definition id_chm : ChainMorphism := {| 
+    chainstate_morph := @id ChainState ; 
+    empty_fixpoint := empty_fixpoint_id ;
+    chainstep_morph := (fun b1 b2 => id_fun (ChainStep b1 b2)) ; |}.
+
+Lemma composition_chm_left : forall chm, composition_chm id_chm chm = chm.
+Proof.
+    intro. unfold composition_chm. 
+    destruct chm. f_equal. apply proof_irrelevance. 
+Qed.
+
+Lemma composition_chm_right : forall chm, composition_chm chm id_chm = chm.
+Proof. 
+    intro. unfold composition_chm. 
+    destruct chm. f_equal. apply proof_irrelevance.
+Qed.
+
+(* chain isomoprhisms, which are bisimulations of blockchains *)
+Definition is_iso_chm (f g : ChainMorphism) : Prop := 
+    composition_chm g f = id_chm /\ 
+    composition_chm f g = id_chm.
+
+(* injections *)
+Definition is_inj_chm (i : ChainMorphism) : Prop :=
+    is_inj (chainstate_morph i).
+
+(* surjections *)
+Definition is_surj_chm (p : ChainMorphism) : Prop :=
+    is_surj (chainstate_morph p).
+
+(* chain monos *)
+Definition is_monic_chm (i : ChainMorphism) : Prop := 
+    forall f f', 
+    composition_chm i f = composition_chm i f' -> f = f'.
+
+(* chain epis *)
+Definition is_epic_chm (p : ChainMorphism) : Prop := 
+    forall f f',
+    composition_chm f p = composition_chm f' p -> f = f'.
+
+(* chain morphisms take reachable states to reachable states *)
+Lemma chm_trace_to_trace : forall bstate1 bstate2 
+    (trace : ChainTrace bstate1 bstate2) (chm : ChainMorphism),
+    ChainTrace (chainstate_morph chm bstate1) (chainstate_morph chm bstate2).
+Proof.
+    intros. destruct chm as [cstate_morph empty_fixpoint cstep_morph]. cbn.
+    induction trace.
+    -   constructor.
+    -   pose proof (cstep_morph mid to l).
+        repeat (econstructor; eauto).
+Qed.
+
+Theorem reachable_to_reachable : forall bstate (chm : ChainMorphism), 
+    reachable bstate -> reachable (chainstate_morph chm bstate).
+Proof.
+    intros.
+    unfold reachable in H. destruct H. unfold reachable.
+    pose proof (chm_trace_to_trace empty_state bstate X chm) as X'.
+    rewrite (empty_fixpoint chm) in X'.
+    constructor.
+    exact X'.
+Qed.
+
+Lemma chm_reachable_through : forall bstate1 bstate2 
+    (trace : reachable_through bstate1 bstate2) (chm : ChainMorphism),
+    reachable_through (chainstate_morph chm bstate1) (chainstate_morph chm bstate2).
 Proof.
     intros. 
-    induction l1.
-    - auto.
-    - assert (((a :: l1) ++ l2) = a :: (l1 ++ l2)); auto. rewrite H7.
-        assert (forall a' k, map g (a' :: k) = (g a') :: map g k); auto. 
-        rewrite (H8 a (l1 ++ l2)).
-        rewrite (H8 a l1).
-        assert (forall (a':B) k1 k2, (a' :: k1) ++ k2 = a' :: (k1 ++ k2)); auto.
-        rewrite (H9 (g a) (map g l1) (map g l2)).
-        rewrite IHl1. reflexivity.
+    destruct trace. unfold reachable_through. destruct H0 as [trace]. split.
+    - exact (reachable_to_reachable bstate1 chm H).
+    - constructor. exact (chm_trace_to_trace bstate1 bstate2 trace chm).
 Qed.
 
-Lemma chainstep_transform_new_queue_next
-    (bstate1 bstate2 bstate1' : ChainState)
-    (c_morph : ChainStateMorphism bstate1 bstate2) : 
-    forall (new_acts : list Action) (acts : list Action),
-    chain_state_queue bstate1' = new_acts ++ acts -> 
-    let bstate2'  := bstate_transform_step bstate1' in  
-    let new_acts' := List.map (action_transform bstate1') new_acts in 
-    let acts'     := List.map (action_transform bstate1) acts in
-    chain_state_queue bstate2' = new_acts' ++ acts'.
+End ChainMorphism.
+
+
+
+Section ReachableChainMorphism.
+
+(* Define the subtype of ChainState which are reachable states *)
+Definition ReachableChainState := {bstate : ChainState | reachable bstate}.
+Definition empty_reachable : ReachableChainState := 
+    exist reachable empty_state reachable_empty_state.
+
+(* We introduce the notion of a morphism of chains, which is a morphism on linked lists. *)
+Record ReachableChainMorphism := build_reachable_chain_morphism {
+    r_chainstate_morph : ReachableChainState -> ReachableChainState ; 
+    r_empty_fixpoint  : r_chainstate_morph empty_reachable = empty_reachable ; 
+    r_chainstep_morph :
+        forall rstate1 rstate2, 
+        ChainStep (proj1_sig rstate1) (proj1_sig rstate2) -> 
+        ChainStep 
+            (proj1_sig (r_chainstate_morph rstate1)) 
+            (proj1_sig (r_chainstate_morph rstate2)) ;
+}.
+
+(* composition *)
+
+(* composition is associative *)
+
+(* the identity chain morphism *)
+
+(* chain isomoprhisms, which are bisimulations of blockchains *)
+
+(* a proof tactic for reachable states *)
+Definition rstate_induction : 
+    forall P : ReachableChainState -> Type,
+    P empty_reachable -> 
+    (forall (rstate : ReachableChainState) (m : P rstate) 
+        (bstate : ChainState) (step : ChainStep (proj1_sig rstate) bstate),
+    P (exist _ bstate (reachable_step (proj1_sig rstate) bstate (proj2_sig rstate) step)))
+    -> forall rstate : ReachableChainState, P rstate.
+Proof. Admitted.
+
+End ReachableChainMorphism.
+
+(** Contract Morphisms lift to Reachable Chain Morphisms *)
+Section ReachableMorphismLift.
+Context 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error} {C' : Contract Setup' Msg' State' Error'}.
+
+(* *)
+Definition cm_to_r_chainstate_morph (f : ContractMorphism C C') :
+    ReachableChainState -> ReachableChainState.
 Proof.
-    intros.
-    unfold bstate2'.
-    unfold bstate_transform_step. simpl.
-    unfold new_acts'. unfold acts'. rewrite H7.
-    rewrite (list_map_concat new_acts acts). 
-    f_equal.
-    admit.
+    apply rstate_induction.
+    -   exact empty_reachable.
+    -   intros.
+        (* first construct the new bstate *) 
+
+        (* then construct the new step *) 
+Admitted.    
+
+    
+(* the lifting result *)
+Definition cm_lift_to_rchm (f : ContractMorphism C C') : ReachableChainMorphism.
+Proof.
+    assert (r_chainstate_morph : ReachableChainState -> ReachableChainState).
+    - admit.
+    -  apply (build_reachable_chain_morphism r_chainstate_morph).
 Admitted.
 
-Lemma chainstep_transform_queue_next_action_invalid
-    (bstate1 bstate2 bstate1' : ChainState) 
-    (acts : list Action): 
-    let bstate2' := bstate_transform_step bstate1' in  
-    let acts' := List.map (action_transform bstate1) acts in 
-    chain_state_queue bstate1' = acts ->
-    chain_state_queue bstate2' = acts'.
+End ReachableMorphismLift.
+
+(** Simple Contract Morphisms lift to Chain Morphisms *)
+Section ContractMorphismLift.
+Context 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    {C : Contract Setup Msg State Error} {C' : Contract Setup' Msg' State' Error'}.
+
+
+(* the lifting function *)
+Definition lift_chainstate_morph (f : ContractMorphism C C') : ChainState -> ChainState := todo "".
+    (*  *)
+    
+Definition lift_empty_fixpoint (f : ContractMorphism C C') : 
+    lift_chainstate_morph f empty_state = empty_state := todo "".
+
+Definition lift_chainstep_morph (f : ContractMorphism C C') : 
+    forall bstate1 bstate2, 
+    ChainStep bstate1 bstate2 -> 
+    ChainStep 
+        (lift_chainstate_morph f bstate1) (lift_chainstate_morph f bstate2) := todo "".
+
+Definition simple_cm_lift_to_chm (f : ContractMorphism C C') : ChainMorphism :=
+    build_chain_morphism
+        (lift_chainstate_morph f)
+        (lift_empty_fixpoint f)
+        (lift_chainstep_morph f).
+
+Lemma c_c'_swap : 
+    forall (bstate : ChainState) caddr (f : ContractMorphism C C'),
+    env_contracts bstate caddr = Some (C : WeakContract) -> 
+    env_contracts (chainstate_morph (simple_cm_lift_to_chm f) bstate) caddr = Some (C' : WeakContract).
 Proof.
     intros.
-    unfold bstate2'. 
-    unfold bstate_transform_step. simpl.
-    unfold acts'. rewrite H7.
-    admit.
 Admitted.
-
-Lemma chainstep_transform_from_acct
-    (bstate : ChainState) (act : Action) : 
-    act_is_from_account act -> 
-    act_is_from_account (action_transform bstate act).
-Proof.
-    unfold act_is_from_account.
-    intros.
-    assert (act_from (action_transform bstate act) = act_from act).
-    - unfold action_transform. auto.
-    - rewrite H8. exact H7.
-Qed.
-
-Definition chainstep_transform_step 
-    (bstate1 bstate2 bstate1' : ChainState)
-    (c_morph : ChainStateMorphism bstate1 bstate2) 
-    (step : ChainStep bstate1 bstate1') : 
-    let bstate2' := bstate_transform_step bstate1' in  
-    (ChainStep bstate2 bstate2') :=
-    let bstate2' := bstate_transform_step bstate1' in  
-    let c_morph' := chainstate_morphism_step bstate1' in 
-    match step with 
-    | step_block _ _ header prev_queue_empty next_block_valid no_acts_from_accounts origin_eq_from 
-        env_equiv  => 
-        (* modified header *)
-        let header' := header in 
-        (* modified prev_queue_empty *)
-        let prev_queue_empty' := 
-            chainstep_transform_empty_queue bstate1 bstate2 c_morph prev_queue_empty in 
-        (* modified next_block_valid *)
-        let next_block_valid' := 
-            chainstep_transform_next_block_valid bstate1 bstate2 c_morph header next_block_valid in 
-        (* modified no_acts_from_accounts *)
-        let no_acts_from_accounts' := 
-            chainstep_transform_no_acts_from_accounts bstate1' no_acts_from_accounts in
-        (* modified origin_eq_from *)
-        let origin_eq_from' :=
-            chainstep_transform_origin_eq_from bstate1' origin_eq_from in 
-        (* modified env_equiv *)
-        let env_equiv' :=
-            chainstep_transform_new_env_equiv_add_block bstate1 bstate2 bstate1' 
-            (env_morph bstate1 bstate2 c_morph) header env_equiv in
-        (* the new step_block *)
-        step_block bstate2 bstate2'
-            header' prev_queue_empty' next_block_valid' no_acts_from_accounts' 
-            origin_eq_from' env_equiv'
-    | step_action _ _ act acts new_acts queue_prev act_eval_true queue_next => 
-        (* modified act *)
-        let act' := action_transform bstate1 act in 
-        (* modified acts *)
-        let acts' := 
-            List.map (action_transform bstate1) acts in 
-        (* modified new_acts *)
-        let new_acts' := 
-            List.map (action_transform bstate1') new_acts in 
-        (* modified queue_prev *)
-        let queue_prev' := 
-            chainstep_transform_new_queue_prev bstate1 bstate2 c_morph act acts queue_prev in 
-        (* modified act_eval_true *)
-        let act_eval_true' := 
-            chainstep_transform_new_act_eval_true bstate1 bstate2 bstate1' c_morph act new_acts act_eval_true in 
-        (* modified queue_next *)
-        let queue_next' := 
-            chainstep_transform_new_queue_next bstate1 bstate2 bstate1' c_morph new_acts acts queue_next in
-        (* the new step_block *)
-        step_action bstate2 bstate2' act' acts' new_acts' queue_prev' act_eval_true' queue_next'
-    | step_action_invalid _ _ act acts env_equiv queue_prev queue_next from_acct actn_eval_false => 
-        (* modified act *)
-        let act' := action_transform bstate1 act in 
-        (* modified acts *)
-        let acts' := 
-            List.map (action_transform bstate1) acts in 
-        (* modified env_equiv *)
-        let env_equiv' := 
-            chainstep_transform_new_env_equiv_permute bstate1 bstate2 bstate1' 
-            (env_morph bstate1 bstate2 c_morph) env_equiv in 
-        (* modified queue_prev *)
-        let queue_prev' := 
-            chainstep_transform_new_queue_prev bstate1 bstate2 c_morph act acts queue_prev in 
-        (* modified queue_next *)
-        let queue_next' := 
-            chainstep_transform_queue_next_action_invalid bstate1 bstate2 bstate1' acts queue_next in 
-        (* modified from_acct *)
-        let from_acct' := 
-            chainstep_transform_from_acct bstate1 act from_acct in 
-        (* modified actn_eval_false *)
-        let actn_eval_false' := 
-            chainstep_transform_new_act_eval_false bstate1 bstate2 c_morph act actn_eval_false in 
-        (* the new step_block *)
-        step_action_invalid bstate2 bstate2' act' acts' env_equiv' queue_prev' queue_next' from_acct' actn_eval_false'
-    | step_permute _ _ env_equiv permuted => 
-        (* modified env_equiv *)
-        let env_equiv' := 
-            chainstep_transform_new_env_equiv_permute bstate1 bstate2 bstate1' 
-            (env_morph bstate1 bstate2 c_morph) env_equiv in 
-        (* modified permutation *)
-        let permuted' := 
-            chainstep_transform_new_permuted bstate1 bstate2 bstate1' (symmetry env_equiv) c_morph permuted in 
-        (* the new step_block *)
-        step_permute bstate2 bstate2' env_equiv' permuted' 
-    end.
-
-Definition caddr_implication_step (bstate1' : ChainState) (caddr : Address) :
-    let bstate2' := bstate_transform_step bstate1' in  
-    env_contracts bstate1' caddr = Some (C1 : WeakContract) -> 
-    env_contracts bstate2' caddr = Some (C2 : WeakContract).
-Proof.
-    intros. unfold bstate2'.
-    unfold bstate_transform_step. simpl.
-    rewrite H7. 
-    destruct (C1 =? C1)%wc; auto.
-    contradiction.
-Qed.
-
-End CMLiftInductiveStep.
-
-(* Theorem: A contract morphism can be lifted into a morphism of ChainStates *)
-Theorem cm_lift :
-    forall  bstate1 caddr (trace : ChainTrace empty_state bstate1),
-    exists  (* a new bstate related to the old *)
-            (bstate2 : ChainState) 
-            (bstate_morph : ChainStateMorphism bstate1 bstate2)
-            (* a new trace constructed from the old *)
-            (trace2 : ChainTrace empty_state bstate2),
-            (* with C2 swapped out for C1 *)
-            env_contracts bstate1 caddr = Some (C1 : WeakContract) -> 
-            env_contracts bstate2 caddr = Some (C2 : WeakContract).
-Proof.
-    (* we induct over the trace *)
-    intros.
-    remember empty_state eqn:genesis_empty. 
-    induction trace.
-    - rewrite genesis_empty. 
-        exists empty_state. 
-        exists empty_chainstate_morphism. 
-        exists ChainedList.clnil.
-        intro. assert (env_contracts empty_state caddr = None); auto. 
-        rewrite H8 in H7. congruence.
-    - apply IHtrace in genesis_empty. clear IHtrace.
-        destruct genesis_empty as [bstate2 genesis_empty]. 
-        destruct genesis_empty as [bstate_morph genesis_empty]. 
-        destruct genesis_empty as [trace2 addr_implication].
-        (* construct the new bstate and trace *)
-        set (bstate2' := bstate_transform_step to).
-        set (l' := chainstep_transform_step mid bstate2 to bstate_morph l).
-        set (trace2' := ChainedList.snoc trace2 l').
-        (* construct the relationships *)
-        set (bstate_morph' := chainstate_morphism_step to).
-        set (caddr_impl := caddr_implication_step to caddr).
-        exists bstate2'. 
-        exists bstate_morph'. 
-        exists trace2'.
-        exact caddr_impl.
-Qed.
-
-(* TODO a non-opaque construction? *)
 
 End ContractMorphismLift.
 
 
-(** We now examin how lifted morphisms behave with regard to morphism composition *)
+(** We now examine how lifted morphisms behave with regard to morphism composition *)
 Section ContractMorphismLiftCompose.
 
-(*
-Lemma id_lifts_to_id 
+(* id_cm lifts to id_chm *)
+Lemma id_cm_to_id_chm 
+    { Setup Msg State Error : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    { C : Contract Setup Msg State Error } : 
+    simple_cm_lift_to_chm (id_cm C) = id_chm.
+Proof. Admitted.
 
-Lemma morphisms_lift_compose
+(* compositions lift to compositions *)
+Lemma cm_lift_compose 
+    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
+    `{Serializable Msg}    `{Serializable Setup}    `{Serializable State}    `{Serializable Error}
+    `{Serializable Msg'}   `{Serializable Setup'}   `{Serializable State'}   `{Serializable Error'}
+    `{Serializable Msg''}  `{Serializable Setup''}  `{Serializable State''}  `{Serializable Error''}
+    { C : Contract Setup Msg State Error } 
+    { C' : Contract Setup' Msg' State' Error' }
+    { C'' : Contract Setup'' Msg'' State'' Error'' } : 
+    forall (f : ContractMorphism C C') (g : ContractMorphism C' C''),
+    composition_chm (simple_cm_lift_to_chm g) (simple_cm_lift_to_chm f) = 
+    simple_cm_lift_to_chm (composition_cm g f).
+Proof. Admitted.
 
-Lemma iso_lifts_to_iso
+(* isomorphisms lift to isomorphisms *)
+Lemma iso_cm_to_iso_chm 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    { C : Contract Setup Msg State Error } 
+    { C' : Contract Setup' Msg' State' Error' } : 
+    forall (f : ContractMorphism C C') (g : ContractMorphism C' C), 
+    is_iso_cm f g -> 
+    is_iso_chm (simple_cm_lift_to_chm f) (simple_cm_lift_to_chm g).
+Proof.
+    intros * is_iso.
+    unfold is_iso_chm. unfold is_iso_cm in is_iso. 
+    destruct is_iso as [iso_to iso_from].
+    split.
+    -   rewrite (cm_lift_compose f g). rewrite iso_to. 
+        rewrite id_cm_to_id_chm. reflexivity.
+    -   rewrite (cm_lift_compose g f). rewrite iso_from.   
+        rewrite id_cm_to_id_chm. reflexivity.
+Qed.
 
+(* TODO 
 Lemma inj_lifts_to_inj
-
 Lemma surj_lifts_to_surj
 *)
 
 End ContractMorphismLiftCompose.
+
+
+Section Equivalences.
+
+(* equivalence of contracts *)
+Definition are_equiv 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    (C  : Contract Setup  State  Msg  Error)
+    (C' : Contract Setup' State' Msg' Error') : Prop := 
+    exists (f : ContractMorphism C C') (g : ContractMorphism C' C),
+    is_iso_cm f g.
+
+(* weak equivalence of contracts *)
+Definition are_weakly_equiv 
+    { Setup Setup' Msg Msg' State State' Error Error' : Type }
+    `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
+    (C  : Contract Setup  State  Msg  Error)
+    (C' : Contract Setup' State' Msg' Error') : Prop := 
+    exists (f g : ChainMorphism), 
+    is_iso_chm f g /\
+    forall (bstate : ChainState) caddr, 
+    (env_contracts bstate caddr = Some (C : WeakContract)  
+        -> env_contracts (chainstate_morph f bstate) caddr = Some (C' : WeakContract)) /\
+    (env_contracts bstate caddr = Some (C' : WeakContract) 
+        -> env_contracts (chainstate_morph g bstate) caddr = Some (C : WeakContract)).
+
+End Equivalences.
+
+
 
 End ContractMorphisms.
