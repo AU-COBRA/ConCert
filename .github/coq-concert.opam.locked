@@ -11,7 +11,7 @@ doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
   "coq" {= "8.16.1"}
-  "coq-bignums" {= "8.16.0"}
+  "coq-bignums" {= "9.0.0+coq8.16"}
   "coq-equations" {= "1.3+8.16"}
   "coq-metacoq-erasure" {= "1.1.1+8.16"}
   "coq-metacoq-pcuic" {= "1.1.1+8.16"}
