@@ -3,10 +3,10 @@
    is instead changed into something like [("Foo", tConst "Foo")]. *)
 From Coq Require Import List.
 From Coq Require Import String.
-From MetaCoq.TypedExtraction Require Import ExAst.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
-From MetaCoq.TypedExtraction Require Import Transform.
-From MetaCoq.TypedExtraction Require Import Utils.
+From MetaCoq.Erasure.Typed Require Import ExAst.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import Transform.
+From MetaCoq.Erasure.Typed Require Import Utils.
 From MetaCoq.Erasure Require Import ELiftSubst.
 From MetaCoq Require Import utils.
 

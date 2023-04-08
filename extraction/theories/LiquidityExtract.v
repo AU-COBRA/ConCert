@@ -1,4 +1,4 @@
-From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
@@ -6,15 +6,18 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import Optimize.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import CertifyingInlining.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import Optimize.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Utils Require Import Env.
+From Coq Require Import List.
 From Coq Require Import String.
+From Coq Require Import ZArith_base.
 From MetaCoq.Template Require Import All.
 
+Import ListNotations.
 Import MCMonadNotation.
 
 
@@ -125,7 +128,7 @@ Definition printLiquidityDefs_
         let defs :=
             map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in
         let res :=
-            concat (Common.nl ++ Common.nl) (defs ++[ init_code ]) %list in
+            concat (Common.nl ++ Common.nl) (defs ++[ init_code ])%list in
         ret res
       | None => tmFail "Error: Empty body for init"
       end
@@ -362,7 +365,7 @@ Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params stora
                              init_nm receive_nm ;;
   let res := wrap_in_delimiters (concat (Common.nl ++ Common.nl)
                                     [m.(lmd_prelude); s; m.(lmd_entry_point)]) in
-  tmDefinition (bytestring.String.of_string m.(lmd_module_name) ++ "_prepared") res.
+  tmDefinition (bytestring.String.of_string (m.(lmd_module_name) ++ "_prepared")) res.
 
 (* Liquidity extraction *without* ChainBase specialization *)
 Definition liquidity_extraction {msg ctx params storage operation error : Type} :=

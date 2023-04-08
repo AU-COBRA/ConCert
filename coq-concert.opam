@@ -17,12 +17,25 @@ depends: [
   "coq" {>= "8.16" & < "8.17~"}
   "coq-bignums" {>= "8"}
   "coq-quickchick" {>= "1.5.1" & <= "1.6.4"}
-  "coq-metacoq-template" {= "1.1.1+8.16"}
-  "coq-metacoq-pcuic" {= "1.1.1+8.16"}
-  "coq-metacoq-safechecker" {= "1.1.1+8.16"}
-  "coq-metacoq-erasure" {= "1.1.1+8.16"}
   "coq-equations" {= "1.3+8.16"}
+  "coq-metacoq-utils" {= "8.16.dev"}
+  "coq-metacoq-common" {= "8.16.dev"}
+  "coq-metacoq-template" {= "8.16.dev"}
+  "coq-metacoq-template-pcuic" {= "8.16.dev"}
+  "coq-metacoq-pcuic" {= "8.16.dev"}
+  "coq-metacoq-safechecker" {= "8.16.dev"}
+  "coq-metacoq-erasure" {= "8.16.dev"}
   "coq-stdpp" {>= "1.6.0" & <= "1.8.0"}
+]
+
+pin-depends: [
+  ["coq-metacoq-utils.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-common.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-template.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-template-pcuic.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-pcuic.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-safechecker.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
+  ["coq-metacoq-erasure.8.16.dev" "git+https://github.com/MetaCoq/metacoq.git#b96e7570a5e7fd959fe171d63398f4491fed338a"]
 ]
 
 build: [

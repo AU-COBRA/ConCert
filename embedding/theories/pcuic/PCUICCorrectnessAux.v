@@ -1,6 +1,6 @@
 (** * Auxiliary lemmas for the soundness proof. *)
-From MetaCoq.Template Require Import MCList.
-From MetaCoq.Template Require Import utils.
+From MetaCoq.Utils Require Import MCList.
+From MetaCoq.Utils Require Import utils.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
@@ -172,9 +172,14 @@ Proof.
   destruct (syncEnv _ _ _ _ _ Hres) as [[[??]?][?[??]]].
   erewrite <- mkApps_vars_to_apps_constr; eauto.
   eapply PcbvCurr.value_app.
-  + econstructor; eauto. rewrite map_length; cbn in *. unfold PcbvCurr.cstr_arity. lia.
+  + rewrite map_length. cbn in *.
+    subst. rewrite H1 in *.
+    econstructor; eauto.
+    Unshelve. admit. (* TODOM *)
+    (* unshelve eapply declared_constructor_to_gen; eauto. *)
+    admit.
   + now apply All_map.
-Qed.
+Admitted.
 
 Open Scope bool.
 

@@ -3,7 +3,6 @@
 
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
--R ../typed-extraction/theories MetaCoq.TypedExtraction
 
 -Q theories ConCert.Extraction
 theories/CameLIGOExtract.v

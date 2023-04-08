@@ -5,7 +5,7 @@ From ConCert.Extraction Require Import Printing.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Utils Require Import StringExtra.
 From MetaCoq.Template Require Import All.
-From MetaCoq.PCUIC Require Import PCUICToTemplate.
+From MetaCoq.TemplatePCUIC Require Import PCUICToTemplate.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith.

@@ -4,7 +4,7 @@
     We also demonstrate how one can use the certifying eta-expansion to make sure
     that constants and constructors are applied to all logical arguments *)
 
-From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
@@ -13,7 +13,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import CertifyingEta.
+From MetaCoq.Erasure.Typed Require Import CertifyingEta.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 From Coq Require Import String.

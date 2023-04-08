@@ -1,10 +1,10 @@
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Template Require Import AstUtils.
-From MetaCoq.Template Require Import BasicAst.
+From MetaCoq.Common Require Import BasicAst.
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq.Template Require Import monad_utils.
-From MetaCoq.Template Require Import utils.
+From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import utils.
 
 Global Unset Asymmetric Patterns.
 
@@ -102,7 +102,7 @@ Definition make_setters (T : Type) : TemplateMonad unit :=
           let setter_from_getter_id := "setter_from_getter_" ^ ind_name oib ^ "_" ^ id in
           tmMkDefinition setter_from_getter_id body;;
 
-          tmLocate1 setter_from_getter_id >>= tmExistingInstance
+          tmLocate1 setter_from_getter_id >>= tmExistingInstance global
         | nAnon => ret tt
         end;;
         create_setters B (S idx)

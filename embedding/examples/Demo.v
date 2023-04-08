@@ -7,13 +7,13 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import PCUICTranslate.
-From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.Utils Require Import monad_utils.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
 Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 
-Module TC := Template.BasicAst.
+Module TC := Common.BasicAst.
 
 Import ListNotations.
 Import MCMonadNotation.

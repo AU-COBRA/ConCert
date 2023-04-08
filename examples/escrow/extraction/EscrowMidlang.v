@@ -4,13 +4,13 @@ From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ElmExtract.
-From MetaCoq.TypedExtraction Require Import CertifyingInlining.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
-From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
 From Coq Require Import String.

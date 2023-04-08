@@ -11,7 +11,7 @@ From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
 From MetaCoq.Template Require Import All.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 
 Import AcornBlockchain.
 Import MCMonadNotation.

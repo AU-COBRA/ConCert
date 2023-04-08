@@ -1,8 +1,8 @@
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
-From MetaCoq.Template Require Import monad_utils.
+From MetaCoq.Utils Require Import monad_utils.
 From Coq Require Import ZArith.
 From Coq Require Import String.
 

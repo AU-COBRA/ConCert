@@ -6,9 +6,9 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
-From MetaCoq.TypedExtraction Require Import Extraction.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
-From MetaCoq.Template Require Import Kernames.
+From MetaCoq.Erasure.Typed Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
 From Coq Require Import Lia.

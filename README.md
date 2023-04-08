@@ -23,8 +23,6 @@ To set up a switch with the necessary dependencies run the following commands fr
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-git submodule init
-git submodule update
 opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released --deps-only
 eval $(opam env)
 ```
@@ -34,8 +32,6 @@ If Coq 8.16 is already installed, run
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-git submodule init
-git submodule update
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam install ./coq-concert.opam --deps-only
 ```
@@ -53,9 +49,6 @@ The [embedding](embedding/) folder contains the development of the verified embe
 The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [test](execution/test) folder contains the property-based testing framework. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/test/TraceGens.v). The testing framework was developed as part of a Master's Thesis at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
 
-The [typed-extraction](https://github.com/AU-COBRA/typed-extraction) submodule contains an implementation of the extraction pipeline based on MetaCoq's **verified erasure** extended with an erasure procedure for types.
-It also features *certifying*(proof-generating) pre-processing steps and verified dead argument elimination.
-
 The [extraction](extraction/) folder contains an extraction pipeline for smart contract languages.
 Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose languages Elm and Rust as targets.
 Pretty-printers to these languages are implemented directly in Coq.
@@ -65,7 +58,7 @@ The [examples](examples/) folder contains examples of smart contract implementat
 
 ## Notes for developers
 
-The project consists of five subprojects: `embedding`, `execution`, `extraction`, `typed-extraction`, and `examples` located in the corresponding folders.
+The project consists of four subprojects: `embedding`, `execution`, `extraction`, and `examples` located in the corresponding folders.
 Each subproject has its own `_CoqProject` file and `Makefile`.
 The `Makefile` in the root folder dispatches the calls to the corresponding subproject.
 

@@ -61,8 +61,6 @@ src/pCUICCases.ml
 src/pCUICCases.mli
 src/pCUICErrors.ml
 src/pCUICErrors.mli
-src/pCUICEquality.ml
-src/pCUICEquality.mli
 src/pCUICEqualityDec.ml
 src/pCUICEqualityDec.mli
 src/pCUICNormal.ml
@@ -85,8 +83,6 @@ src/pCUICWfEnv.ml
 src/pCUICWfEnv.mli
 src/pCUICWfEnvImpl.ml
 src/pCUICWfEnvImpl.mli
-src/pCUICWfUniverses.ml
-src/pCUICWfUniverses.mli
 src/prettyPrinterMonad.ml
 src/prettyPrinterMonad.mli
 src/printing.ml

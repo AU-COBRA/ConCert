@@ -9,15 +9,15 @@
     directory is different. *)
 From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.TypedExtraction Require Import Extraction.
+From MetaCoq.Erasure.Typed Require Import Extraction.
 From ConCert.Extraction Require Import ElmExtract.
 From ConCert.Extraction Require Import PrettyPrinterMonad.
-From MetaCoq.TypedExtraction Require Import ResultMonad.
-From MetaCoq.TypedExtraction Require Import CertifyingEta.
+From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaCoq.Erasure.Typed Require Import CertifyingEta.
 From ConCert.Extraction.Tests Require Import ElmExtractTests.
 From ConCert.Extraction.Tests Require Import Ack.
+From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import Ast.
-From MetaCoq.Template Require Import Kernames.
 From MetaCoq.Template Require Import TemplateMonad.
 From MetaCoq Require Import utils.
 From Coq Require Import String.
