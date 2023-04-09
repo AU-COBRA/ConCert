@@ -1,7 +1,3 @@
-post-all::
-	@echo "Done extracting the extraction, processing produced files!"
-	./process_extraction.sh
-
 FILENAMES = $(notdir $(VFILES:.v=))
 DPDFILES = $(VFILES:.v=.dpd)
 DOTFILES = $(VFILES:.v=.dot)

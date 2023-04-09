@@ -1,4 +1,4 @@
-all: theory plugin
+all: theory
 .PHONY: all
 
 CoqMakefile: _CoqProject
@@ -11,7 +11,6 @@ theory: CoqMakefile
 clean: CoqMakefile
 	+@make -f CoqMakefile clean
 	rm -f CoqMakefile
-	+@make -C plugin clean
 .PHONY: clean
 
 install: CoqMakefile
@@ -22,9 +21,6 @@ uninstall: CoqMakefile
 	+@make -f CoqMakefile uninstall
 .PHONY: uninstall
 
-plugin: theory
-	+make -C plugin
-.PHONY: plugin
 
 # Forward most things to Coq makefile. Use 'force' to make this phony.
 %: CoqMakefile force
@@ -35,7 +31,7 @@ all: theory process-extraction-examples
 # Do not forward these files
 Makefile _CoqProject: ;
 
-process-extraction-examples: theory plugin
+process-extraction-examples: theory
 	./process-extraction-examples.sh
 .PHONY: process-extraction-examples
 
@@ -52,18 +48,13 @@ LIGO_DIST=$(patsubst $(LIGO_SRC_DIR)/%.mligo,$(LIGO_SRC_DIR)/%.tz,$(LIGOFILES))
 CONCORDIUM_DIR=./tests/extracted-code/concordium-extract
 MIDLANG_DIR=./tests/extracted-code/midlang-extract
 
-RUST_DIR=./tests/extracted-code/rust-extract
-
 ELM_DIR=./tests/extracted-code/elm-extract
 ELM_WEB_APP_DIR=./tests/extracted-code/elm-web-extract
 
-test-extraction: test-elm test-liquidity test-ligo test-rust test-concordium
+test-extraction: test-elm test-liquidity test-ligo test-concordium
 
 test-concordium: clean-compiled-concordium
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
-
-test-rust: clean-compiled-rust
-	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), cd $(dir) && cargo run && cd ../../../..;)
 
 test-elm:
 	mkdir -p $(ELM_DIR)/src
@@ -91,17 +82,13 @@ clean-compiled-concordium:
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-concordium
 
-clean-compiled-rust:
-	$(foreach dir, $(wildcard $(RUST_DIR)/*-extracted), rm -f -r $(dir)/target;)
-.PHONY: clean-compiled-rust
-
 clean-compiled-elm:
 	rm -f -r $(ELM_WEB_APP_DIR)/elm-stuff
 	rm -f -r $(ELM_WEB_APP_DIR)/index.html
 	rm -f -r $(ELM_DIR)/elm-stuff
 .PHONY: clean-comliped-elm
 
-clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-rust clean-compiled-concordium
+clean-compiled-extraction: clean-compiled-elm clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
 .PHONY: clean-compiled-extraction
 
 clean-extraction-out-files:
@@ -111,7 +98,6 @@ clean-extraction-out-files:
 	rm -f $(LIGO_DIR)/*.mligo.out
 	rm -f $(CONCORDIUM_DIR)/*.rs.out
 	rm -f $(MIDLANG_DIR)/*.midlang.out
-	rm -f $(RUST_DIR)/*.rs.out
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/*.rs.out;)
 
 clean-extraction-sources:
@@ -121,7 +107,6 @@ clean-extraction-sources:
 	rm -f $(LIQUIDITY_DIR)/liquidity.log
 	rm -f $(LIGO_DIR)/tests/*.mligo
 	rm -f $(MIDLANG_DIR)/tests/*.midlang
-	find $(RUST_DIR) -name 'main.rs' -delete
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f $(dir)/src/lib.rs;)
 .PHONY:clean-extraction-sources
 
