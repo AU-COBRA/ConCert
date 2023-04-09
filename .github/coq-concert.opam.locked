@@ -65,6 +65,6 @@ pin-depends: [
   ]
   [
     "coq-rust-extraction.dev"
-    "git+https://github.com/AU-COBRA/coq-rust-extraction.git#22564dba4603bae51002b59c603e80f515758d77"
+    "git+https://github.com/AU-COBRA/coq-rust-extraction.git#11914d450868173dcde57fc11abc700bf55c8a0c"
   ]
 ]

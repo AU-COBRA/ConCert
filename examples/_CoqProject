@@ -7,7 +7,6 @@
 -R ../embedding/theories ConCert.Embedding
 -R ../embedding/extraction ConCert.Embedding.Extraction
 -R ../extraction/theories ConCert.Extraction
--R ../extraction/plugin/theories ConCert.Extraction
 
 -Q eip20 ConCert.Examples.EIP20
 eip20/EIP20Token.v

@@ -4,18 +4,18 @@ From Coq Require Import ZArith.
 
 From MetaCoq.Template Require Import All.
 From MetaCoq.Common Require Import Kernames.
-From ConCert.Utils Require Import StringExtra.
+From RustExtraction Require Import StringExtra.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Extraction Require Import Common.
+From RustExtraction Require Import Common.
 From MetaCoq.Erasure.Typed Require Import Extraction.
 From MetaCoq.Erasure.Typed Require Import Optimize.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Erasure.Typed Require Import Utils.
-From ConCert.Extraction Require Import RustExtract.
+From RustExtraction Require Import RustExtract.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ConCert.Extraction Require Import PrettyPrinterMonad.
-From ConCert.Extraction Require Import Printing.
+From RustExtraction Require Import PrettyPrinterMonad.
+From RustExtraction Require Import Printing.
 
 Import MCMonadNotation.
 
