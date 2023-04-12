@@ -2,13 +2,13 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
-From ConCert.Extraction Require Import Common.
-From ConCert.Extraction Require Import ElmExtract.
+From ElmExtraction Require Import Common.
+From ElmExtraction Require Import ElmExtract.
 From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
 From MetaCoq.Erasure.Typed Require Import Extraction.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ConCert.Extraction Require Import PrettyPrinterMonad.
+From ElmExtraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.

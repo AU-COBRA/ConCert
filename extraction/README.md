@@ -62,6 +62,5 @@ Some highlights of extracted examples:
 * [CounterDepCertifiedLiquidity.v](../examples/counter/extraction/CounterDepCertifiedLiquidity.v) -- A counter contract that uses propositions to filter out the correct input. It also serves as an example application of the certifying eta-expansion.
 * [CounterRefinementTypes](../examples/counter/extraction/CounterRefTypesMidlang.v) -- A counter contract that uses refinement types for expressing partial functional correctness.
 * [CrowdfundingCertifiedExtraction.v](../examples/crowdfunding/CrowdfundingCertifiedExtraction.v) -- Machinery for extraction of a crowdfunding contract.
-* [ElmExtractTests.v](tests/ElmExtractTests.v) -- Several examples of extraction into Elm.
 * [EscrowMidlang.v](../examples/escrow/extraction/EscrowMidlang.v) -- Extraction of the escrow contract defined in [Escrow.v](../examples/escrow/Escrow.v) to Midlang.
 * [StackInterpreterExtract.v](../examples/stackInterpreter/StackInterpreterExtract.v) -- An interpreter for a simple stack-based language.

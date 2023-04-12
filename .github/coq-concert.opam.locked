@@ -21,6 +21,7 @@ depends: [
   "coq-metacoq-template-pcuic" {= "8.16.dev"}
   "coq-metacoq-utils" {= "8.16.dev"}
   "coq-rust-extraction" {= "dev"}
+  "coq-elm-extraction" {= "dev"}
   "coq-quickchick" {= "1.6.4"}
   "coq-stdpp" {= "1.8.0"}
 ]
@@ -66,5 +67,9 @@ pin-depends: [
   [
     "coq-rust-extraction.dev"
     "git+https://github.com/AU-COBRA/coq-rust-extraction.git#11914d450868173dcde57fc11abc700bf55c8a0c"
+  ]
+  [
+    "coq-elm-extraction.dev"
+    "git+https://github.com/AU-COBRA/coq-elm-extraction.git#b2bc25623a2e4ca662418569273b7c5e72b975c6"
   ]
 ]
