@@ -129,7 +129,6 @@ jobs:
           make -j${{ env.JOBS }} clean-extraction-out-files
           make -j${{ env.JOBS }} clean-compiled-extraction
           find extraction/tests/extracted-code -name 'placeholder' -delete
-          find extraction/tests/extracted-code/rust-extract -name '*.main' -delete
           echo "::endgroup::"
 
           cp LICENSE extraction/tests/extracted-code/LICENSE
