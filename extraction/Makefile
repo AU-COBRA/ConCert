@@ -21,6 +21,11 @@ uninstall: CoqMakefile
 	+@make -f CoqMakefile uninstall
 .PHONY: uninstall
 
+vos: CoqMakefile
+	+@make -f CoqMakefile vos
+
+quick: CoqMakefile
+	+@make -f CoqMakefile COQEXTRAFLAGS="-unset \"Universe Checking\"" vos
 
 # Forward most things to Coq makefile. Use 'force' to make this phony.
 %: CoqMakefile force
