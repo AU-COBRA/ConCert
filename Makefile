@@ -124,7 +124,6 @@ html: all
 		-R embedding/extraction ConCert.Embedding.Extraction \
 		-R embedding/examples ConCert.Embedding.Examples \
 		-R extraction/theories ConCert.Extraction \
-		-R extraction/plugin/theories ConCert.Extraction \
 		-R extraction/tests ConCert.Extraction.Tests \
 		-R examples/eip20 ConCert.Examples.EIP20 \
 		-R examples/bat ConCert.Examples.BAT \
