@@ -50,19 +50,6 @@ META.*
 *.out
 *.mligo
 
-## Elm tests
-extraction/tests/extracted-code/elm-extract/elm-stuff/
-extraction/tests/extracted-code/elm-extract/node_modules/
-extraction/tests/extracted-code/elm-extract/src/
-extraction/tests/extracted-code/elm-extract/tests/
-extraction/tests/extracted-code/elm-extract/*.html
-
-extraction/tests/extracted-code/elm-web-extract/elm-stuff/
-extraction/tests/extracted-code/elm-web-extract/node_modules/
-extraction/tests/extracted-code/elm-web-extract/src/
-extraction/tests/extracted-code/elm-web-extract/tests/
-extraction/tests/extracted-code/elm-web-extract/*.html
-
 
 ## Liquidity tests
 extraction/tests/extracted-code/liquidity-extract/*

@@ -103,20 +103,6 @@ jobs:
           sudo chmod +x ./ligo
           sudo mv ligo /usr/local/bin/
 
-      - name: Set up Elm
-        run: |
-          curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz
-          gunzip elm.gz
-          sudo chmod +x elm
-          sudo mv elm /usr/local/bin/
-      - name: Set up elm-test
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-      - name: Set up elm-test
-        run: |
-          npm install -g elm-test@0.19.1-revision9
-
       - name: Set up Liquidity
         run: |
           sudo chmod +x ./extra/docker/liquidity
