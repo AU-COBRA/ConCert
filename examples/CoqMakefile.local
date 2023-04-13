@@ -61,3 +61,7 @@ clean-dpd::
 
 .PHONY: clean
 clean:: clean-dpd
+
+QuickChick:
+	$(SHOW)COQC AllTests.v
+	$(HIDE)$(TIMER) $(COQC) $(COQDEBUG) $(TIMING_ARG) $(COQFLAGS) $(COQLIBS) AllTests.v $(TIMING_EXTRA)
