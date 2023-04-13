@@ -57,6 +57,9 @@ quick:
 	+make -C extraction quick
 	+make -C examples quick
 
+QuickChick: examples
+	+make -C examples QuickChick
+
 test-extraction:
 	+make -C extraction test-extraction
 .PHONY: test-extraction
