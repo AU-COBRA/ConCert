@@ -43,6 +43,20 @@ uninstall:
 	+make -C embedding uninstall
 	+make -C extraction uninstall
 
+vos:
+	+make -C utils vos
+	+make -C execution vos
+	+make -C embedding vos
+	+make -C extraction vos
+	+make -C examples vos
+
+quick:
+	+make -C utils quick
+	+make -C execution quick
+	+make -C embedding quick
+	+make -C extraction quick
+	+make -C examples quick
+
 test-extraction:
 	+make -C extraction test-extraction
 .PHONY: test-extraction

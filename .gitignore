@@ -12,6 +12,7 @@ examples/**/*.svg
 
 ##Coq
 *.vo
+*.vio
 *.vok
 *.vos
 *.glob
