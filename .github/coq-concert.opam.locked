@@ -22,7 +22,7 @@ depends: [
   "coq-metacoq-utils" {= "8.16.dev"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
-  "coq-quickchick" {= "1.6.4"}
+  "coq-quickchick" {= "1.6.5"}
   "coq-stdpp" {= "1.8.0"}
 ]
 build: [
