@@ -11,7 +11,7 @@ MID_TESTS=$MID_PATH/tests
 echo "Processing Liquidity extraction"
 for f in $LIQ_PATH/*.liq.out;
 do
-    if [[ ! -e "$f" ]]; then continue; fi 
+    if [[ ! -e "$f" ]]; then continue; fi
     echo $f "--->" $LIQ_TESTS/$(basename ${f%.out}) ;
     sed -n 's/ *"//;/\(*START*\)/,/\(*END*\)/p' $f > $LIQ_TESTS/$(basename ${f%.out})
 done

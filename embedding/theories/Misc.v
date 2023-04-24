@@ -68,7 +68,8 @@ Lemma forallb_In {A} x (xs : list A) p :
 Proof.
   revert x.
   induction xs; intros x Hin Hfa; auto.
-  simpl in *. propify; intuition; subst; auto.
+  simpl in *. propify.
+  now destruct_or_hyps.
 Qed.
 
 

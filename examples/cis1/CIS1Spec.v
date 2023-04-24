@@ -40,6 +40,7 @@ Notation:
 
  *)
 
+From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Monad.
@@ -635,7 +636,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     sum_balances next_st token_id addrs = sum_balances prev_st token_id addrs.
   Proof.
     intros Hbal.
-    induction addrs; simpl in *; intuition; auto.
+    induction addrs; simpl in *; auto.
   Qed.
   (* end hide *)
 
@@ -657,7 +658,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     revert dependent owners2.
     induction owners1; intros.
     + cbn in *. destruct owners2; auto.
-      destruct (Hiff a); cbn in *; intuition.
+      destruct (Hiff a); cbn in *.
+      now destruct_or_hyps.
     + simpl.
       destruct (Hiff a) as [H1 H2]; cbn in *.
       specialize (H1 (or_introl eq_refl)) as HH.
@@ -678,7 +680,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
            { intros Hin0. subst. apply (remove_In _ _ _ Hin0). }
            easy.
         ** assert (In addr owners2) by eauto with hints.
-           intuition.
+           now destruct_or_hyps.
   Qed.
   (* end hide *)
 
@@ -876,7 +878,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
                 sum_balances prev_st token_id (remove addr_eq_dec to owners1)).
       { apply sum_of_balances_eq_extensional; subst owners2; subst owners1; eauto with hints.
         intros addr.
-        apply same_owners_remove_all with (ignore_addrs := [to]); intros; cbn in *; intuition; eauto.
+        apply same_owners_remove_all with (ignore_addrs := [to]); intros; cbn in *; auto.
         intros addr Haddr. unfold is_true in *.
         apply get_balance_opt_default; try congruence.
         destruct (address_eqb_spec addr to); subst. exfalso; apply (remove_In _ _ _ Haddr).
@@ -887,12 +889,12 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     + rewrite remove_owner with (st := prev_st) (owner := from)
         by (subst owners1; auto with hints).
       rewrite remove_owner with (st := prev_st) (owner := to)
-        by (assert (In to owners1 \/ get_balance_default prev_st token_id to = 0); subst owners1; auto with hints; intuition; auto with hints).
+        by (assert (In to owners1 \/ get_balance_default prev_st token_id to = 0); subst owners1; auto with hints; destruct_or_hyps; auto with hints).
       rewrite remove_owner with (st := next_st) (owner := from)
         by (subst owners2; auto with hints).
       rewrite remove_owner with (st := next_st) (owner := to)
         by (assert (In to owners2 \/ get_balance_default next_st token_id to = 0);
-            subst owners2; auto with hints; intuition; auto with hints).
+            subst owners2; auto with hints; destruct_or_hyps; auto with hints).
       specialize (Htransfer Haddr). destruct Htransfer as [Hfrom Hto].
       repeat rewrite get_balance_total_get_balance_default in Hfrom,Hto.
       rewrite Hfrom. rewrite Hto.
@@ -900,7 +902,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
                 sum_balances next_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners2)) =
               sum_balances prev_st token_id (remove addr_eq_dec to (remove addr_eq_dec from owners1))).
       { apply sum_of_balances_eq_extensional; subst owners2; subst owners1; eauto with hints.
-        apply same_owners_remove_all with (ignore_addrs := [to; from]); intros; cbn in *; intuition; eauto.
+        apply same_owners_remove_all with (ignore_addrs := [to; from]); intros; cbn in *; intuition.
         intros addr Haddr0. unfold is_true in *.
         apply get_balance_opt_default; try congruence.
         destruct (address_eqb_spec addr to); subst. exfalso; apply (remove_In _ _ _ Haddr0).

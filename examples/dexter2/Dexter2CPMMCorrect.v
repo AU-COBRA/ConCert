@@ -1128,7 +1128,8 @@ Section Theories.
     destruct balance_correct as (cstate & deploy_info & deployed_state & ? & balance_correct).
     eapply call_amount_zero in deployed as amount_zero; try now constructor.
     do 2 eexists.
-    intuition.
+    destruct_and_split; eauto.
+    intros.
     rewrite balance_correct by auto.
     clear balance_correct.
     rename H1 into no_transfer.
@@ -2034,7 +2035,8 @@ Section Theories.
     inversion deployed_state'.
     clear deployed_state'. subst.
     do 2 eexists.
-    intuition.
+    destruct_and_split; eauto.
+    intros.
     rewrite act_filter_eq.
     apply (outgoing_txs_sum_filter_eq _ _ trace) in deployed as tx_filter_eq.
     destruct tx_filter_eq as (cstate & deployed_state' & tx_filter_eq).

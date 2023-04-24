@@ -35,7 +35,7 @@ Module AcornBool.
                     (eCase ("Bool", [])
                            (tyInd "Bool")
                            (eRel 0)
-                           [(pConstr "True_coq" [], eConstr "Bool" "False_coq"); 
+                           [(pConstr "True_coq" [], eConstr "Bool" "False_coq");
                             (pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
 
   MetaCoq Run (translateData [] Data).
@@ -48,12 +48,12 @@ End AcornBool.
 Module AcornMaybe.
   MetaCoq Run define_mod_prefix.
 
-  Definition Data := [gdInd "Maybe" 1 [("Nothing_coq", []); 
+  Definition Data := [gdInd "Maybe" 1 [("Nothing_coq", []);
                                        ("Just_coq", [(None, tyRel 0)])] false].
   (*---------------------*)
   Definition Functions := [
     ("isJust", eTyLam "A"
-                (eLambda "x" 
+                (eLambda "x"
                   (tyApp (tyInd "Maybe") (tyRel 0))
                   (eCase ("Maybe",[tyRel 0])
                     (tyInd "Bool")
@@ -78,7 +78,7 @@ Module AcornProd.
   Definition Functions :=
     [("fst", eTyLam "A"
               (eTyLam "A"
-                (eLambda "x" 
+                (eLambda "x"
                   (tyApp (tyApp (tyInd "Pair") (tyRel 1)) (tyRel 0))
                   (eCase ("Pair",[(tyRel 1); (tyRel 0)])
                     (tyRel 1)
@@ -535,7 +535,7 @@ Module AcornBlochain.
           (tyInd "string")
           (eRel 0)
           [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 0)]))
-    ; ("initChain", eLambda "x" 
+    ; ("initChain", eLambda "x"
         (tyInd "InitContext")
         (eCase
           ("InitContext", [])

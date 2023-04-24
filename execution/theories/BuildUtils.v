@@ -451,7 +451,7 @@ Proof.
       apply reachable_step in step as reachable_mid; eauto.
       apply IHqueue in reachable_mid as [to [reachable_through [P_to queue_to]]]; eauto.
       exists to.
-      intuition.
+      destruct_and_split; auto.
       eauto.
       eapply (HP_preserved bstate mid); eauto.
       now right.
@@ -607,11 +607,11 @@ Proof.
     + apply NPeano.Nat.sub_0_le in slot_hit.
       rewrite_environment_equiv. cbn. lia.
   - specialize forward_time_exact with (slot := slot) as
-      (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq);
-      try easy.
+      (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq); eauto.
+    lia.
     do 2 eexists.
-    split; eauto.
-    intuition.
+    destruct_and_split; eauto.
+    lia.
 Qed.
 
 (* Lemma showing that there exists a future ChainState

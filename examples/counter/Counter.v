@@ -175,7 +175,7 @@ Section SafetyProperties.
       destruct (counter _ _) as [cstate|] eqn:counter_some; inversion receive_some; subst.
       (* NOTE: we use the functional correctness here *)
       specialize (counter_correct counter_some) as Cspec.
-      destruct msg; intuition; unfold sum_inc_dec in *; lia.
+      destruct msg; auto; unfold sum_inc_dec in *; lia.
     + (* contract self-call *)
       (* NOTE: we know that the self-call is not possible because [counter_receive]
         always returns an empty list of actions. We instantiate the [CallFacts]

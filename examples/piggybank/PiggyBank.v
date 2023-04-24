@@ -23,7 +23,7 @@ Section PiggyBankTypes.
   Inductive PiggyState :=
   | Intact
   | Smashed.
-  
+
   Inductive Msg :=
   | Insert
   | Smash.
@@ -31,7 +31,7 @@ Section PiggyBankTypes.
   Record State :=
     build_state {
       balance : Amount;
-      owner : Address; 
+      owner : Address;
       piggyState : PiggyState
     }.
 

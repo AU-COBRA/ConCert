@@ -291,7 +291,7 @@ Section Values.
           eapply All_impl_inner. apply Hall'. simpl in *.
           apply Forall_All.
           eapply Forall_forall;
-            intros; eapply subst_env_i_ty_closed; intuition.
+            intros; eapply subst_env_i_ty_closed; auto with solve_subterm.
         * now eapply subst_env_i_ty_closed.
         * apply All_forallb. apply All_map. unfold compose. simpl.
           eapply All_impl_inner. apply Hall. simpl in *.
@@ -336,7 +336,8 @@ Section Values.
                               is_true (iclosed_n (#|pVars (fst x)| + k)
                                       ((snd x).[ ρ] (#|pVars (fst x)| + k)))) l) by
            now apply forallb_Forall.
-      rewrite Forall_forall in HH. intuition.
+      rewrite Forall_forall in HH.
+      auto with solve_subterm.
   Qed.
 
   Lemma subst_env_iclosed_0 (e : expr) :
@@ -434,9 +435,9 @@ Section Values.
     forall (e : expr) (k : nat), e = subst_env_i_aux k [] e.
   Proof.
     intros e.
-    induction e using expr_ind_case; simpl in *; intuition.
-    + simpl. destruct (Nat.leb k n); eauto.
-    + simpl.
+    induction e using expr_ind_case; simpl in *; auto with all facts; intros.
+    + destruct (Nat.leb k n); eauto.
+    + destruct p.
       apply f_equal4; eauto with facts.
       rewrite map_id_f; eauto with facts.
       rewrite <- map_id at 1.
@@ -614,7 +615,7 @@ Section Validate.
   Proof.
     revert n ρ.
     induction ty; intros; simpl in *; unfold is_true in *;
-      propify; intuition; eauto.
+      propify; auto with solve_subterm; eauto.
     rewrite lookup_i_nth_error.
     rewrite lookup_i_nth_error in H.
     destruct (n0 <=? n); auto.
@@ -630,16 +631,16 @@ Section Validate.
   Proof.
     revert n ρ.
     induction e using expr_elim_case; intros;
-      simpl in *; unfold is_true in *; propify; intuition;
+      simpl in *; unfold is_true in *; propify; destruct_and_split; auto;
         try eapply valid_ty_env_ty_env_ok; eauto.
-    + destruct p as [ind tys]. simpl in *.
+    + simpl in *.
       eapply forallb_impl_inner.
-      eapply H0. intros.
+      eapply H. intros.
       now eapply valid_ty_env_ty_env_ok.
     + apply All_forallb.
-      apply forallb_All in H1.
+      apply forallb_All in H0.
       eapply All_impl_inner.
-      apply H1. simpl.
+      apply H0. simpl.
       eapply (All_impl X); eauto.
   Qed.
 End Validate.

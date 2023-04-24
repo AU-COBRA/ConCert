@@ -14,7 +14,7 @@ ConCert can find real-world attacks as explained
 ## How to build
 
 
-Our development works with Coq 8.16 and depends on MetaCoq, std++, and coq-equations.
+Our development works with Coq 8.17 and depends on MetaCoq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
@@ -27,7 +27,7 @@ opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inri
 eval $(opam env)
 ```
 
-If Coq 8.16 is already installed, run
+If Coq 8.17 is already installed, run
 
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
@@ -74,7 +74,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
-    
+
     ```
     @article{annenkov_milo_nielsen_spitters_2022,
       author={ANNENKOV, DANIL and MILO, MIKKEL and NIELSEN, JAKOB BOTSCH and SPITTERS, BAS},
@@ -94,7 +94,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
-    
+
     ```
     @InProceedings{milo_et_al:OASIcs.FMBC.2022.2,
       author =	{Milo, Mikkel and Nielsen, Eske Hoy and Annenkov, Danil and Spitters, Bas},
@@ -122,7 +122,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
-    
+
     ```
     @inproceedings{10.1145/3573105.3575685,
         author = {Nielsen, Eske Hoy and Annenkov, Danil and Spitters, Bas},
@@ -243,7 +243,7 @@ We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https:
   <br>
   <details>
     <summary>Cite paper</summary>
-    
+
     ```
     @inproceedings{smart-contract-interactions,
       author    = {Jakob Botsch Nielsen and

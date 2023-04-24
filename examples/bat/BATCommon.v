@@ -468,7 +468,7 @@ Section BATCommon.
     - cbn.
       destruct_match; auto.
       apply list.Forall_cons.
-      intuition.
+      destruct_and_split; auto.
       apply address_eq_refl.
   Qed.
   Close Scope N_scope.

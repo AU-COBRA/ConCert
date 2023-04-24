@@ -34,12 +34,12 @@ Class BoardroomAxioms {A : Type} :=
 
     order_ge_2 : order >= 2;
 
-    elmeq_equiv :> Equivalence elmeq;
-    add_proper :> Proper (elmeq ==> elmeq ==> elmeq) add;
-    mul_proper :> Proper (elmeq ==> elmeq ==> elmeq) mul;
-    opp_proper :> Proper (elmeq ==> elmeq) opp;
-    inv_proper :> Proper (elmeq ==> elmeq) inv;
-    pow_base_proper :> Proper (elmeq ==> eq ==> elmeq) pow;
+    elmeq_equiv :: Equivalence elmeq;
+    add_proper :: Proper (elmeq ==> elmeq ==> elmeq) add;
+    mul_proper :: Proper (elmeq ==> elmeq ==> elmeq) mul;
+    opp_proper :: Proper (elmeq ==> elmeq) opp;
+    inv_proper :: Proper (elmeq ==> elmeq) inv;
+    pow_base_proper :: Proper (elmeq ==> eq ==> elmeq) pow;
     pow_exp_proper a :
       ~(elmeq a zero) -> Proper (expeq ==> elmeq) (pow a);
 
@@ -155,7 +155,7 @@ Class DiscreteLog {A : Type} (field : BoardroomAxioms A) (g : Generator field) :
   {
     (* This is computationally intractable, but we still require it for ease of specification *)
     log : A -> Z;
-    log_proper :> Proper (elmeq ==> expeq) log;
+    log_proper :: Proper (elmeq ==> expeq) log;
     pow_log a :
       a !== 0 ->
       generator ^ (log a) == a;
@@ -321,8 +321,9 @@ Section WithBoardroomAxioms.
     induction xs as [|x xs IH]; cbn in *; auto.
     - split; auto.
     - split.
-      + intros.
-        apply int_domain; intuition.
+      + intros [].
+        apply int_domain; auto.
+        now apply IH.
       + intros xprod.
         split.
         * intros eq; rewrite eq in *; rewrite mul_0_l in xprod.
