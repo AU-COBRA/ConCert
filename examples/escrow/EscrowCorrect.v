@@ -235,8 +235,8 @@ Section Theories.
       destruct tx_act_match as [<- [<- _]].
       repeat rewrite transfer_acts_to_cons in *.
       destruct (next_step cstate).
-      + intuition congruence.
-      + intuition congruence.
+      + destruct_and_split; congruence.
+      + destruct_and_split; congruence.
       + (* Transfer while next_step is withdraw; so seller or buyer withdrew *)
         do 2 (split; try tauto).
         destruct IH as [_ [_ [? ?]]].

@@ -79,14 +79,14 @@ Module RemoveProperties.
     ~ (In x to_remove) -> In x xs -> In x (remove_all eq_dec to_remove xs).
   Proof.
     intros H1 H2.
-    induction to_remove; cbn in *; intuition; eauto with hints.
+    induction to_remove; cbn in *; intuition auto with *; eauto with hints.
   Qed.
 
   Lemma NoDup_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A) :
     NoDup l -> NoDup (remove eq_dec x l).
   Proof.
     induction l; intros H0; auto; simpl.
-    inversion H0; destruct (eq_dec x a); subst; intuition; simpl in *; eauto with hints.
+    inversion H0; destruct (eq_dec x a); subst; intuition auto with *; simpl in *; eauto with hints.
   Qed.
 
   #[local]

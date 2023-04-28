@@ -1051,5 +1051,3 @@ Definition paid_tokens_modulo_exchange_rate (cs : ChainState) :=
     in the funding period *)
 (* QuickChick ({{paid_tokens_modulo_exchange_rate}}). *)
 (* +++ Passed 10000 tests (0 discards) *)
-
-

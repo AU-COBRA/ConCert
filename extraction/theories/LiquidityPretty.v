@@ -3,7 +3,7 @@
 
 (** ** Features/limitations *)
 
-(** Printing covers most constructs of CIC_box (terms after erasure). 
+(** Printing covers most constructs of CIC_box (terms after erasure).
     Usually we have to remove redundant boxes before printing.
     There are some limitations on what can work after extraction, due to the
     nature of Liquidity, or sometimes, lack of proper support.

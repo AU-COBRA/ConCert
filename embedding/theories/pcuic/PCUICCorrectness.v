@@ -21,7 +21,6 @@ From Coq Require Import Basics.
 From Coq Require Import Lia.
 From Coq Require Import ssrbool.
 From Coq Require Import Arith.
-From Equations Require Import Equations.
 
 Import ListNotations.
 Import NamelessSubst.

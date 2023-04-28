@@ -1227,7 +1227,7 @@ Section Theories.
     eapply can_finalize_if_deployed; eauto.
     - rewrite queue. apply empty_queue_is_emptyable.
     - eexists.
-      intuition.
+      destruct_and_split; eauto; lia.
   Qed.
 
 

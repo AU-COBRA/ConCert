@@ -34,7 +34,7 @@ Proof.
     repeat constructor; unfold incl; auto.
   intros Hin.
   cbn in *.
-  intuition.
+  now destruct_or_hyps.
 Qed.
 
 Lemma eval_action_from_to_same
@@ -80,9 +80,9 @@ Proof.
 
   pose proof (Permutation_NoDup perm) as perm_set.
   assert (from_not_in_suf: ~In (eval_from eval) suf).
-  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); intuition. }
+  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); auto with datatypes. }
   assert (to_not_in_suf: ~In (eval_to eval) suf).
-  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); intuition. }
+  { apply (in_NoDup_app _ [eval_from eval; eval_to eval] _); auto with datatypes. }
 
   clear perm perm_set.
   pose proof (account_balance_post_irrelevant eval) as balance_irrel.
@@ -130,7 +130,7 @@ Proof.
 
   pose proof (in_NoDup_app
                 (block_creator header)
-                [block_creator header] suf ltac:(intuition) perm_set) as not_in_suf.
+                [block_creator header] suf ltac:(auto with datatypes) perm_set) as not_in_suf.
   clear perm perm_set.
   induction suf as [| x xs IH]; auto.
   cbn in *.
@@ -155,9 +155,9 @@ Proof.
   - (* New action *)
     erewrite eval_action_circulation_unchanged; eauto.
   - (* Invalid User Action *)
-    intuition.
+    reflexivity.
   - (* Permute queue *)
-    intuition.
+    reflexivity.
 Qed.
 
 (* And combining these gives the final result. *)

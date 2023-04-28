@@ -10,7 +10,6 @@
 
 Global Set Warnings "-extraction-logical-axiom".
 
-From QuickChick Require Import QuickChick.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
@@ -18,6 +17,7 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution.Test Require Import TestUtils.
+From QuickChick Require Import QuickChick.
 
 Import MonadNotation. Open Scope monad_scope.
 
@@ -198,7 +198,7 @@ Section TraceGens.
           match lc' with
           | Ok lc' => rec n lc'
           (* if no new chain could be generated without error, return the old chain *)
-          | err => returnGen lc
+          | Err _ => returnGen lc
           end
       end in
     rec max_length init_lc.
@@ -222,7 +222,7 @@ Section TraceGens.
             | Ok lc' => rec n lc'
             (* If no new chain could be generated without error,
                return the trace and action list *)
-            | err => returnGen (lc, acts)
+            | Err _ => returnGen (lc, acts)
             end
     end in
   rec max_length init_lc.

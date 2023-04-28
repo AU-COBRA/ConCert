@@ -408,7 +408,7 @@ Lemma type_to_term_subst_par_rec Σ ty k ρ :
 Proof.
   revert k ρ.
   induction ty; intros k e0 Hok Hce Hct; simpl in *; propify;
-    auto with hints; intuition.
+    auto with hints; destruct_and_split; auto with all.
   + destruct (k <=? n); auto.
     unfold Extras.with_default, lookup_ty.
     rewrite lookup_i_nth_error in *.
@@ -706,7 +706,8 @@ Proof.
     unfold test_def. simpl.
     propify.
     repeat split; eauto with hints;
-      try apply type_to_term_closed; intuition.
+      try apply type_to_term_closed;
+      auto with hints solve_subterm.
   + simpl in *. eauto with hints.
 Qed.
 
@@ -854,7 +855,7 @@ Proof.
   + (* eLetIn *)
     cbn in *.
     unfold is_true in *; propify.
-    rewrite type_to_term_subst with (nm := nm); intuition; eauto with hints.
+    rewrite type_to_term_subst with (nm := nm); auto with all solve_subterm.
   + (* eApp *)
     change ((t⟦ eApp e1 e2 ⟧ Σ)) with ((mkApps (t⟦e1⟧Σ) [t⟦e2⟧Σ])) in *.
     cbn -[mkApps] in *. unfold is_true in *.
@@ -863,8 +864,8 @@ Proof.
     change (tApp t⟦e1.[[(nm, e0)]] n1⟧Σ t⟦e2.[[(nm, e0)]] n1⟧ Σ) with
         (mkApps t⟦e1.[[(nm, e0)]] n1⟧Σ [t⟦e2.[[(nm, e0)]] n1⟧ Σ]).
     f_equal.
-    eapply IHe1; intuition.
-    simpl; f_equal; eapply IHe2; intuition.
+    eapply IHe1; auto with funelim.
+    simpl; f_equal; eapply IHe2; auto with funelim.
   + (* eConstr *)
     simpl. destruct (resolve_constr Σ i n); auto.
   + (* eConst *)
@@ -878,9 +879,9 @@ Proof.
     repeat f_equal.
     * unfold map_predicate_k; cbn.
       rewrite_all map_map.
-      erewrite <- type_to_term_map with (Σ := Σ) by intuition.
+      erewrite <- type_to_term_map with (Σ := Σ) by auto with solve_subterm.
       rewrite <- map_map with (f := fun x => T⟦ subst_env_i_ty n1 [(nm, e0)] x⟧).
-      erewrite <- type_to_term_map with (Σ := Σ) by intuition.
+      erewrite <- type_to_term_map with (Σ := Σ) by auto with solve_subterm.
       rewrite map_map.
       f_equal.
       ** do 3 (apply f_equal2; auto).
@@ -892,8 +893,8 @@ Proof.
          { induction ys1; intros ys2 xs n Heq; destruct ys2; cbn in *; inversion Heq; cbn; auto. }
          rewrite <- map_map. rewrite <- map_map with (f := fun x => T⟦ x ⟧ {n1 := t⟦ e0 ⟧ Σ}).
          apply Hreln. now repeat rewrite map_length.
-      ** rewrite commut_lift_subst. intuition.
-    * apply IHe; intuition.
+      ** rewrite commut_lift_subst. auto with all hints solve_subterm.
+    * apply IHe; auto with solve_subterm.
     * rewrite_all map_map. simpl.
       unfold on_snd. destruct p as [p cs]; simpl in *.
       apply map_ext_in.
@@ -929,8 +930,9 @@ Proof.
          now repeat rewrite map_map.
   + (* eFix *)
     cbn in *. unfold is_true in *; repeat rewrite Bool.andb_true_iff in *.
-    unfold map_def. simpl. repeat f_equal; intuition.
-    rewrite commut_lift_subst. intuition. rewrite commut_lift_subst. intuition.
+    unfold map_def. simpl. repeat f_equal; auto with hints solve_subterm.
+    rewrite commut_lift_subst. auto with all hints solve_subterm.
+    rewrite commut_lift_subst. auto with all hints solve_subterm.
   + (* eTy *) simpl in *. eauto with hints.
 Qed.
 
@@ -954,7 +956,7 @@ Lemma subst_env_ty_closed_n_eq n m ty ρ :
   subst_env_i_ty (m + n) ρ ty = ty.
 Proof.
   revert n m ρ.
-  induction ty; intros; simpl in *; unfold is_true in *; propify; intuition; eauto.
+  induction ty; intros; simpl in *; unfold is_true in *; propify; auto with all solve_subterm.
   + f_equal. now replace (S (m + n)) with (m + S n) by lia.
   + destruct (Nat.leb (m + n0)) eqn:Hmn1; propify; try lia; easy.
 Qed.
@@ -978,10 +980,10 @@ Proof.
   induction e using expr_ind_case; intros n1 m1 ρ Hc; simpl in *;
     propify; eauto with hints.
   + simpl in *. destruct (Nat.leb (m1 + n1)) eqn:Hmn1; propify; try lia; easy.
-  + simpl in *. f_equal. eapply subst_env_ty_closed_n_eq; intuition.
+  + simpl in *. f_equal. eapply subst_env_ty_closed_n_eq; auto with solve_subterm.
     now replace (S (m1 + n1)) with (m1 + S n1) by lia.
   + simpl in *. f_equal. replace (S (m1 + n1)) with (m1 + S n1) by lia. easy.
-  + simpl in *. f_equal; replace (S (m1 + n1)) with (m1 + S n1) by lia; intuition; eauto with hints.
+  + simpl in *. f_equal; replace (S (m1 + n1)) with (m1 + S n1) by lia; auto with hints solve_subterm.
   + simpl in *. f_equal; replace (S (m1 + n1)) with (m1 + S n1) by lia; easy.
   + simpl in *. destruct p.
     assert (map (fun x : pat × expr => (x.1, x.2 .[ ρ] (#|pVars x.1| + (m1 + n1)))) l = l).
@@ -989,14 +991,14 @@ Proof.
       eapply forall_map_spec'; eauto.
       simpl. intros x Hin Hx. destruct x. unfold id. f_equal. simpl in *.
       replace (#|pVars p| + (m1 + n1)) with (m1 + (#|pVars p| + n1)) by lia.
-      apply Hx. intuition. rewrite forallb_forall in *.
+      apply Hx. destruct_and_split. rewrite forallb_forall in *.
       rewrite Forall_forall in *.
       change e0 with (snd (p,e0)).
       change p with (fst (p,e0)). easy.
       apply map_id. }
     assert (map (subst_env_i_ty (m1 + n1) ρ) l0 = l0) by now eapply map_subst_env_ty_closed.
-    repeat f_equal; intuition; eauto with hints.
-  + simpl in *. f_equal; intuition. now replace (S (S (m1 + n1))) with (m1 + S (S n1)) by lia.
+    repeat f_equal; auto with hints solve_subterm.
+  + simpl in *. f_equal; auto with hints solve_subterm. now replace (S (S (m1 + n1))) with (m1 + S (S n1)) by lia.
   + f_equal; auto with hints.
 Qed.
 
@@ -1186,21 +1188,21 @@ Proof.
   induction e using expr_ind_case; intros ? ? ? Hok; simpl in *; unfold is_true in *;
     propify; eauto with hints.
   + replace (S (n0 + #|ρ1|)) with (S n0 + #|ρ1|) by lia.
-    intuition.
+    destruct_and_split; auto.
     now apply ty_env_ok_app_rec.
   + now replace (S (n0 + #|ρ1|)) with (S n0 + #|ρ1|) by lia.
-  + intuition.
+  + destruct_and_split; auto.
     now apply ty_env_ok_app_rec.
     now replace (S (n0 + #|ρ1|)) with (S n0 + #|ρ1|) by lia.
-  + intuition.
-  + intuition.
+  + now destruct_and_split.
+  + destruct_and_split; auto.
     eapply forallb_impl_inner; intros; eauto; now apply ty_env_ok_app_rec.
     now apply ty_env_ok_app_rec.
     cbn. apply forallb_Forall. apply forallb_Forall in H1.
     eapply Forall_impl_inner. apply H. simpl in *.
     eapply Forall_impl. 2 : { apply H1. } intros.
     now replace (#|pVars a.1| + (n + #|ρ1|)) with (#|pVars a.1| + n + #|ρ1|) by lia.
-  + intuition.
+  + destruct_and_split.
     now apply ty_env_ok_app_rec. now apply ty_env_ok_app_rec.
     now replace (S (S (n1 + #|ρ1|))) with (S (S n1) + #|ρ1|) by lia.
   + now apply ty_env_ok_app_rec.
@@ -1213,12 +1215,14 @@ Proof.
   intros. revert dependent n. revert ρ.
   induction e using expr_elim_case; intros ?? Hc; eauto.
   + simpl in *. unfold is_true in *. propify.
-    intuition. eapply iclosed_ty_env_ok; eauto.
+    destruct_and_split; auto.
+    eapply iclosed_ty_env_ok; eauto.
   + simpl in *. unfold is_true in *. propify.
-    intuition. eapply iclosed_ty_env_ok; eauto.
+    destruct_and_split; auto.
+    eapply iclosed_ty_env_ok; eauto.
   + simpl in *. unfold is_true in *. now propify.
   + simpl in *. unfold is_true in *. propify.
-    intuition; eauto with hints.
+    destruct_and_split; eauto with hints.
     eapply forallb_impl_inner; intros; eauto; now apply iclosed_ty_env_ok.
     now apply iclosed_ty_env_ok.
     apply All_forallb. apply forallb_All in H0.
@@ -1226,7 +1230,7 @@ Proof.
     eapply All_impl. apply H0. intros.
     simpl in *. easy.
   + simpl in *. unfold is_true in *. propify.
-    intuition; now apply iclosed_ty_env_ok.
+    destruct_and_split; auto; now apply iclosed_ty_env_ok.
   + now apply iclosed_ty_env_ok.
 Qed.
 
@@ -1278,24 +1282,24 @@ Proof.
     eapply IHe; eauto.
   + simpl in *. eapply IHe; eauto.
   + simpl in *. unfold is_true in *. propify.
-    intuition. eapply ty_env_ok_subst_env; eauto.
+    destruct_and_split; auto. eapply ty_env_ok_subst_env; eauto.
   + simpl in *. unfold is_true in *. now propify.
   + simpl in *. destruct p. simpl in *.
     unfold is_true in *. propify.
-    intuition; eauto with hints.
+    destruct_and_split; eauto with hints.
     * rewrite forallb_map. eapply forallb_impl_inner; eauto.
       intros. eapply ty_env_ok_subst_env; eauto.
     * eapply ty_env_ok_subst_env; eauto.
     * apply All_forallb. apply All_map.
       intros. unfold compose. simpl in *.
-      eapply forallb_All in H1.
-      eapply (All_impl_inner _ _ _ H1).
+      eapply forallb_All in H0.
+      eapply (All_impl_inner _ _ _ H0).
       eapply All_impl. apply X. intros. simpl in *.
       replace (#|pVars x.1| + (k + #|ρ1|)) with (#|pVars x.1| + k + #|ρ1|) by lia.
-      eapply H; eauto.
+      eapply H3; eauto.
   + simpl in *.
     unfold is_true in *. propify.
-    intuition; eapply ty_env_ok_subst_env; eauto.
+    destruct_and_split; auto; eapply ty_env_ok_subst_env; eauto.
   + eapply ty_env_ok_subst_env; eauto.
 Qed.
 
@@ -1600,8 +1604,7 @@ Proof.
          now eapply eval_ty_env_ok.
       ** now eapply eval_ty_env_ok.
       ** destruct Hc as [[??]?]; eapply IHn; eauto.
-      ** intuition.
-         eapply (forallb_impl_inner Hl); intros; eauto. simpl in *.
+      ** eapply (forallb_impl_inner Hl); intros; eauto. simpl in *.
          replace (_ + 0) with #|pVars x.1| by lia.
          now apply valid_env_ty_expr_env_ok.
     * simpl in *.
@@ -1846,7 +1849,8 @@ Proof.
   + simpl in *. subst. rewrite mkApps_unfold in *; tryfalse.
   + simpl in *. subst. rewrite mkApps_unfold in *; tryfalse.
   + simpl in *. repeat rewrite mkApps_unfold in *.
-    inversion Hmk. specialize (IHl1 _ _ H2 _ H1 H0). intuition; auto.
+    inversion Hmk. specialize (IHl1 _ _ H2 _ H1 H0).
+    auto with all funelim.
 Qed.
 
 Lemma mkApps_constr_inv ind l1 l2 n1 n2 u1 u2:
@@ -1855,7 +1859,7 @@ Lemma mkApps_constr_inv ind l1 l2 n1 n2 u1 u2:
 Proof.
   intros H.
   assert (l1=l2 /\ tConstruct ind n1 u1 = (tConstruct ind n2 u2)) by now apply mkApps_atom_inv.
-  now intuition.
+  now destruct_and_split.
 Qed.
 
 Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p:
@@ -1945,8 +1949,8 @@ Qed.
 Lemma negb_and_to_orb a b :
   (~~ a) /\ (~~ b) -> ~~ (a || b).
 Proof.
-  intros H. unfold is_true in *.
-  destruct a,b; intuition; auto.
+  intros []. unfold is_true in *.
+  destruct a,b; auto.
 Qed.
 
 #[export] Hint Resolve negb_and_to_orb : hints.
@@ -2018,7 +2022,7 @@ Proof.
   revert n ρ.
   induction ty; intros;
     unfold is_true in *; simpl in *;
-    propify; intuition;
+    propify;
       try (now f_equal).
   assert (Hn0 : n0 <=? n = false) by (propify; lia).
   now rewrite Hn0.

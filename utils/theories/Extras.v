@@ -147,7 +147,6 @@ Proof.
         apply in_or_app.
         apply (incl_split [x] xs _) in incl_l'_l.
         destruct incl_l'_l as [incl_x incl_xs].
-        intuition.
         specialize (incl_xs a a_in).
         apply in_app_or in incl_xs.
         destruct incl_xs as [in_pref | [in_x | in_suf]]; auto.
@@ -368,7 +367,10 @@ Lemma All_ext_in {A} (f g : A -> Prop) (l : list A) :
   (forall a, In a l -> f a -> g a) ->
   All g l.
 Proof.
-  induction l as [|x xs IH]; intros all fall; cbn in *; intuition.
+  induction l as [|x xs IH]; auto.
+  intros all fall.
+  cbn in *.
+  destruct_and_split; auto.
 Qed.
 
 Local Open Scope nat.
@@ -444,8 +446,6 @@ Proof.
     + now rewrite firstn_all.
     + left; lia.
   - destruct l; auto.
-    cbn.
-    apply IH.
 Qed.
 
 Local Open Scope Z.

@@ -81,9 +81,9 @@ Class ChainBase :=
     address_eqb : Address -> Address -> bool;
     address_eqb_spec :
       forall (a b : Address), Bool.reflect (a = b) (address_eqb a b);
-    address_eqdec :> stdpp.base.EqDecision Address;
-    address_countable :> countable.Countable Address;
-    address_serializable :> Serializable Address;
+    address_eqdec :: stdpp.base.EqDecision Address;
+    address_countable :: countable.Countable Address;
+    address_serializable :: Serializable Address;
     address_is_contract : Address -> bool;
   }.
 
@@ -148,7 +148,7 @@ Record ContractCallContext :=
   build_ctx {
     (** Address that initiated the transaction (never a contract) *)
     ctx_origin : Address;
-    (** Address of the immediate account that sent 
+    (** Address of the immediate account that sent
         the call (can be a contract or a user account) *)
     ctx_from : Address;
     (** Address of the contract being called *)
@@ -2136,7 +2136,7 @@ Section LiftTransactionProp.
          `{Serializable State}
          `{Serializable Error}.
 
-(** If some property [P] holds for all actions in the output of the receive function, 
+(** If some property [P] holds for all actions in the output of the receive function,
     the property can be lifted to all outgoing actions for all reachable states. *)
 Lemma lift_outgoing_acts_prop
         {P : ActionBody -> Prop}
