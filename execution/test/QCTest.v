@@ -5,3 +5,4 @@ From ConCert.Execution.Test Require Export TestNotation.
 
 From QuickChick Require Export QuickChick.
 Export QuickChick.Checker.QcNotation.
+Export QuickChick.Producer.BindOptNotation.

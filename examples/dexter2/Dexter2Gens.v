@@ -26,7 +26,7 @@ Module Dexter2Gens (Info : Dexter2Info).
 
   (** * Dexter2 CPMM generators *)
 
-  Definition gNonBrokeAddr (env : Environment) : G (option Address) :=
+  Definition gNonBrokeAddr (env : Environment) : GOpt Address :=
     let freq_accounts := map (fun addr =>
       (Z.to_nat ((env_account_balances env) addr), returnGenSome addr)) accounts in
     freq_ (returnGen None) freq_accounts.
@@ -36,9 +36,9 @@ Module Dexter2Gens (Info : Dexter2Info).
     returnGen (from_addr, 0%Z, FA2Token.other_msg UpdateTokenPool).
 
   Definition gXtzToToken (env : Environment) : GOpt (Address * Amount * Dexter2CPMM.Msg) :=
-    from_addr <- gNonBrokeAddr env ;;
-    deadline <- bindGen (choose (env.(current_slot) + 1, env.(current_slot) + 10)) returnGenSome ;;
-    amount <- bindGen (choose (1%Z, (env_account_balances env) from_addr)) returnGenSome ;;
+    from_addr <-- gNonBrokeAddr env ;;
+    deadline <- (choose (env.(current_slot) + 1, env.(current_slot) + 10)) ;;
+    amount <- (choose (1%Z, (env_account_balances env) from_addr)) ;;
     let param := {|
       tokens_to := from_addr;
       minTokensBought := 1%N;
@@ -87,7 +87,7 @@ Module Dexter2Gens (Info : Dexter2Info).
           call_cpmm caller value msg
       );
       (* XtzToToken *)
-      (1, bindGenOpt (gXtzToToken env)
+      (1, bindOpt (gXtzToToken env)
           (fun '(caller, value, msg) =>
             call_cpmm caller value msg
           )

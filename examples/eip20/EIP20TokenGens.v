@@ -50,7 +50,7 @@ Module EIP20Gens (Info : EIP20GensInfo).
 
   (* Note: not optimal implementation. Should filter on balances map instead of first sampling and then filtering *)
   Definition gApprove (state : EIP20Token.State) : GOpt (Address * Msg) :=
-    bindGenOpt (sample2UniqueFMapOpt state.(balances)) (fun p =>
+    bindOpt (sample2UniqueFMapOpt state.(balances)) (fun p =>
       let addr1 := fst (fst p) in
       let balance1 := snd (fst p) in
       let addr2 := fst (snd p) in
@@ -63,9 +63,9 @@ Module EIP20Gens (Info : EIP20GensInfo).
     ).
 
   Definition gTransfer_from (state : EIP20Token.State) : GOpt (Address * Msg) :=
-    bindGenOpt (sampleFMapOpt state.(allowances)) (fun '(allower, allowance_map) =>
-    bindGenOpt (sampleFMapOpt allowance_map) (fun '(delegate, allowance) =>
-      bindGenOpt (sampleFMapOpt state.(balances)) (fun '(receiver, _) =>
+    bindOpt (sampleFMapOpt state.(allowances)) (fun '(allower, allowance_map) =>
+    bindOpt (sampleFMapOpt allowance_map) (fun '(delegate, allowance) =>
+      bindOpt (sampleFMapOpt state.(balances)) (fun '(receiver, _) =>
         let allower_balance := (FMap_find_ allower state.(balances) 0) in
         amount <- (if allower_balance =? 0
                   then returnGen 0
@@ -83,21 +83,21 @@ Module EIP20Gens (Info : EIP20GensInfo).
             act_from := caller_addr;
             act_body := act_call contract_addr 0%Z (serializeMsg msg)
           |} in
-    state <- returnGen (get_contract_state EIP20Token.State env contract_addr) ;;
+    state <-- returnGen (get_contract_state EIP20Token.State env contract_addr) ;;
     backtrack [
       (* transfer *)
         (2, '(caller, msg) <- gTransfer env state ;;
             call contract_addr caller msg
       ) ;
       (* transfer_from *)
-      (3, bindGenOpt (gTransfer_from state)
+      (3, bindOpt (gTransfer_from state)
           (fun '(caller, msg) =>
             call contract_addr caller msg
 
           )
       );
       (* approve *)
-      (2, bindGenOpt (gApprove state)
+      (2, bindOpt (gApprove state)
           (fun '(caller, msg) =>
             call contract_addr caller msg
           )

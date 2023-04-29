@@ -32,17 +32,19 @@ Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
   (* Note: not optimal implementation. Should filter on
      balances map instead of first sampling and then filtering *)
   Definition gApprove (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
-  '((addr1, balance1), (addr2, balance2)) <- sample2UniqueFMapOpt state.(balances) ;;
+    '((addr1, balance1), (addr2, balance2)) <-- sample2UniqueFMapOpt state.(balances) ;;
     if 0 <? balance1
-    then amount <- choose (0, balance1) ;; returnGenSome (addr1, approve addr2 amount)
+    then amount <- choose (0, balance1) ;;
+         returnGenSome (addr1, approve addr2 amount)
     else if 0 <? balance2
-    then amount <- choose (0, balance2) ;; returnGenSome (addr2, approve addr1 amount)
+    then amount <- choose (0, balance2) ;;
+         returnGenSome (addr2, approve addr1 amount)
     else returnGen None.
 
   Definition gTransfer_from (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
-  '(allower, allowance_map) <- sampleFMapOpt state.(allowances) ;;
-  '(delegate, allowance) <- sampleFMapOpt allowance_map ;;
-  '(receiver,_) <- sampleFMapOpt state.(balances) ;;
+    '(allower, allowance_map) <-- sampleFMapOpt state.(allowances) ;;
+    '(delegate, allowance) <-- sampleFMapOpt allowance_map ;;
+    '(receiver,_) <-- sampleFMapOpt state.(balances) ;;
     let allower_balance := (FMap_find_ allower state.(balances) 0) in
     amount <- (if allower_balance =? 0
               then returnGen 0
@@ -58,7 +60,7 @@ Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
     returnGenSome (addr, mint amount ).
 
   Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
-  '(addr, balance) <- sampleFMapOpt_filter state.(balances) (fun '(_,balance) => 0 <? balance) ;;
+    '(addr, balance) <-- sampleFMapOpt_filter state.(balances) (fun '(_,balance) => 0 <? balance) ;;
     (* we purposely give it a small chance to try to burn more than allowed, hence +2*)
     amount <- choose (0, balance + 2) ;;
     returnGenSome (addr, burn amount).
@@ -72,22 +74,22 @@ Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
             act_from := caller_addr;
             act_body := act_call contract_addr 0%Z (serializeMsg msg)
           |} in
-    state <- returnGen (get_contract_state iTokenBuggy.State env contract_addr) ;;
+    state <-- returnGen (get_contract_state iTokenBuggy.State env contract_addr) ;;
     backtrack [
       (* mint *)
-      (1, '(caller, msg) <- gMint env state ;;
+      (1, '(caller, msg) <-- gMint env state ;;
           call caller contract_addr msg
       ) ;
       (* burn *)
-      (1, '(caller, msg) <- gBurn state ;;
+      (1, '(caller, msg) <-- gBurn state ;;
           call caller contract_addr msg
       ) ;
       (* transfer_from *)
-      (4, '(caller, msg) <- gTransfer_from state ;;
+      (4, '(caller, msg) <-- gTransfer_from state ;;
           call caller contract_addr msg
       );
       (* approve *)
-      (2, '(caller, msg) <- gApprove state ;;
+      (2, '(caller, msg) <-- gApprove state ;;
           call caller contract_addr msg
       )
     ].
