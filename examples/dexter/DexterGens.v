@@ -21,7 +21,7 @@ Module DexterGens (Info : DexterTestsInfo).
   Arguments deserialize : clear implicits.
   Arguments serialize : clear implicits.
 
-  Definition gTokensToExchange (balance : N) : G (option N) :=
+  Definition gTokensToExchange (balance : N) : GOpt N :=
     if N.eqb 0%N balance
     then returnGen None
     else
@@ -30,9 +30,9 @@ Module DexterGens (Info : DexterTestsInfo).
 
   Definition gTokenExchange (state : EIP20Token.State)
                             (caller : Address)
-                            : G (option Dexter.Msg) :=
+                            : GOpt Dexter.Msg :=
     let caller_tokens : N := Extras.with_default 0%N (FMap.find caller state.(balances)) in
-    tokens_to_exchange <- gTokensToExchange caller_tokens ;;
+    tokens_to_exchange <-- gTokensToExchange caller_tokens ;;
     let exchange_msg := {|
       exchange_owner := caller;
       tokens_sold := tokens_to_exchange;
@@ -46,10 +46,10 @@ Module DexterGens (Info : DexterTestsInfo).
         act_origin := caller_addr;
         act_body := act_call dexter_contract_addr amount (serialize Dexter.Msg _ msg)
       |} in
-    token_state <- returnGen (get_contract_state EIP20Token.State env token_caddr) ;;
+    token_state <-- returnGen (get_contract_state EIP20Token.State env token_caddr) ;;
     backtrack [
-      (2, caller <- bindGen (gAddrWithout [token_caddr; dexter_contract_addr] test_accounts) (fun x => returnGenSome x) ;;
-          msg <- gTokenExchange token_state caller ;;
+      (2, caller <- gAddrWithout [token_caddr; dexter_contract_addr] test_accounts ;;
+          msg <-- gTokenExchange token_state caller ;;
           mk_call caller 0%Z msg
       )
     ].

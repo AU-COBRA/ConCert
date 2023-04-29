@@ -28,7 +28,7 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
   Section ExchangeContractGens.
 
     Definition gTokensToExchange (balance : N)
-                                 : G (option N) :=
+                                 : GOpt N :=
       if N.eqb 0%N balance
       then returnGen None
       else
@@ -36,14 +36,14 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
         returnGenSome amount.
 
     Definition gTokenExchange (state : FA2Token.State)
-                              : G (option (Address * ExchangeBuggy.Msg)) :=
+                              : GOpt (Address * ExchangeBuggy.Msg) :=
       let has_balance p :=
         let ledger := snd p in
         0 <? FMap.size ledger.(balances) in
-      '(tokenid, ledger) <- (sampleFMapOpt_filter state.(assets) has_balance) ;;
+      '(tokenid, ledger) <-- (sampleFMapOpt_filter state.(assets) has_balance) ;;
       let has_tokens p := N.ltb 0 (snd p) in
-      '(addr, nr_tokens) <- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
-      tokens_to_exchange <- gTokensToExchange nr_tokens ;;
+      '(addr, nr_tokens) <-- sampleFMapOpt_filter ledger.(balances) has_tokens ;;
+      tokens_to_exchange <-- gTokensToExchange nr_tokens ;;
       let exchange_msg := {|
         exchange_owner := addr;
         exchange_token_id := tokenid;
@@ -55,9 +55,9 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
     Definition gAddTokensToReserve (env : Environment)
                                    (state : FA2Token.State)
                                    : GOpt (Address * Amount * ExchangeBuggy.Msg) :=
-      tokenid <- liftM fst (sampleFMapOpt state.(assets)) ;;
-      caller <- liftOptGen (gAddress accounts) ;;
-      amount <- liftOptGen (choose (0%Z, env.(env_account_balances) caller)) ;;
+      tokenid <-- liftOpt fst (sampleFMapOpt state.(assets)) ;;
+      caller <- gAddress accounts ;;
+      amount <- choose (0%Z, env.(env_account_balances) caller) ;;
       returnGenSome (caller, amount, (other_msg (add_to_tokens_reserve tokenid))).
 
     (* NOTE: all call considered top-level calls (from users) *)
@@ -68,13 +68,13 @@ Module ExchangeGens (Info : ExchangeTestsInfo).
           act_from := caller_addr;
           act_body := act_call exchange_contract_addr amount (serialize ExchangeBuggy.Msg _ msg)
         |} in
-      fa2_state <- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
+      fa2_state <-- returnGen (get_contract_state FA2Token.State env fa2_contract_addr) ;;
       backtrack [
-      (1, '(caller, amount, msg) <- gAddTokensToReserve env fa2_state ;;
+      (1, '(caller, amount, msg) <-- gAddTokensToReserve env fa2_state ;;
             mk_call caller amount msg
         ) ;
-        (2, caller <- bindGen (gAddrWithout [fa2_contract_addr; exchange_contract_addr] accounts) (fun x => returnGenSome x) ;;
-            '(_, msg) <- gTokenExchange fa2_state ;;
+        (2, caller <- gAddrWithout [fa2_contract_addr; exchange_contract_addr] accounts ;;
+            '(_, msg) <-- gTokenExchange fa2_state ;;
             mk_call caller 0%Z msg
         )
       ].

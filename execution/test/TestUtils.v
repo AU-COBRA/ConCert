@@ -5,7 +5,7 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From QuickChick Require Import QuickChick.
-Import QcNotation. Import MonadNotation.
+Import QcNotation. Import MonadNotation. Import BindOptNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.
 
@@ -208,12 +208,26 @@ Definition get_contract_state (state : Type)
   end.
 
 (* Utils for Generators *)
+Notation "'GOpt' A" := (G (option A)) (at level 50).
+
+Notation " ' pat  <-- c1 ;; c2" :=
+  (@bindOpt _ _ _ _ c1 (fun x => match x with pat => c2 end))
+  (at level 61, pat pattern, c1 at next level, right associativity) : monad_scope.
+
 Definition elems_opt {A : Type} (l : list A) : GOpt A :=
   match l with
   | x::xs => liftM Some (elems_ x xs)
   | _ => returnGen None end.
 
-Definition returnGenSome {A : Type} (a : A) := returnGen (Some a).
+Definition returnGenSome {A : Type} (a : A) : GOpt A :=
+  returnGen (Some a).
+
+Definition liftOpt {A B : Type}
+                    (f : A -> B)
+                    (g : GOpt A)
+                    : GOpt B :=
+  a <-- g ;;
+  returnGenSome (f a).
 
 Definition liftOptGen {A : Type}
                       (g : G A)
@@ -225,7 +239,7 @@ Definition sampleFMapOpt {A B : Type}
                         `{countable.Countable A}
                         `{base.EqDecision A}
                          (m : FMap A B)
-                         : G (option (A * B)) :=
+                         : GOpt (A * B) :=
   let els := FMap.elements m in
   match els with
   | e :: _ => liftM Some (elems_ e els)
@@ -250,10 +264,10 @@ Definition sample2UniqueFMapOpt
                         `{base.EqDecision A}
                          (m : FMap A B)
                          : GOpt ((A * B) * (A * B)) :=
-  bindGenOpt (sampleFMapOpt m) (fun p1 =>
+  bindOpt (sampleFMapOpt m) (fun p1 =>
     let key1 := fst p1 in
     let val1 := snd p1 in
-    bindGenOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
+    bindOpt (sampleFMapOpt (FMap.remove key1 m)) (fun p2 =>
       returnGenSome (p1, p2)
     )
   ).
@@ -262,7 +276,7 @@ Section AddressGenerators.
   (* Although the type is GOpt ... it will never generate None values.
     Perhaps this is where we should use generators with
     property proof relevance? Future work... *)
-  Definition gBoundedNOpt (bound : N) : G (option (BoundedN.BoundedN bound)) :=
+  Definition gBoundedNOpt (bound : N) : GOpt (BoundedN.BoundedN bound) :=
     (* we exploit that arbitrarySized n on nats
        automatically bounds the value by <= n *)
     n <- arbitrarySized (N.to_nat bound) ;;
@@ -325,9 +339,9 @@ Section AddressGenerators.
 
   (* Generator that returns unique pairs of addresses from [addrs] *)
   Definition gUniqueAddrPair (addrs : list Address) : GOpt (Address * Address) :=
-    addr1 <- elems_opt addrs ;;
+    addr1 <-- elems_opt addrs ;;
     let addrs_ := filter (fun a => address_neqb addr1 a) addrs in
-    addr2 <- elems_opt addrs_ ;;
+    addr2 <-- elems_opt addrs_ ;;
     returnGenSome (addr1, addr2).
 End AddressGenerators.
 
@@ -372,7 +386,7 @@ Definition optToVector {A : Type} (n : nat): GOpt A -> G (list A) :=
   in returnGen l'.
 
 (* Utils for QuickChick *)
-
+Open Scope Checker_scope.
 (* Little helper to avoid having to write out matches
    with "false ==> true" in None case all the time *)
 Definition isSomeCheck {A B : Type} `{Checkable B}

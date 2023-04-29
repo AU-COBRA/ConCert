@@ -16,7 +16,7 @@ doc: "https://au-cobra.github.io/ConCert/toc.html"
 depends: [
   "coq" {>= "8.17" & < "8.18~"}
   "coq-bignums" {>= "8"}
-  "coq-quickchick" {>= "1.6.4" & <= "1.6.5"}
+  "coq-quickchick" {= "2.0.0"}
   "coq-metacoq-utils" {= "1.2+8.17"}
   "coq-metacoq-common" {= "1.2+8.17"}
   "coq-metacoq-template" {= "1.2+8.17"}

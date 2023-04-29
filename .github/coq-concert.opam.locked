@@ -21,7 +21,7 @@ depends: [
   "coq-metacoq-utils" {= "1.2+8.17"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
-  "coq-quickchick" {= "1.6.5"}
+  "coq-quickchick" {= "2.0.0"}
   "coq-stdpp" {= "1.8.0"}
 ]
 build: [
