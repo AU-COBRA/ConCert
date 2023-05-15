@@ -10,7 +10,7 @@ From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith.
+From Coq Require Import ZArith_base.
 
 
 
@@ -19,11 +19,11 @@ Section PiggyBankTypes.
   Local Set Nonrecursive Elimination Schemes.
   Local Set Primitive Projections.
   Context `{BaseTypes : ChainBase}.
-  
+
   Inductive PiggyState :=
   | Intact
   | Smashed.
-  
+
   Inductive Msg :=
   | Insert
   | Smash.
@@ -31,7 +31,7 @@ Section PiggyBankTypes.
   Record State :=
     build_state {
       balance : Amount;
-      owner : Address; 
+      owner : Address;
       piggyState : PiggyState
     }.
 
@@ -90,7 +90,7 @@ Section PiggyBankImpl.
     do _ <- throwIf (address_neqb ctx.(ctx_from) owner) error_not_owner;
     do _ <- throwIf (negb (ctx.(ctx_amount) =? 0)) error_amount_not_zero;
     let acts := [act_transfer owner state.(balance)] in
-    let state := state<| balance := 0 |><| piggyState := Smashed |> in 
+    let state := state<| balance := 0 |><| piggyState := Smashed |> in
     Ok (state, acts).
 
   Definition receive (chain : Chain)
@@ -116,4 +116,5 @@ Section PiggyBankImpl.
 
   Definition contract : Contract Setup Msg State Error :=
     build_contract init receive.
+
 End PiggyBankImpl.
