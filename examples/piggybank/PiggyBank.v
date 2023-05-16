@@ -10,7 +10,7 @@ From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith.
+From Coq Require Import ZArith_base.
 
 
 
@@ -63,6 +63,7 @@ Section PiggyBankErrors.
   Definition error_not_owner : Error := 2.
   Definition error_already_smashed : Error := 3.
   Definition error_amount_not_positive : Error := 4.
+  Definition error_amount_not_zero : Error := 5.
 End PiggyBankErrors.
 
 (** * Implementation *)
@@ -87,8 +88,9 @@ Section PiggyBankImpl.
     let owner := state.(owner) in
     do _ <- throwIf (is_smashed state) error_already_smashed;
     do _ <- throwIf (address_neqb ctx.(ctx_from) owner) error_not_owner;
-    let state := state<| balance := 0 |> in
+    do _ <- throwIf (negb (ctx.(ctx_amount) =? 0)) error_amount_not_zero;
     let acts := [act_transfer owner state.(balance)] in
+    let state := state<| balance := 0 |><| piggyState := Smashed |> in
     Ok (state, acts).
 
   Definition receive (chain : Chain)
@@ -107,11 +109,12 @@ Section PiggyBankImpl.
                   (_ : Setup)
                   : result State Error :=
     Ok {|
-      balance := 0;
+      balance := ctx.(ctx_amount);
       owner := ctx.(ctx_from);
       piggyState := Intact
     |}.
 
   Definition contract : Contract Setup Msg State Error :=
     build_contract init receive.
+
 End PiggyBankImpl.

@@ -109,7 +109,16 @@ Proof. destruct (address_eqb_spec x x); auto; congruence. Qed.
 Lemma address_eq_ne `{ChainBase} x y :
   x <> y ->
   address_eqb x y = false.
-Proof. destruct (address_eqb_spec x y) as [->|]; tauto. Qed.
+Proof.
+  destruct (address_eqb_spec x y) as [->|]; tauto.
+Qed.
+
+Lemma address_eq_ne' `{ChainBase} x y :
+  x <> y <->
+  address_eqb x y = false.
+Proof.
+  split; destruct (address_eqb_spec x y) as [->|]; (discriminate || tauto).
+Qed.
 
 Lemma address_eq_sym `{ChainBase} x y :
   address_eqb x y = address_eqb y x.
@@ -117,6 +126,23 @@ Proof.
   destruct (address_eqb_spec x y) as [->|].
   - now rewrite address_eq_refl.
   - rewrite address_eq_ne; auto.
+Qed.
+
+Lemma address_neqb_eq `{ChainBase} x y :
+  address_neqb x y = false <->
+  x = y.
+Proof.
+  unfold address_neqb.
+  rewrite Bool.negb_false_iff.
+  now destruct (address_eqb_spec x y).
+Qed.
+
+Lemma address_neq_sym `{ChainBase} x y :
+  address_neqb x y = address_neqb y x.
+Proof.
+  unfold address_neqb.
+  f_equal.
+  apply address_eq_sym.
 Qed.
 
 Global Ltac destruct_address_eq :=

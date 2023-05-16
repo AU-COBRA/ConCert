@@ -44,7 +44,7 @@ Module FA2Gens (Info : FA2TestsInfo).
     Definition gTransferCallerFromTo (state : FA2Token.State)
                                      (ledger : TokenLedger)
                                      (tokenid : token_id)
-                                     : GOpt (Address * Address * Address) := 
+                                     : GOpt (Address * Address * Address) :=
       let gAccountWithTokens := liftOpt fst (sampleFMapOpt_filter ledger.(balances) (fun p => 0 <? (snd p))) in
       let policy := state.(permission_policy) in
       let gSelfTransfer :=

@@ -147,6 +147,3 @@ piggybank/PiggyBankCorrect.v
 piggybank/PiggyBankExtractLIGO.v
 piggybank/PiggyBankExtractLiquidity.v
 piggybank/PiggyBankExtractRust.v
-piggybank/PiggyBankPrinters.v
-piggybank/PiggyBankGens.v
-piggybank/PiggyBankTests.v
