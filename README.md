@@ -17,27 +17,45 @@ Our development works with Coq 8.17 and depends on MetaCoq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
-To set up a switch with the necessary dependencies run the following commands from the root of the project:
+Branches compatible with older versions of Coq can be found [here](https://github.com/AU-COBRA/ConCert/branches/all?query=coq-).
+
+### Install dependencies and build ConCert locally
+
+Installing the necessary dependencies requires the opam package manager and a switch with Coq 8.17 installed.
+If you don't already have a switch set up run the following commands
 
 ```bash
-git clone https://github.com/AU-COBRA/ConCert.git
-cd ConCert
-opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released --deps-only
+opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released
 eval $(opam env)
 ```
 
-If Coq 8.17 is already installed, run
-
+To install the dependencies run
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-opam repo add coq-released https://coq.inria.fr/opam/released
 opam install ./coq-concert.opam --deps-only
 ```
 
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation.
 The documentation will be located in the `docs` folder after `make html`.
-Example contracts can be built by running `make examples`.
+Example smart contracts can be built by running `make examples`.
+
+### Install ConCert and dependencies
+To install ConCert in you switch run
+
+```bash
+git clone https://github.com/AU-COBRA/ConCert.git
+cd ConCert
+opam install ./coq-concert.opam
+```
+
+Examples can be installed by running
+
+```bash
+git clone https://github.com/AU-COBRA/ConCert.git
+cd ConCert
+opam install ./coq-concert.opam --with-test
+```
 
 ## Structure of the project
 
