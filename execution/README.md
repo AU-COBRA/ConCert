@@ -10,15 +10,15 @@ for instance that undeployed contracts cannot have sent out any transactions.
 We also provide a custom induction principle for proving properties involving
 the executions layer. It helps to simplify proofs by reducing the boilerplate
 code. See applications of the induction principle in the [example
-contracts](examples).
+contracts](../examples).
 
 We also define a typeclass that captures what it means to satisfy our semantics.
 We exhibit two instances of this typeclass in
-[LocalBlockchain.v](theories/LocalBlockchain.v); these are essentially
+[LocalBlockchain.v](test/LocalBlockchain.v); these are essentially
 implementations of execution layers of modern blockchains. One is implemented
 with depth-first execution and the other with breadth-first execution order.
 
-In [Circulation.v](examples/Circulation.v) we prove a small sanity check for our
+In [Circulation.v](theories/Circulation.v) we prove a small sanity check for our
 semantics. Specifically we prove that the total sum of the money in the system
 is equal to the sum of the rewards handed out in blocks.
 
