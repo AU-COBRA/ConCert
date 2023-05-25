@@ -53,6 +53,28 @@ are compiled (and tested, for the targets with tests).
 Moreover, the extracted source code is pushed to another repository (https://github.com/AU-COBRA/extraction-results),
 so one can always browse through the code produced by the last successful build.
 
+## Extracted Smart Contracts
+
+| Contract\Language                                                    | Liquidity (Dune)                                                               | CameLIGO (Tezos)                                                       | Rust (Concordium)                                                 | MidLang                                                        |
+|----------------------------------------------------------------------|--------------------------------------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------|
+| [Counter (simple types)](../examples/counter/)                       | [yes](../examples/counter/extraction/CounterCertifiedLiquidity.v)              | [yes](../examples/counter/extraction/CounterLIGO.v)                    | [yes](../examples/counter/extraction/CounterRust.v)               |                                                                |
+| [Counter (subset types)](../examples/counter/)                       | [yes](../examples/counter/extraction/CounterSubsetTypesLiquidity.v)            | [yes](../examples/counter/extraction/CounterSubsetTypesLIGO.v)**       |                                                                   | [yes](../examples/counter/extraction/CounterRefTypesMidlang.v) |
+| [Counter (Prop)](../examples/counter/)                               | [yes](../examples/counter/extraction/CounterDepCertifiedLiquidity.v)           |                                                                        |                                                                   |                                                                |
+| [ERC20 token](../examples/eip20/EIP20Token.v)                        | [yes](../examples/eip20/EIP20LiquidityExtraction.v)                            | [yes](../examples/eip20/EIP20CameLIGOExtraction.v)                     | in progress***                                                    |                                                                |
+| [Crowdfunding](../examples/crowdfunding/Crowdfunding.v)              | [yes](../examples/crowdfunding/CrowdfundingLiquidity.v)                        | [yes](../examples/crowdfunding/CrowdfundingCameLIGO.v)                 |                                                                   |                                                                |
+| [DSL Interpreter](../examples/stackInterpreter/StackInterpreter.v)   | [yes](../examples/stackInterpreter/StackInterpreterLiquidityExtract.v)         | [yes](../examples/stackInterpreter/StackInterpreterLIGOExtract.v)      | [yes](../examples/stackInterpreter/StackInterpreterRustExtract.v) |                                                                |
+| [Escrow](../examples/escrow/Escrow.v)                                | [yes](../examples/escrow/extraction/EscrowLiquidity.v)                         | [yes](../examples/escrow/extraction/EscrowLIGO.v)                      | [yes](../examples/escrow/extraction/EscrowRust.v)                 | [yes](../examples/escrow/extraction/EscrowMidlang.v)           |
+| [Boardroom voting](../examples/boardroomVoting/BoardroomVoting.v)    | [partially](../examples/boardroomVoting/BoardroomVotingExtractionLiquidity.v)* | [yes](../examples/boardroomVoting/BoardroomVotingExtractionCameLIGO.v) |                                                                   |                                                                |
+| [Dexter2 CPMM (main)](../examples/dexter2/Dexter2CPMM.v)             |                                                                                | [yes](../examples/dexter2/Dexter2CPMMExtractLIGO.v)                    | not yet****                                                       |                                                                |
+| [Dexter2 FA1.2 (liquidity token)](../examples/dexter2/Dexter2FA12.v) |                                                                                | [yes](../examples/dexter2/Dexter2FA12ExtractLIGO.v)                    | not yet****                                                       |                                                                |
+
+\*issue with typing of lambdas in liquidity (see https://github.com/OCamlPro/liquidity/issues/264).
+
+\**[resolved] the issue with parametric types when extracting `sig` is resolved after the support for polymorphism was added to LIGO.
+
+\***issue with maps of maps (the values can be only by-reference, and this causes problems).
+
+\**** extracting the contracts should be doable, no map of maps issue as with ERC20. However, remapping of contract calls should be addressed, so far all the contracts extracted to Rust emit transfers only.
 
 Some highlights of extracted examples:
 
