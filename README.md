@@ -290,4 +290,13 @@ and local table of contents by
   </details>
 
 ## Videos
-A video collection, presenting various parts of ConCert can be found on [YouTube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
+A video collection, presenting various parts of ConCert can be found on
+[YouTube](https://www.youtube.com/playlist?list=PLWcJeGdOHpbxb_DhcfppHRrZKW7wPO9qQ).
+
+## Projects using ConCert
+
+* https://github.com/siimplex/ConCert Solana integration in ConCert
+* https://github.com/AU-COBRA/OVN A verified implementation of the Open Vote Network protocol, combining proofs of correctness in ConCert with proofs of cryptographic security in the SSProve framework
+* https://github.com/AStenbaek/ATPL-Project A verified implementation of an auction smart contract
+* https://github.com/FrederikVigen/ConCert Verification of the Wrap Protocol - a decentralized bridge between Ethereum and Tezos.
+* https://github.com/JosefGIT/ConCert Verified implementations of blind auction and ecommerce smart contracts
