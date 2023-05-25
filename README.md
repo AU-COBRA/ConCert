@@ -13,7 +13,6 @@ ConCert can find real-world attacks as explained
 
 ## How to build
 
-
 Our development works with Coq 8.17 and depends on MetaCoq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
@@ -47,25 +46,38 @@ Each folder contains a separate README file with more details.
 The [embedding](embedding/) folder contains the development of the verified embedding of ``λsmart`` to Coq.
 
 The [execution](execution/) folder contains the formalization of the smart
-contract execution layer, which allows reasoning about, and property-based testing of, interacting contracts. The [test](execution/test) folder contains the property-based testing framework. The key generators used for automatically generating blockchain execution traces for testing can be found in [TraceGens.v](execution/test/TraceGens.v). The testing framework was developed as part of a Master's Thesis at Aarhus University, and the thesis detailing (an earlier state of) the development can be found [here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
+contract execution layer, which allows reasoning about interacting contracts, and perform property-based testing.
+The [test](execution/test) folder contains the property-based testing framework.
+The key generators used for automatically generating blockchain execution traces for
+testing can be found in [TraceGens.v](execution/test/TraceGens.v).
+The testing framework was developed as part of a Master's Thesis at Aarhus University,
+and the thesis detailing (an earlier state of) the development can be found
+[here](https://github.com/mikkelmilo/ConCert-QuickChick-Testing-Thesis).
 
 The [extraction](extraction/) folder contains an extraction pipeline for smart contract languages.
-Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose languages Elm and Rust as targets.
-Pretty-printers to these languages are implemented directly in Coq.
-One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard extraction of Coq (currently, it is possible for extraction to Rust).
+Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose
+languages Elm and Rust as targets. Pretty-printers to these languages are implemented directly in Coq.
+One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard
+extraction of Coq (currently, it is possible for extraction to Rust).
 
-The [examples](examples/) folder contains examples of smart contract implementations, embedding, extraction, and tests. Extracted smart contracts can be found [here](https://github.com/AU-COBRA/extraction-results).
+The [examples](examples/) folder contains examples of smart contract implementations,
+embedding, extraction, and tests. Extracted smart contracts can be found
+[here](https://github.com/AU-COBRA/extraction-results).
 
 ## Notes for developers
 
-The project consists of four subprojects: `embedding`, `execution`, `extraction`, and `examples` located in the corresponding folders.
+The project consists of four subprojects: `embedding`, `execution`, `extraction`,
+and `examples` located in the corresponding folders.
 Each subproject has its own `_CoqProject` file and `Makefile`.
 The `Makefile` in the root folder dispatches the calls to the corresponding subproject.
 
 ## Documentation
 
-The [project documentation in HTML format](https://au-cobra.github.io/ConCert/toc.html) is generated for each build.
-We use the standard Coqdoc with improved styles and scripts of [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE)) and local table of contents by [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
+The [project documentation in HTML format](https://au-cobra.github.io/ConCert/toc.html)
+is generated for each build. We use the standard Coqdoc with improved styles and scripts of
+[CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE))
+and local table of contents by
+[TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).
 
 ## Papers
 - ["Extracting functional programs from Coq, in Coq"](https://arxiv.org/abs/2108.02995).
