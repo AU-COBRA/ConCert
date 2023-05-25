@@ -28,4 +28,17 @@ properties and proofs of inter-contract invariants.
 
 ## Code extraction to CameLIGO
 
-See [the extraction setup](Dexter2Extract.v)
+Both smart contracts were extracted to CameLIGO.
+
+* [Dexter2CommonExtract.v](Dexter2CommonExtract.v)
+  Extraction infrastructure common to both smart contracts
+* [Dexter2CPMMExtractLIGO.v](Dexter2CPMMExtractLIGO.v)
+  extraction of the Dexter 2 CPMM smart contract
+* [Dexter2FA12ExtractLIGO.v](Dexter2FA12ExtractLIGO.v)
+  extraction of the Dexter 2 liquidity token smart contract
+
+## Property-Based Testing
+
+The files [Dexter2Gens.v](Dexter2Gens.v), [Dexter2Printers.v](Dexter2Printers.v),
+and [Dexter2Tests.v](Dexter2Tests.v) contains property-based testing of the Dexter 2
+smart contracts.
