@@ -288,12 +288,12 @@ End JoinedContractSum.
 (** Extend the contract's type so it can be the recipient of a morphism. *)
 Section PointedContract.
 Context { Setup State Error Msg : Type}
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    {C : Contract Setup Msg State Error}.
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}.
 
 Definition Msg' := (Msg + unit)%type.
 
 Definition receive' 
+    (C : Contract Setup Msg State Error)
     (c : Chain) 
     (ctx : ContractCallContext) 
     (st : State) 
@@ -307,7 +307,8 @@ Definition receive'
         end 
     end.
 
-Definition pointed_contract := build_contract (init C) receive'.
+Definition pointed_contract (C : Contract Setup Msg State Error) := 
+    build_contract (init C) (receive' C).
 
 End PointedContract.
 
