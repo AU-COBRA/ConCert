@@ -85,9 +85,11 @@ End ContractProducts.
 
 (** We define the disjoint sum of two contracts *)
 Section ContractSums.
+Context { Setup Setup' State State' Error Error' Msg Msg' : Type}
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}.
 
 Definition init_sum 
-    { Setup Setup' State State' Error Error' : Type}
     (init  : Chain -> ContractCallContext -> Setup  -> result State Error)
     (init' : Chain -> ContractCallContext -> Setup' -> result State' Error') : 
     (Chain -> ContractCallContext -> Setup + Setup' -> result (State + State') (Error + Error' + unit)) := 
@@ -106,7 +108,6 @@ Definition init_sum
         end).
 
 Definition recv_sum 
-    { Msg Msg' State State' Error Error' : Type }
     (recv  : Chain -> ContractCallContext -> State  -> option Msg  -> result (State  * list ActionBody) Error)
     (recv' : Chain -> ContractCallContext -> State' -> option Msg' -> result (State' * list ActionBody) Error') : 
     Chain -> ContractCallContext -> State + State' -> option (Msg + Msg') -> result ((State + State') * list ActionBody) (Error + Error' + unit) :=
@@ -153,9 +154,6 @@ Definition recv_sum
     - Keep track of balances    
 *)
 Definition sum_contract 
-    { Setup Setup' Msg Msg' State State' Error Error' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
     (C : Contract Setup Msg State Error) 
     (C' : Contract Setup' Msg' State' Error') : 
     Contract (Setup + Setup') (Msg + Msg') (State + State') (Error + Error' + unit) := 
@@ -163,55 +161,39 @@ Definition sum_contract
         (init_sum C.(init) C'.(init))
         (recv_sum C.(receive) C'.(receive)).
 
-Lemma sum_contract_associative
-    { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
+End ContractSums.
+
+
+Section ContractSumsCorrect.
+Context     { Setup Setup' Setup'' Msg Msg' Msg'' State State' State'' Error Error' Error'' : Type }
     `{Serializable Msg} `{Serializable Setup} `{Serializable State} `{Serializable Error}
     `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
     `{Serializable Msg''} `{Serializable Setup''} `{Serializable State''} `{Serializable Error''}
     { C : Contract Setup Msg State Error } 
     { C' : Contract Setup' Msg' State' Error' }
-    { C'' : Contract Setup'' Msg'' State'' Error'' } :  
-    contracts_isomorphic
+    { C'' : Contract Setup'' Msg'' State'' Error'' }.
+
+Lemma sum_contract_associative : contracts_isomorphic
         (sum_contract C (sum_contract C' C'')) 
         (sum_contract (sum_contract C C') C'').
 Proof. Admitted.
 
-Theorem sum_contract_projects_left
-    { Setup Setup' Msg Msg' State State' Error Error' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-    {C : Contract Setup Msg State Error}
-    {C' : Contract Setup' Msg' State' Error'} : 
+Theorem sum_contract_projects_left : 
     exists (f : ContractMorphism (sum_contract C C') (sum_contract C null_contract)),
         is_surj_cm f.
 Proof. Admitted.
 
-Theorem sum_contract_projects_right
-    { Setup Setup' Msg Msg' State State' Error Error' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-    {C : Contract Setup Msg State Error}
-    {C' : Contract Setup' Msg' State' Error'} : 
+Theorem sum_contract_projects_right : 
     exists (f : ContractMorphism (sum_contract C C') (sum_contract null_contract C')),
         is_surj_cm f.
 Proof. Admitted.
 
-Theorem sum_contract_embeds_left
-    { Setup Setup' Msg Msg' State State' Error Error' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-    {C : Contract Setup Msg State Error}
-    {C' : Contract Setup' Msg' State' Error'} : 
+Theorem sum_contract_embeds_left : 
     exists (f : ContractMorphism C (sum_contract C C')),
         is_inj_cm f.
 Proof. Admitted.
 
-Theorem sum_contract_embeds_right
-    { Setup Setup' Msg Msg' State State' Error Error' : Type }
-    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
-    `{Serializable Msg'} `{Serializable Setup'} `{Serializable State'} `{Serializable Error'}
-    {C : Contract Setup Msg State Error}
-    {C' : Contract Setup' Msg' State' Error'} : 
+Theorem sum_contract_embeds_right : 
     exists (f : ContractMorphism (sum_contract C C') C'),
         is_inj_cm f.
 Proof. Admitted.
@@ -225,9 +207,9 @@ Proof. Admitted.
 
 
 
+End ContractSumsCorrect.
 
 
-End ContractSums.
 
 
 (** We define the joined sum of two contracts, which will be useful for reasoning about 
@@ -302,11 +284,40 @@ Definition joined_sum_contract
 
 End JoinedContractSum.
 
+
+(** Extend the contract's type so it can be the recipient of a morphism. *)
+Section PointedContract.
+Context { Setup State Error Msg : Type}
+    `{Serializable Msg}  `{Serializable Setup}  `{Serializable State}  `{Serializable Error}
+    {C : Contract Setup Msg State Error}.
+
+Definition Msg' := (Msg + unit)%type.
+
+Definition receive' 
+    (c : Chain) 
+    (ctx : ContractCallContext) 
+    (st : State) 
+    (op_msg : option Msg') : result (State  * list ActionBody) Error := 
+    match op_msg with 
+    | None => receive C c ctx st None 
+    | Some msg' => 
+        match msg' with 
+        | inl msg => receive C c ctx st (Some msg) 
+        | inr _ => Ok (st, nil)
+        end 
+    end.
+
+Definition pointed_contract := build_contract (init C) receive'.
+
+End PointedContract.
+
 (* NEXT : CONSTRUCT BISIMULATIONS OF CHAINS VIA THESE TRANSFORMATIONS
     YOU ONLY NEED TO DO TWO AT A TIME *)
 
 
 End ContractTransformations.
+
+
 
 
 
