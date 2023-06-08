@@ -56,19 +56,19 @@ MIDLANG_DIR=./tests/extracted-code/midlang-extract
 test-extraction: test-liquidity test-ligo test-concordium
 
 test-concordium: clean-compiled-concordium
-	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo concordium test && cd ../../../..;)
+	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), cd $(dir) && cargo +1.69.0 concordium test && cd ../../../..;)
 
 test-liquidity: clean-compiled-liquidity $(LIQUIDITY_DIST)
 
 $(LIQUIDITY_SRC_DIR)/%.tz:
 	liquidity $(LIQUIDITY_SRC_DIR)/$*.liq -o $@ 2>> $(LIQUIDITY_DIR)/liquidity.log
 
-test-ligo: clean-comiped-ligo $(LIGO_DIST)
+test-ligo: clean-compiled-ligo $(LIGO_DIST)
 
 $(LIGO_SRC_DIR)/%.tz:
 	ligo compile contract --protocol kathmandu $(LIGO_SRC_DIR)/$*.mligo -e main -o $@ --no-warn
 
-clean-comiped-ligo:
+clean-compiled-ligo:
 	rm -f ./tests/extracted-code/cameligo-extract/tests/*.tz
 
 clean-compiled-liquidity:
@@ -79,7 +79,7 @@ clean-compiled-concordium:
 	$(foreach dir, $(wildcard $(CONCORDIUM_DIR)/*-extracted), rm -f -r $(dir)/target;)
 .PHONY: clean-compiled-concordium
 
-clean-compiled-extraction: clean-comiped-ligo clean-compiled-liquidity clean-compiled-concordium
+clean-compiled-extraction: clean-compiled-ligo clean-compiled-liquidity clean-compiled-concordium
 .PHONY: clean-compiled-extraction
 
 clean-extraction-out-files:
@@ -99,4 +99,4 @@ clean-extraction-sources:
 
 clean-extraction-examples: clean-compiled-extraction clean-extraction-out-files clean-extraction-sources
 	rm ./tests/*.vo # to force recompilation of examples (a bit ad-hoc though)
-.PHONY: clean-extraction-examples clean-comiped-ligo clean-comiped-ligo test-concordium test-liquidity test-ligo test-extraction clean-extraction-out-files
+.PHONY: clean-extraction-examples clean-compiled-ligo test-concordium test-liquidity test-ligo test-extraction clean-extraction-out-files
