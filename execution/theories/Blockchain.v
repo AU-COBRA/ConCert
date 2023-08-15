@@ -14,7 +14,7 @@ The most important types are:
   interact with the blockchain. We allow transfers, calls and deployment
   of contracts.
 
-- The [WeakContract] type describes a "weak" or "strongly" typed
+- The [WeakContract] type describes a "weak" or "stringly" typed
   version of smart contracts. Contracts are just two functions init and
   receive to respectively initialize the state on deployment and update
   the state when receiving messages. The weak version of contracts means that
