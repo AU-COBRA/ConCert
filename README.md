@@ -41,7 +41,7 @@ The documentation will be located in the `docs` folder after `make html`.
 Example smart contracts can be built by running `make examples`.
 
 ### Install ConCert and dependencies
-To install ConCert in you switch run
+To install ConCert in your switch run
 
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
@@ -75,7 +75,7 @@ and the thesis detailing (an earlier state of) the development can be found
 The [extraction](extraction/) folder contains an extraction pipeline for smart contract languages.
 Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose
 languages Elm and Rust as targets. Pretty-printers to these languages are implemented directly in Coq.
-One also can obtain an OCaml plugin for Coq by extracting our pipeline using the standard
+One can also obtain an OCaml plugin for Coq by extracting our pipeline using the standard
 extraction of Coq (currently, it is possible for extraction to Rust).
 
 The [examples](examples/) folder contains examples of smart contract implementations,
@@ -299,4 +299,5 @@ A video collection, presenting various parts of ConCert can be found on
 * https://github.com/AU-COBRA/OVN A verified implementation of the Open Vote Network protocol, combining proofs of correctness in ConCert with proofs of cryptographic security in the SSProve framework
 * https://github.com/AStenbaek/ATPL-Project A verified implementation of an auction smart contract
 * https://github.com/FrederikVigen/ConCert Verification of the Wrap Protocol - a decentralized bridge between Ethereum and Tezos.
-* https://github.com/JosefGIT/ConCert Verified implementations of blind auction and ecommerce smart contracts
+* https://github.com/JosefGIT/ConCert Verified implementations of blind auction and e-commerce smart contracts
+* https://github.com/malthelange/CLVM/tree/master An interpreter for the DSL for financial contracts called CL, written as a smart contract in the ConCert framework.
