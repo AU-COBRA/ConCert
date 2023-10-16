@@ -1,6 +1,6 @@
 (** * Some facts not found in the standard library *)
 From ConCert.Utils Require Import Automation.
-From MetaCoq Require Import utils.
+From MetaCoq.Utils Require Import utils.
 From Coq Require Import List.
 From Coq Require Import Lia.
 
