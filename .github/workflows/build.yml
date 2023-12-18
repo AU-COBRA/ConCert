@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload Liquidity extraction logs
         if: false # Do we still want these logs?
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Liquidity logs
           path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
