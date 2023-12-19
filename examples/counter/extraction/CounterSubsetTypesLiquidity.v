@@ -47,14 +47,16 @@ Module CounterRefinementTypes.
     {new_st : storage | st <? new_st} :=
     st + inc.
   Next Obligation.
-    now unfold is_true in *.
+    destruct inc;
+    propify; cbn; lia.
   Qed.
 
   Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
     {new_st : storage | new_st <? st} :=
     st - dec.
   Next Obligation.
-    now unfold is_true in *.
+    destruct dec;
+    propify; cbn; lia.
   Qed.
 
   Definition counter (msg : msg)
