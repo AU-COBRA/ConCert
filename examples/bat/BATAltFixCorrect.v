@@ -617,7 +617,9 @@ Section Theories.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
       erewrite sumN_split with (x := (ctx_from ctx, _)) (y := (ctx_from ctx, _)) by eauto.
-      now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
+      rewrite sumN_swap.
+      rewrite <- sumN_inv.
+      now rewrite fin_maps.map_to_list_delete.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add; auto.
       now rewrite N.add_comm.
@@ -635,7 +637,9 @@ Section Theories.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
       erewrite sumN_split with (x := ((batFundDeposit prev_state), _)) (y := ((batFundDeposit prev_state), _)) by eauto.
-      now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
+      rewrite sumN_swap.
+      rewrite <- sumN_inv.
+      now rewrite fin_maps.map_to_list_delete.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add; auto.
       now rewrite N.add_comm.
@@ -652,9 +656,14 @@ Section Theories.
     result_to_option.
     setoid_rewrite FMap.elements_add_existing; eauto.
     simpl with_default.
+    rewrite N.add_comm. 
+    cbn.
+    rewrite <- N.add_sub_assoc. 2: lia.
+    rewrite (N.add_comm (t mod tokenExchangeRate prev_state) _).
+    rewrite N.add_sub, N.add_comm.
     change t with ((fun '(_, v) => v) (ctx_from ctx, t)).
-    rewrite sumN_inv, sumN_swap, fin_maps.map_to_list_delete by auto. cbn.
-    now rewrite N.add_comm, N.add_sub.
+    rewrite sumN_inv.
+    now rewrite fin_maps.map_to_list_delete.
   Qed.
 
   Lemma init_preserves_balances_sum : forall state chain ctx setup,

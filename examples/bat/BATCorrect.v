@@ -600,7 +600,9 @@ Section Theories.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
       erewrite sumN_split with (x := (ctx_from ctx, _)) (y := (ctx_from ctx, _)) by eauto.
-      now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
+      rewrite sumN_swap.
+      rewrite <- sumN_inv.
+      now rewrite fin_maps.map_to_list_delete.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add; auto.
       now rewrite N.add_comm.
@@ -624,8 +626,11 @@ Section Theories.
     result_to_option.
     setoid_rewrite FMap.elements_add_existing; eauto.
     simpl with_default.
+    cbn.
+    rewrite N.add_0_l.
     change t with ((fun '(_, v) => v) (ctx_from ctx, t)).
-    now rewrite sumN_inv, sumN_swap, fin_maps.map_to_list_delete.
+    rewrite sumN_inv.
+    now rewrite fin_maps.map_to_list_delete.
   Qed.
 
   Lemma init_preserves_balances_sum : forall state chain ctx setup,

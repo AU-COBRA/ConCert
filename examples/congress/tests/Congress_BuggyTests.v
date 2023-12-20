@@ -41,9 +41,8 @@ Definition exploit_example : option (Address * ChainBuilder) :=
   let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
   let dep_exploit := create_deployment 0 exploit_contract tt in
   do chain <- add_block chain [dep_congress; dep_exploit];
-  let contracts := map fst (FMap.elements (get_contracts chain)) in
-  let exploit := nth 0 contracts creator in
-  let congress := nth 1 contracts creator in
+  let exploit := addr_of_N 129%N in
+  let congress := addr_of_N 128%N in
   (* Add creator to congress *)
   let add_creator := add_member creator in
   let act_bodies :=

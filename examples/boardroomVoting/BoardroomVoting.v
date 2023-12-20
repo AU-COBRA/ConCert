@@ -776,7 +776,7 @@ Module BoardroomVoting (Params : BoardroomParams).
             now setoid_rewrite perm'.
           * now rewrite FMap.length_elements, <- len_pks.
           * now rewrite FMap.length_elements, <- len_pks.
-          * auto.
+          * now rewrite FMap.length_elements, <- len_pks.
           * intros [k v] kvpin.
             apply FMap.In_elements in kvpin.
             specialize (addrs _ _ kvpin).
