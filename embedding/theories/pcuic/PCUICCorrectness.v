@@ -240,7 +240,7 @@ Proof.
           remember ((n0,_) :: (e2,_) :: ρ') as ρ''.
           eapply IHn with (ρ := ρ''); subst; eauto with hints.
           rewrite <- subst_env_compose_2;
-            (simpl; eauto using vars_to_apps_iclosed_n with hints).
+            (simpl; eauto using vars_to_apps_iclosed_n with hints; auto with bool hints).
           cbn.
           now repeat rewrite subst_env_i_ty_closed_0_eq by auto.
       * rename e0 into n0.

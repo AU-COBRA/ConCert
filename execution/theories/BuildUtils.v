@@ -606,7 +606,7 @@ Proof.
     + now apply finalized_heigh_chain_height.
     + apply NPeano.Nat.sub_0_le in slot_hit.
       rewrite_environment_equiv. cbn. lia.
-  - specialize forward_time_exact with (slot := slot) as
+  - specialize (forward_time_exact bstate reward creator slot) as
       (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq); eauto.
     lia.
     do 2 eexists.
@@ -932,7 +932,7 @@ Ltac forward_time slot_ :=
   | Hqueue : (chain_state_queue ?bstate) = [],
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize (forward_time bstate) with (slot := slot_)
+      edestruct (forward_time bstate) with (slot := slot_)
         as [new_bstate [new_header [new_reach [new_header_valid [new_slot_hit [new_queue new_env_eq]]]]]]
   end.
 
@@ -948,7 +948,7 @@ Ltac forward_time_exact slot_ :=
   | Hqueue : (chain_state_queue ?bstate) = [],
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize (forward_time_exact bstate) with (slot := slot_)
+      edestruct (forward_time_exact bstate) with (slot := slot_)
         as [new_bstate [new_header [new_reach [new_header_valid [new_slot_hit [new_queue new_env_eq]]]]]]
   end.
 
@@ -961,7 +961,7 @@ Ltac add_block acts_ slot_ :=
   | Hqueue : (chain_state_queue ?bstate) = [],
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize add_block with (acts := acts_) (slot_incr := slot_)
+      edestruct add_block with (acts := acts_) (slot_incr := slot_)
         as [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | apply Hqueue| | | | | |]
   end.
@@ -976,7 +976,7 @@ Ltac evaluate_action contract_ :=
   | Hqueue : (chain_state_queue ?bstate) = _,
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize (evaluate_action contract_) as
+      edestruct (evaluate_action contract_) as
         [new_bstate [new_reach [new_deployed_state [new_queue new_env_eq]]]];
       [apply Hreach | rewrite Hqueue | | | | | | ]
   end.
@@ -990,7 +990,7 @@ Ltac evaluate_transfer :=
   | Hqueue : (chain_state_queue ?bstate) = _,
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize evaluate_transfer as
+      edestruct evaluate_transfer as
         [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | rewrite Hqueue | | | | ]
   end.
@@ -1004,7 +1004,7 @@ Ltac discard_invalid_action :=
   | Hqueue : (chain_state_queue ?bstate) = _,
     Hreach : reachable ?bstate |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize discard_invalid_action as
+      edestruct discard_invalid_action as
         [new_bstate [new_reach [new_queue new_env_eq]]];
       [apply Hreach | rewrite Hqueue | | | ]
   end.
@@ -1022,7 +1022,7 @@ Ltac empty_queue H :=
       pattern (bstate) in H;
       match type of H with
       | ?f bstate =>
-        specialize (empty_queue bstate f) as
+        edestruct (empty_queue bstate f) as
           [new_bstate [new_reach [temp_H new_queue]]];
         [apply Hreach | apply Hempty | apply H |
         clear H;
@@ -1049,7 +1049,7 @@ Ltac deploy_contract contract_ :=
     Haddress : address_is_contract ?caddr = true,
     Hdeployed : env_contracts ?bstate.(chain_state_env) ?caddr = None |-
     exists bstate', reachable_through ?bstate bstate' /\ _ =>
-      specialize (deploy_contract contract_) as
+      edestruct (deploy_contract contract_) as
         (new_bstate & trace & new_reach & new_contract_deployed &
           new_deployed_state & deploy_info & new_queue & new_env_eq);
       [apply Hreach | rewrite Hqueue | | |

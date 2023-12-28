@@ -208,7 +208,7 @@ Section BATCommon.
     eapply N.add_le_mono_r.
     rewrite N.mul_comm, <- N.div_mod'.
     apply N_le_sub.
-    - now apply N.mod_le.
+    - now apply N.Div0.mod_le.
     - now apply N.sub_le_mono_l,
                 N.lt_le_incl,
                 N.mod_lt.

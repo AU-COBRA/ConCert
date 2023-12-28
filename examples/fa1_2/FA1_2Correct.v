@@ -259,7 +259,7 @@ Section Theories.
     - now contract_simpl.
     - contract_simpl.
       rewrite !FMap.find_update_eq.
-      now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
+      now edestruct maybe_cases as [[-> ?H] | [-> ?H]].
   Qed.
 
   (** [try_transfer] removes empty entries from balance map *)
@@ -274,12 +274,12 @@ Section Theories.
     rewrite N.ltb_ge in *.
     destruct (address_eqb_spec param.(from) param.(to)) as [<-|]; auto.
     - rewrite !FMap.find_update_eq.
-      now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
+      now edestruct maybe_cases as [[-> ?H] | [-> ?H]].
     - rewrite !FMap.find_update_ne by auto.
       rewrite !FMap.find_update_eq.
       rewrite !FMap.find_update_ne with (map := prev_state.(tokens)) by auto.
-      specialize (maybe_cases ) as [[-> ?H] | [-> ?H]];
-      now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
+      edestruct maybe_cases as [[-> ?H] | [-> ?H]];
+      now edestruct maybe_cases as [[-> ?H] | [-> ?H]].
   Qed.
 
   (** If the requirements are met then receive on transfer msg must succeed and
@@ -396,7 +396,7 @@ Section Theories.
     contract_simpl.
     cbn.
     rewrite FMap.find_update_eq.
-    now specialize (maybe_cases ) as [[-> ?H] | [-> ?H]].
+    now edestruct maybe_cases as [[-> ?H] | [-> ?H]].
   Qed.
 
   (** If the requirements are met then receive on approve msg must succeed and
@@ -758,8 +758,8 @@ Section Theories.
       env_account_balances bstate caddr = 0%Z.
   Proof.
     intros * trace deployed.
-    specialize contract_balance_bound' as (dep_info & deployment_info_eq & balance_bound); eauto.
-    specialize contract_initial_balance_bound as (dep_info' & deployment_info_eq' & balance_init_bound); eauto.
+    edestruct contract_balance_bound' as (dep_info & deployment_info_eq & balance_bound); eauto.
+    edestruct contract_initial_balance_bound as (dep_info' & deployment_info_eq' & balance_init_bound); eauto.
     rewrite deployment_info_eq in deployment_info_eq'.
     Unshelve. all: eauto.
     injection deployment_info_eq' as ->.
@@ -876,9 +876,9 @@ Section Theories.
             -- now rewrite fin_maps.delete_notin.
             -- FMap_simpl_step.
           * unfold FMap.update.
-            specialize maybe_cases as [[-> ?H] | [-> _]].
+            edestruct maybe_cases as [[-> ?H] | [-> _]].
             -- apply N.eq_add_0 in H3 as []; subst. 
-               specialize maybe_cases as [[-> ?H] | [-> _]].
+               edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
                   change 0 with ((fun '(_, v) => v) (to, 0)).
@@ -894,7 +894,7 @@ Section Theories.
                   2: FMap_simpl_step.
                   FMap_simpl_step.
                   rewrite fin_maps.map_to_list_delete; auto.
-            -- specialize maybe_cases as [[-> ?H] | [-> _]].
+            -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.
                   2: FMap_simpl_step.
@@ -915,8 +915,8 @@ Section Theories.
                   rewrite fin_maps.map_to_list_delete; auto.
           * rewrite N.add_0_l.
             unfold FMap.update.
-            specialize maybe_cases as [[-> ->] | [-> _]].
-            -- specialize maybe_cases as [[-> ?H] | [-> _]].
+            edestruct maybe_cases as [[-> ->] | [-> _]].
+            -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
                   rewrite fin_maps.delete_notin.
@@ -928,7 +928,7 @@ Section Theories.
                   2: FMap_simpl_step.
                   FMap_simpl_step.
                   rewrite fin_maps.map_to_list_delete; auto.
-            -- specialize maybe_cases as [[-> ?H] | [-> _]].
+            -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.
                   2: FMap_simpl_step.
@@ -944,9 +944,9 @@ Section Theories.
                   rewrite <- (sumN_split _ _ _ (from, n)) by lia.
                   rewrite fin_maps.map_to_list_delete; auto.
           * unfold FMap.update.
-            specialize maybe_cases as [[-> ?H] | [-> _]].
+            edestruct maybe_cases as [[-> ?H] | [-> _]].
             -- apply N.eq_add_0 in H3 as []; subst. 
-               specialize maybe_cases as [[-> ?H] | [-> _]].
+               edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
                   change 0 with ((fun '(_, v) => v) (to, 0)).
@@ -959,7 +959,7 @@ Section Theories.
                   rewrite sumN_inv, fin_maps.map_to_list_delete.
                   2: FMap_simpl_step.
                   FMap_simpl_step.
-            -- specialize maybe_cases as [[-> ?H] | [-> _]].
+            -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.
                   2: FMap_simpl_step.
@@ -979,12 +979,12 @@ Section Theories.
                   auto.
           * rewrite N.add_0_l.
             unfold FMap.update.
-            specialize maybe_cases as [[-> ->] | [-> _]].
+            edestruct maybe_cases as [[-> ->] | [-> _]].
             -- rewrite N.sub_0_r. cbn.
                rewrite fin_maps.delete_notin.
                2: FMap_simpl_step.
                rewrite fin_maps.delete_notin; auto. 
-            -- specialize maybe_cases as [[-> ?H] | [-> _]].
+            -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.
                   2: FMap_simpl_step. cbn.

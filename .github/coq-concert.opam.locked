@@ -10,7 +10,7 @@ homepage: "https://github.com/AU-COBRA/ConCert"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
-  "coq" {= "8.17.0"}
+  "coq" {= "8.18.0"}
   "coq-bignums" {= "9.0.0+coq8.17"}
   "coq-metacoq-common" {= "1.2.1+8.17"}
   "coq-metacoq-erasure" {= "1.2.1+8.17"}

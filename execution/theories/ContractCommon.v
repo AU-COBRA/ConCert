@@ -73,9 +73,9 @@ Section Utility.
     specialize (maybe_cases (n - value)) as [[-> n_eq_value] | [-> _]]; cbn.
     - rewrite N.sub_0_le in n_eq_value.
       erewrite (N.le_antisymm _ n) by eassumption.
-      now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
+      now edestruct maybe_cases as [[-> ?H] | [-> _]]; cbn.
     - rewrite N.sub_add by auto.
-      now specialize (maybe_cases) as [[-> ?H] | [-> _]]; cbn.
+      now edestruct maybe_cases as [[-> ?H] | [-> _]]; cbn.
   Qed.
   Close Scope N_scope.
 

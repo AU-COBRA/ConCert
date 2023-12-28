@@ -249,7 +249,7 @@ Section SafetyProperties.
       env_account_balances bstate caddr = cstate.(balance).
   Proof.
     intros * trace reach deployed.
-    specialize balance_on_chain' as (cstate & balance); eauto.
+    edestruct balance_on_chain' as (cstate & balance); eauto.
     intros Hact. rewrite Hact in balance. cbn in *.
     now exists cstate.
   Qed.
@@ -330,9 +330,9 @@ Section SafetyProperties.
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
       + rewrite address_eq_refl. intros state_intact.
-        specialize balance_on_chain' as (state1 & construct1 & balance); eauto.
+        edestruct balance_on_chain' as (state1 & construct1 & balance); eauto.
         now constructor.
-        specialize no_outgoing_actions_when_intact as (state2 & [construct2 act]); eauto.
+        edestruct no_outgoing_actions_when_intact as (state2 & [construct2 act]); eauto.
         now constructor.
         unfold contract_state in *.
         destruct (env_contract_states bstate_from to_addr); try discriminate.
@@ -356,7 +356,7 @@ Section SafetyProperties.
           congruence.
         ** discriminate.
         * cbn. lia.
-      + specialize no_outgoing_actions_when_intact as (? & ?); eauto.
+      + edestruct no_outgoing_actions_when_intact as (? & ?); eauto.
         * now constructor.
         * intros intact. destruct H.
           unfold contract_state in *.
@@ -389,7 +389,7 @@ Section SafetyProperties.
       (env_account_balances bstate caddr = 0)%Z).
   Proof.
     intros * trace reach deployed act.
-    specialize balance_is_zero_when_smashed' as (cstate & deploy & balance); eauto.
+    edestruct balance_is_zero_when_smashed' as (cstate & deploy & balance); eauto.
     rewrite act, Z.sub_0_r in balance.
     exists cstate.
     split; eauto.

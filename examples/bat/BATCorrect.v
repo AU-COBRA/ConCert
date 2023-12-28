@@ -701,7 +701,7 @@ Section Theories.
     - apply try_create_tokens_total_supply_correct in receive_some.
       rewrite <- receive_some. apply N.le_add_r.
     - apply try_finalize_preserves_total_supply in receive_some. lia.
-    - specialize try_refund_is_some as [_ refund_implications].
+    - edestruct try_refund_is_some as [_ refund_implications].
       rewrite receive_some in refund_implications.
       now destruct refund_implications.
   Qed.
@@ -881,8 +881,8 @@ Section Theories.
       + (* Prove that there is enough balance to evaluate action *)
         now apply account_balance_nonnegative.
       + (* Prove that receive action returns Some *)
-        specialize (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
-        * specialize try_finalize_isFinalized_correct as [_ finalized_new_cstate]; eauto.
+        edestruct (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
+        * edestruct try_finalize_isFinalized_correct as [_ finalized_new_cstate]; eauto.
           now erewrite <- (try_finalize_only_change_isFinalized _ _ _ _ _ receive_some),
                       finalized_new_cstate, (try_finalize_acts_correct _ _ _ _ _ receive_some) in receive_some.
         * repeat split; eauto.
@@ -1202,7 +1202,7 @@ Section Theories.
     update_all.
 
     deploy_contract BAT.contract; eauto; try lia; try now apply account_balance_nonnegative.
-    specialize constants_are_constant as (dep_info & cstate' & deploy_info' & deployed_state' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
+    edestruct constants_are_constant as (dep_info & cstate' & deploy_info' & deployed_state' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
     unfold contract_state in deployed_state'. cbn in deployed_state'.
     rewrite deployed_state, deserialize_serialize in deployed_state'.
     inversion deployed_state'. subst cstate'. clear deployed_state'.
@@ -1272,7 +1272,7 @@ Section Theories.
       eapply eval_call with (msg := Some _); eauto.
       + lia.
       + now apply Z.ge_le, account_balance_nonnegative.
-      + specialize try_refund_is_some as [[new_cstate [resp_acts receive_some]] _]; cycle 1.
+      + edestruct try_refund_is_some as [[new_cstate [resp_acts receive_some]] _]; cycle 1.
         * apply wc_receive_to_receive.
           unfold Blockchain.receive.
           rewrite receive_some.

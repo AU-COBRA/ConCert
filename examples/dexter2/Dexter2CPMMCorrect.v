@@ -958,17 +958,17 @@ Section Theories.
   Ltac rewrite_receive_is_some :=
     match goal with
     | [ H : receive_cpmm _ _ _ _ = Ok _ |- _ ] =>
-      first [specialize set_baker_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize set_manager_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize set_lqt_address_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize default_entrypoint_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize update_token_pool_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize update_token_pool_internal_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize add_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize remove_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize xtz_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize token_to_xtz_is_some as (_ & []); [now (do 2 eexists; apply H) |]
-            |specialize token_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |] ];
+      first [edestruct set_baker_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct set_manager_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct set_lqt_address_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct default_entrypoint_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct update_token_pool_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct update_token_pool_internal_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct add_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct remove_liquidity_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct xtz_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct token_to_xtz_is_some as (_ & []); [now (do 2 eexists; apply H) |]
+            |edestruct token_to_token_is_some as (_ & []); [now (do 2 eexists; apply H) |] ];
       destruct_hyps; subst
     end.
   (* end hide *)
@@ -1254,7 +1254,7 @@ Section Theories.
       + split.
         * now apply Z.ge_le.
         * specialize (account_balance_nonnegative bstate_from to_addr) as ?H.
-          specialize xtz_pool_bound as (? & deployed_state' & ?); eauto.
+          edestruct xtz_pool_bound as (? & deployed_state' & ?); eauto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           rewrite deployed_state in deployed_state0.
@@ -1538,7 +1538,7 @@ Section Theories.
       inversion deployed0.
       subst.
       clear deployed0.
-      specialize outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
+      edestruct outgoing_acts_no_mint_before_set_lqt_addr as (state & state_deployed & ?); eauto.
       rewrite deployed_state0 in state_deployed.
       now inversion state_deployed.
   Qed.
