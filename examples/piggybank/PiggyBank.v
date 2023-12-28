@@ -79,7 +79,7 @@ Section PiggyBankImpl.
 
   Definition insert (state : State) (ctx : ContractCallContext) : Result :=
     let amount := ctx.(ctx_amount) in
-    do _ <- throwIf (amount <=? 0) error_amount_not_positive;
+    do _ <- throwIf (amount <? 0) error_amount_not_positive;
     do _ <- throwIf (is_smashed state) error_already_smashed;
     let state := state<| balance ::= Z.add amount |> in
     Ok (state, []).
