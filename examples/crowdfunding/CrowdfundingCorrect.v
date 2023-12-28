@@ -209,7 +209,7 @@ Module CrowdfundingProperties.
       sum_map (add_map k (n0+v') m) = (v' + v)%Z.
   Proof.
     intros; subst.
-    revert dependent n0. revert v' k.
+    generalize dependent n0. revert v' k.
     induction m; intros; subst.
     + inversion H.
     + simpl in *. destruct (k =? n) eqn:Hkn.
@@ -223,7 +223,7 @@ Module CrowdfundingProperties.
       sum_map (add_map k v' m) = (v' + v)%Z.
   Proof.
     intros; subst.
-    revert dependent k. revert v'.
+    generalize dependent k. revert v'.
     induction m; intros; subst.
     + reflexivity.
     + simpl in *. destruct (k =? n) eqn:Hkn.
@@ -237,7 +237,7 @@ Module CrowdfundingProperties.
     sum_map (add_map k 0 m) = (v - z)%Z.
   Proof.
     intros; subst.
-    revert dependent k. revert z.
+    generalize dependent k. revert z.
     induction m; intros; subst; tryfalse.
     simpl in *. destruct (k =? n) eqn:Hkn.
     + inversion H; subst.
@@ -361,7 +361,7 @@ Module CrowdfundingProperties.
       map_forallb (Z.leb 0%Z) (add_map k (n0+v') m).
   Proof.
     intros; subst.
-    revert dependent n0. revert k.
+    generalize dependent n0. revert k.
     induction m; intros k n0 Hlook; subst.
     + inversion Hlook.
     + simpl in *. destruct (k =? n) eqn:Hkn.

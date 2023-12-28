@@ -243,7 +243,7 @@ Ltac destruct_and_split :=
 
 Tactic Notation "tryfalse" :=
   try solve [
-    elimtype False;
+    cut False; only 1: (let hn := fresh "H" in intro hn; elim hn; try clear hn);
     try solve [assumption | discriminate | congruence]
   ].
 

@@ -104,7 +104,7 @@ Section Values.
     AllEnv P ρ -> lookup_i ρ n = Some e -> P e.
   Proof.
     intros Hfe Hl.
-    revert dependent n.
+    generalize dependent n.
     induction Hfe; intros n Hl.
     + inversion Hl.
     + simpl in *. destruct x; destruct (Nat.eqb n 0); inversion Hl; subst; eauto.
@@ -480,8 +480,8 @@ Section Values.
   Lemma lookup_ind_nth_error_False (ρ : env A) n m a key :
     lookup_with_ind_rec (1+n+m) ρ key = Some (n, a) -> False.
   Proof.
-    revert dependent m.
-    revert dependent n.
+    generalize dependent m.
+    generalize dependent n.
     induction ρ as [ |a0 ρ0]; intros n m H; tryfalse.
     simpl in *.
     destruct a0; destruct (s =? key).
@@ -494,7 +494,7 @@ Section Values.
     lookup_with_ind_rec (1+n) ρ key = Some (1+i, a) <->
     lookup_with_ind_rec n ρ key = Some (i, a).
   Proof.
-    split; revert dependent i; revert dependent n;
+    split; generalize dependent i; generalize dependent n;
     induction ρ; intros i1 n1 H; tryfalse; simpl in *;
       destruct a0; destruct ( s =? key); inversion H; eauto.
   Qed.
@@ -502,7 +502,7 @@ Section Values.
   Lemma lookup_ind_nth_error (ρ : env A) i a key :
     lookup_with_ind ρ key = Some (i,a) -> nth_error ρ i = Some (key,a).
   Proof.
-    revert dependent ρ.
+    generalize dependent ρ.
     induction i; simpl; intros ρ0 H.
     + destruct ρ0; tryfalse. unfold lookup_with_ind in H. simpl in *.
       destruct p as (nm,a0); destruct (nm =? key) eqn:Heq; try rewrite String.eqb_eq in *; subst.
@@ -563,7 +563,7 @@ Section Values.
     map fst l1 = map fst l2 ->
     find (p ∘ fst) l1 = None -> find (p ∘ fst) l2 = None.
   Proof.
-    revert dependent l2.
+    generalize dependent l2.
     induction l1 as [ | ab l1']; intros l2 Hmap Hfnd.
     + destruct l2; simpl in *; easy.
     + destruct l2; simpl in *; tryfalse.
@@ -592,7 +592,7 @@ Section Values.
     exists v2, find (p ∘ fst) l2 = Some v2
                /\ fst v1 = fst v1.
   Proof.
-    revert dependent l2.
+    generalize dependent l2.
     revert v1.
     induction l1 as [ | ab l1']; intros v1 l2 Hmap Hfnd.
     + destruct l2; simpl in *; easy.

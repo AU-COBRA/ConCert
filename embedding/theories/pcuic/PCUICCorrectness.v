@@ -45,10 +45,10 @@ Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2
   iclosed_n 0 e2 = true ->
   Σ2 |- t⟦e2⟧Σ1 ⇓ t⟦of_val_i v⟧Σ1.
 Proof.
-  revert dependent v.
-  revert dependent ρ.
-  revert dependent e2.
-  revert dependent e1.
+  generalize dependent v.
+  generalize dependent ρ.
+  generalize dependent e2.
+  generalize dependent e1.
   induction n.
   - now intros.
   - intros e1 e2 ρ v Hsync Hgeok Hρ_ok He Henv Hc; destruct e1.
@@ -378,7 +378,7 @@ Proof.
                    extended_subst xs k = rev (reln [] k xs)).
         { intros xs k Hvass. rewrite reln_alt_eq. rewrite app_nil_r.
           rewrite rev_involutive.
-          revert dependent k.
+          generalize dependent k.
           induction xs; intros k; cbn; auto.
           inversion Hvass; subst; cbn.
           replace (k+1) with (1+k) by lia.

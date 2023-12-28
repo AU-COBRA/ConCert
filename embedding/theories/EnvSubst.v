@@ -110,7 +110,7 @@ Module NamelessSubst.
   Lemma lookup_i_of_val_env ρ n v :
     lookup_i ρ n = Some v -> lookup_i (exprs ρ) n = Some (of_val_i v).
   Proof.
-    revert dependent n.
+    generalize dependent n.
     induction ρ; intros n0 Hρ.
     + easy.
     + destruct a; simpl in *.
@@ -125,7 +125,7 @@ Module NamelessSubst.
     {v | lookup_i ρ n = Some v /\ (eRel n).[exprs ρ] = of_val_i v}.
   Proof.
     intros Hlt.
-    revert dependent n.
+    generalize dependent n.
     induction ρ; intros n1 Hlt.
     + easy.
     + destruct (Nat.eqb n1 0) eqn:Hn1.

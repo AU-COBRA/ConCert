@@ -310,7 +310,7 @@ Lemma type_eval_value Σ ρ ty ty_v n :
   ty_val ty_v.
 Proof.
   intros Hok He.
-  revert dependent ty_v. revert n.
+  generalize dependent ty_v. revert n.
   induction ty; intros.
   + simpl in *. inversion He; eauto with hints.
   + simpl in *.
@@ -545,7 +545,7 @@ Lemma subst_closed_map ts1 ts2 k :
   forallb (closedn k) ts2 ->
   map (subst ts1 k) ts2 = ts2.
 Proof.
-  intros H. revert dependent k. revert ts1.
+  intros H. generalize dependent k. revert ts1.
   induction ts2; intros; auto.
   simpl in *. propify. destruct_hyps.
   f_equal; eauto with hints.
@@ -583,7 +583,7 @@ Proof.
   intros Hgeok Hr. unfold resolve_inductive in *.
   destruct (lookup_global Σ ind) eqn:Hlg; tryfalse.
   destruct g; tryfalse. inversion Hr; subst; clear Hr.
-  revert dependent cs.
+  generalize dependent cs.
   induction Σ; intros; tryfalse.
   cbn in *. destruct a. cbn in *.
   destruct (e0 =? ind)%string; now propify.
@@ -623,7 +623,7 @@ Proof.
   intros Hlen Htys.
   apply forallb_Forall in Htys.
   apply Forall_map_inv in Htys.
-  revert dependent vs.
+  generalize dependent vs.
   induction tys; intros.
   - now destruct vs; tryfalse.
   - destruct vs; tryfalse; cbn in *.
@@ -967,7 +967,7 @@ Lemma map_subst_env_ty_closed n m ρ l0 :
   forallb (iclosed_ty n) l0 ->
   map (subst_env_i_ty (m + n) ρ) l0 = l0.
 Proof.
-  intros H. revert dependent n. revert m ρ. induction l0; intros m ρ n Hc; simpl; auto.
+  intros H. generalize dependent n. revert m ρ. induction l0; intros m ρ n Hc; simpl; auto.
   simpl in *. propify. destruct_hyps. f_equal; eauto with hints.
 Qed.
 
@@ -1212,7 +1212,7 @@ Lemma iclosed_ty_expr_env_ok :
   forall (n : nat) (ρ : env expr) e,
     iclosed_n n e -> ty_expr_env_ok ρ n e.
 Proof.
-  intros. revert dependent n. revert ρ.
+  intros. generalize dependent n. revert ρ.
   induction e using expr_elim_case; intros ?? Hc; eauto.
   + simpl in *. unfold is_true in *. propify.
     destruct_and_split; auto.
@@ -1401,7 +1401,7 @@ Lemma eval_ge_val_ok n ρ Σ e v :
   expr_eval_i Σ n ρ e = Ok v ->
   ge_val_ok Σ v.
 Proof.
-  revert dependent ρ. revert dependent v. revert dependent e.
+  generalize dependent ρ. generalize dependent v. generalize dependent e.
   induction n; intros e v ρ Hok He; tryfalse.
   destruct e; unfold expr_eval_i in *; simpl in *; inversion He; tryfalse.
   + destruct (lookup_i ρ n0) eqn:Hlook; simpl in *; inversion He; subst.
@@ -1631,7 +1631,7 @@ Lemma eval_val_ok n ρ Σ e v :
   expr_eval_i Σ n ρ e = Ok v ->
   val_ok Σ v.
 Proof.
-  revert dependent ρ. revert dependent v. revert dependent e.
+  generalize dependent ρ. generalize dependent v. generalize dependent e.
   induction n; intros e v ρ Hty_ok Hok Hc He; tryfalse.
   destruct e.
   + unfold expr_eval_i in *. simpl in *.
@@ -1841,9 +1841,9 @@ Lemma mkApps_atom_inv l1 l2 t1 t2 :
   l1 = l2 /\ t1 = t2.
 Proof.
   intros H1 H2 Hmk.
-  revert dependent t1.
-  revert dependent t2.
-  revert dependent l2.
+  generalize dependent t1.
+  generalize dependent t2.
+  generalize dependent l2.
   induction l1 using MCList.rev_ind; intros; destruct l2 using MCList.rev_ind.
   + inversion Hmk. easy.
   + simpl in *. subst. rewrite mkApps_unfold in *; tryfalse.
@@ -1867,7 +1867,7 @@ Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p:
   exists p0 : A, p = f p0.
 Proof.
   intros H.
-  revert dependent l.
+  generalize dependent l.
   induction n; simpl in *; intros l H; destruct l eqn:H1; inversion H; eauto.
 Qed.
 
