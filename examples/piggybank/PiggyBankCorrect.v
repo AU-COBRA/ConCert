@@ -214,7 +214,7 @@ Section SafetyProperties.
 
   (** Balance in PiggyBank is correct on the blockchain *)
   Lemma balance_on_chain' :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+    forall (bstate : ChainState) caddr,
     let effective_balance := (env_account_balances bstate caddr - sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr))%Z in
     reachable bstate ->
     env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
@@ -240,7 +240,7 @@ Section SafetyProperties.
   Qed.
 
   Lemma balance_on_chain :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+    forall bstate caddr,
     reachable bstate ->
     env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
     outgoing_acts bstate caddr = [] ->
@@ -248,21 +248,21 @@ Section SafetyProperties.
       contract_state bstate caddr = Some cstate /\
       env_account_balances bstate caddr = cstate.(balance).
   Proof.
-    intros * trace reach deployed.
+    intros * reach deployed.
     edestruct balance_on_chain' as (cstate & balance); eauto.
     intros Hact. rewrite Hact in balance. cbn in *.
     now exists cstate.
   Qed.
 
   Lemma no_outgoing_actions_when_intact :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+    forall bstate caddr,
     reachable bstate ->
     env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
     exists cstate,
       contract_state bstate caddr = Some cstate /\
       (cstate.(piggyState) = Intact -> outgoing_acts bstate caddr = []).
   Proof.
-    intros * trace reach deployed.
+    intros * reach deployed.
     contract_induction; intros; auto.
     - now specialize (IH H).
     - cbn in *. unfold PiggyBank.receive in receive_some.
@@ -294,7 +294,7 @@ Section SafetyProperties.
 
   (** When the PiggyBank is smashed its balance needs to remain zero *)
   Lemma balance_is_zero_when_smashed' :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+    forall (bstate : ChainState) caddr,
     let effective_balance := (env_account_balances bstate caddr - sumZ (fun act => act_body_amount act) (outgoing_acts bstate caddr))%Z in
     reachable bstate ->
     env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
@@ -378,7 +378,7 @@ Section SafetyProperties.
   Qed.
 
   Lemma balance_is_zero_when_smashed :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+    forall (bstate : ChainState) caddr,
     reachable bstate ->
     env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
     outgoing_acts bstate caddr = [] ->
@@ -387,29 +387,142 @@ Section SafetyProperties.
       (cstate.(piggyState) = Smashed ->
       (env_account_balances bstate caddr = 0)%Z).
   Proof.
-    intros * trace reach deployed act.
+    intros * reach deployed act.
     edestruct balance_is_zero_when_smashed' as (cstate & deploy & balance); eauto.
     rewrite act, Z.sub_0_r in balance.
     exists cstate.
     split; eauto.
   Qed.
 
-  Lemma smash_poss :
-    forall bstate caddr (trace : ChainTrace empty_state bstate),
+  Lemma balance_on_pos :
+    forall bstate caddr,
+    reachable bstate ->
+    env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
+    outgoing_acts bstate caddr = [] ->
+    exists cstate,
+      contract_state bstate caddr = Some cstate /\
+      0 <= cstate.(balance).
+  Proof.
+    intros * reach deployed Hact.
+    edestruct balance_on_chain as (cstate & balance); eauto.
+    exists cstate.
+    destruct balance as [H <-].
+    split; auto.
+    apply Z.ge_le.
+    now apply account_balance_nonnegative.
+  Qed.
+
+  Definition serializeState state := (@serialize State _) state.
+
+  Lemma smash_poss : forall bstate (reward : Amount) (caddr creator : Address),
+    address_is_contract creator = false ->
+    (reward >= 0)%Z ->
     reachable bstate ->
     emptyable (chain_state_queue bstate) ->
-    env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) ->
-    exists cstate,
-      contract_state bstate caddr = Some cstate ->
+    (exists cstate,
+      env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) /\
+      env_contract_states bstate caddr = Some (serializeState cstate)) ->
         exists bstate',
           reachable_through bstate bstate' /\
-          env_contracts bstate caddr = Some (PiggyBank.contract : WeakContract) /\
           emptyable (chain_state_queue bstate') /\
           exists cstate',
-            contract_state bstate' caddr = Some cstate' /\
+            env_contracts bstate' caddr = Some (PiggyBank.contract : WeakContract) /\
+            env_contract_states bstate' caddr = Some (serializeState cstate') /\
             (env_account_balances bstate' caddr = 0)%Z.
   Proof.
-    (* TODO *)
+    intros * Hcreator Hreward bstate_reachable bstate_queue H.
+    empty_queue H; destruct H as (cstate & contract_deployed & contract_state);
+      (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
+      only 3: destruct (address_eqdec caddr to_addr);
+      try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+          cbn; destruct_address_eq; try easy).
+    - (* Prove that H is preserved after calls to the contract *)
+      subst.
+      rewrite contract_deployed in deployed.
+      inversion deployed. subst.
+      rewrite contract_state in deployed_state.
+      inversion deployed_state. subst.
+      clear deployed_state deployed.
+      apply wc_receive_strong in receive_some as
+        (prev_state' & msg' & new_state' & serialize_prev_state & _ & serialize_new_state & receive_some).
+      setoid_rewrite deserialize_serialize in serialize_prev_state.
+      inversion serialize_prev_state. subst.
+      exists new_state'.
+      rewrite_environment_equiv; cbn; repeat split; eauto;
+      cbn; destruct_address_eq; try easy.
+    - update_all.
+      (* Check if piggybank is already smashed *)
+      destruct (is_smashed cstate) eqn:smashed.
+      + (* Case: smashed *)
+        (* In this case the balance should already be zero *)
+        edestruct balance_is_zero_when_smashed as (cstate' & deploy & balance); eauto.
+        * unfold outgoing_acts.
+          now rewrite queue.
+        * cbn in deploy.
+          rewrite contract_state in deploy.
+          unfold serializeState in deploy.
+          rewrite deserialize_serialize in deploy.
+          inversion deploy. subst. clear deploy.
+          unfold is_smashed in smashed.
+          destruct_match in smashed; try discriminate.
+          exists bstate0.
+          split; auto.
+          split; try now rewrite queue.
+          exists cstate'.
+          split; auto.
+      + (* Case: intact *)
+        (* In this case we can smash the piggybank *)
+        add_block [(build_act (owner cstate) (owner cstate) (act_call caddr 0 ((@serialize Msg _) Smash)))] 1%nat; eauto.
+        admit.
+        apply list.Forall_singleton, address_eq_refl.
+        update_all.
+        evaluate_action contract; try easy.
+        * (* Prove that there is enough balance to evaluate action *)
+          now apply account_balance_nonnegative.
+        * (* Prove that receive action returns Some *)
+          cbn; unfold address_neqb.
+          rewrite address_eq_refl; cbn.
+          rewrite smashed; cbn.
+          eauto.
+        * cbn in *.
+          clear contract_state smashed.
+          update_all.
+          edestruct balance_on_chain' as (cstate' & deploy & balance); eauto.
+          cbn in deploy.
+          rewrite deployed_state in deploy.
+          unfold serializeState in deploy.
+          rewrite deserialize_serialize in deploy.
+          inversion deploy. subst. clear deploy.
+          cbn in balance.
+          unfold outgoing_acts in balance.
+          rewrite queue in balance.
+          cbn in balance.
+          rewrite address_eq_refl in balance.
+          cbn in balance.
+          specialize account_balance_nonnegative as H.
+          apply H with (addr := caddr) in reach as balance_pos; clear H.
+          rewrite !Z.add_0_r in balance.
+          apply Zminus_eq in balance.
+          
+          (* Finally we need to evaluate the new transfer action that finalize produced *)
+          evaluate_transfer; try easy.
+          -- lia.
+          -- lia.
+          -- admit.
+          -- update (env_account_balances bstate caddr = 0) in balance.
+              { rewrite_environment_equiv. cbn. rewrite address_eq_refl.
+                destruct_address_eq.
+                admit.
+                lia.
+              }
+              clear balance_pos.
+              update_all. 
+              exists bstate.
+              split; auto.
+              split; try now rewrite queue0.
+              eexists.
+              split; auto.
+              split; eauto.
   Admitted.
 
 End SafetyProperties.
