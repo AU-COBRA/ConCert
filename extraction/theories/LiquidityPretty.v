@@ -768,7 +768,7 @@ Definition print_init (prefix : string)
   let printed_targs_outer := tl printed_targs_inner in
   let decl_outer := "storage " ++ concat " " printed_targs_outer in
   let let_ctx := "let ctx = " ++ build_call_ctx ++ " in" in
-  let inner_app := "inner " ++ concat " " ( "ctx" :: map (fun x => bs_to_s (BasicAst.string_of_name x)) (tl args)) in
+  let inner_app := "inner " ++ concat " " ("ctx" :: map (fun x => bs_to_s (BasicAst.string_of_name x)) (tl args)) in
   ret ("let%init " ++ decl_outer ++ " = "
                    ++ init_prelude
                    ++ nl
@@ -805,7 +805,7 @@ Definition print_global_decl (prefix : string) (TT : env string)
       (* don't print record projection definitions *)
       if List.existsb (fun p => bytestring.String.eqb nm.2 p.1) projs
       then (nm, "")
-      (* (nm, "projs: " ++ nm.2 ++ " : " ++ String.concat ";" (map fst projs )) *)
+      (* (nm, "projs: " ++ nm.2 ++ " : " ++ String.concat ";" (map fst projs)) *)
       else
       (nm, print_cst prefix TT Σ nm cst projs)
   | ExAst.InductiveDecl mib =>
@@ -876,13 +876,13 @@ Definition tez_ops :=
     ++ nl
     ++ "let[@inline] subTez (n : tez) (m : tez) = n - m"
     ++ nl
-    ++ "let[@inline] leTez (a : tez ) (b : tez ) = a <= b"
+    ++ "let[@inline] leTez (a : tez) (b : tez) = a <= b"
     ++ nl
-    ++ "let[@inline] ltTez (a : tez ) (b : tez ) = a < b"
+    ++ "let[@inline] ltTez (a : tez) (b : tez) = a < b"
     ++ nl
-    ++ "let[@inline] gtTez (a : tez ) (b : tez ) = a > b"
+    ++ "let[@inline] gtTez (a : tez) (b : tez) = a > b"
     ++ nl
-    ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b"
+    ++ "let[@inline] eqTez (a : tez) (b : tez) = a = b"
     ++ nl
     ++ "let[@inline] evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false"
     ++ nl
@@ -913,9 +913,9 @@ Definition nat_ops :=
     ++ "let[@inline] eqNat (i : nat) (j : nat) = i = j".
 
 Definition bool_ops :=
-     "let[@inline] andb (a : bool ) (b : bool ) = a & b"
+     "let[@inline] andb (a : bool) (b : bool) = a & b"
   ++ nl
-  ++ "let[@inline] orb (a : bool ) (b : bool ) = a || b".
+  ++ "let[@inline] orb (a : bool) (b : bool) = a || b".
 
 Definition time_ops :=
        "let[@inline] eqb_time (a1 : timestamp) (a2 : timestamp) = a1 = a2"
@@ -947,7 +947,7 @@ Definition LiquidityPrelude :=
              bool_ops; time_ops; address_ops;
              address_map; result_def].
 
-Definition printWrapper (contract : string): string :=
+Definition printWrapper (contract : string) : string :=
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " param st" ++ " with"

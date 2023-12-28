@@ -460,7 +460,7 @@ Section BATCommon.
   Qed.
 
   (** All actions produced by create_token_acts have same sender and origin *)
-  Lemma create_token_acts_origin_correct: forall accounts (env : Environment) caddr tokens_left exchange_rate,
+  Lemma create_token_acts_origin_correct : forall accounts (env : Environment) caddr tokens_left exchange_rate,
     Forall act_origin_is_eq_from (create_token_acts env caddr accounts tokens_left exchange_rate).
   Proof.
     induction accounts; intros *.

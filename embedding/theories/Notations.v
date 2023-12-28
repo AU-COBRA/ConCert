@@ -292,7 +292,7 @@ Notation "$ Ctor $ ty" := (eConstr ty Ctor) (in custom expr at level 2,
                                               Ctor constr at level 4,
                                               ty constr at level 4).
 
-Notation "C x .. y " := (pConstr C (cons x .. (cons y nil) .. ))
+Notation "C x .. y " := (pConstr C (cons x .. (cons y nil) ..))
                            (in custom pat at level 0,
                                C constr at level 4,
                                x constr at level 4,
@@ -328,7 +328,7 @@ Notation "ind ty1 , ty2" := (ciParamInd ind [ty1; ty2]) (in custom case_info at 
                                                          ty2 custom type at level 4).
 
 
-Definition ci_to_types (ci : case_info ) :=
+Definition ci_to_types (ci : case_info) :=
   match ci with
   | ciParamInd ind tys => (ind, tys)
   end.

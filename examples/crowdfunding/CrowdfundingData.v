@@ -33,7 +33,7 @@ MetaCoq Run
               "deadline"; "goal"; "done";
               "Res" ; "Error";
               "Msg"; "Donate"; "GetFunds"; "Claim";
-              "Action"; "Transfer"; "Empty" ] "_coq").
+              "Action"; "Transfer"; "Empty"] "_coq").
 
 Import ListNotations.
 
@@ -133,10 +133,10 @@ Module Notations.
                       (in custom expr at level 0).
 
   Notation " x ::: xs" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
-                            ( in custom expr at level 0).
+                            (in custom expr at level 0).
 
   Notation "[ x ]" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
-                        ( in custom expr at level 0,
+                        (in custom expr at level 0,
                           x custom expr at level 1).
   (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 

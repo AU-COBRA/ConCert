@@ -42,7 +42,7 @@ Definition midlang_translation_map :=
         (<%% @ContractCallContext %%>, "ConCertCallContext");
         (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
-        (<%% @Amount %%>,"Z" )].
+        (<%% @Amount %%>,"Z")].
 
 Definition midlang_escrow_translate (name : kername) : option string :=
   match find (fun '(key, _) => eq_kername key name) (TT_escrow ++ midlang_translation_map) with

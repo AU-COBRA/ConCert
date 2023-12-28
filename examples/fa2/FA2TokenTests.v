@@ -56,7 +56,7 @@ Definition token_metadata_0 : token_metadata := {|
 
 (* Contract setups and deployments *)
 
-Definition token_setup (hook_addr : option Address): FA2Token.Setup := {|
+Definition token_setup (hook_addr : option Address) : FA2Token.Setup := {|
   setup_total_supply := [];
   setup_tokens := FMap.add 0%N token_metadata_0 FMap.empty;
   initial_permission_policy := policy_all;

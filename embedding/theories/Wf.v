@@ -33,7 +33,7 @@ Definition genv_ok Σ := forallb global_dec_ok Σ.
     [ρ] is well-formed wrt. a type [ty] when for any type variables mentioned
     in [ty], if there is a corresponding expression in ρ (starting from the
     index [n]) it corresponds to a type. *)
-  Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type): bool :=
+  Fixpoint ty_env_ok (n : nat) (ρ : env expr) (ty : type) : bool :=
     match ty with
     | tyInd x => true
     | tyForall v ty0 => ty_env_ok (S n) ρ ty0

@@ -656,7 +656,7 @@ Section Theories.
     result_to_option.
     setoid_rewrite FMap.elements_add_existing; eauto.
     simpl with_default.
-    rewrite N.add_comm. 
+    rewrite N.add_comm.
     cbn.
     rewrite <- N.add_sub_assoc. 2: lia.
     rewrite (N.add_comm (t mod tokenExchangeRate prev_state) _).
@@ -1694,7 +1694,7 @@ Section Theories.
           apply N2Z.is_nonneg.
     }
     intros origin.
-    edestruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
+    edestruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some)].
     - eexists.
       constructor.
       eapply eval_transfer; auto.

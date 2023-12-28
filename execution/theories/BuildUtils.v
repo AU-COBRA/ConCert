@@ -289,7 +289,7 @@ Ltac action_decidable :=
 
 Ltac rewrite_balance :=
   match goal with
-  | H := context [if (_ =? ?to)%address then _ else _ ],
+  | H := context [if (_ =? ?to)%address then _ else _],
     H2 : Environment |- _ =>
     assert (new_to_balance_eq : env_account_balances H2 to = H);
     [ try rewrite_environment_equiv; cbn; unfold H; destruct_address_eq; try congruence; lia |
@@ -419,7 +419,7 @@ Lemma empty_queue : forall bstate (P : ChainState -> Prop),
   P bstate ->
   (forall (bstate bstate' : ChainState) act acts, reachable bstate -> reachable bstate' -> P bstate ->
     chain_state_queue bstate = act :: acts -> chain_state_queue bstate' = acts ->
-    (inhabited (ActionEvaluation bstate act bstate' []) \/ EnvironmentEquiv bstate bstate') -> P bstate' ) ->
+    (inhabited (ActionEvaluation bstate act bstate' []) \/ EnvironmentEquiv bstate bstate') -> P bstate') ->
     exists bstate', reachable_through bstate bstate' /\ P bstate' /\ (chain_state_queue bstate') = [].
 Proof.
   intros * reach [acts_from_account no_new_acts].

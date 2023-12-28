@@ -24,7 +24,7 @@ Module Counter.
   MetaCoq Run
           (mp_ <- tmCurrentModPath tt ;;
            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["state"; "MkState"; "owner"; "msg" ] "_coq").
+            mkNames mp ["state"; "MkState"; "owner"; "msg"] "_coq").
 
   (** Variable names and constructor names *)
   MetaCoq Run (mkNames "" ["m"; "n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_coq").

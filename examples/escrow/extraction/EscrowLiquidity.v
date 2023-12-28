@@ -61,9 +61,9 @@ Module EscrowLiquidityExtraction.
 
       lmd_init_prelude :=
            nl ++ "let evenTez (i : tez) = match i/2tz with | Some (_, r) -> r=0tz | None -> false in"
-        ++ nl ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
+        ++ nl ++ "let eqTez (a : tez) (b : tez) = a = b in"
         ++ nl ++ "let eq_addr (a1 : address) (a2 : address) = a1 = a2 in"
-        ++ nl ++ "let andb (a : bool ) (b : bool ) = a & b in"
+        ++ nl ++ "let andb (a : bool) (b : bool) = a & b in"
         ++ nl ++ "let default_error = 1 in"
         ++ nl;
 

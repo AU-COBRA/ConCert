@@ -190,7 +190,7 @@ Section SafetyProperties.
     PiggyBank.receive chain ctx prev_state (Some Insert) = Ok (next_state, new_acts) ->
     Z.le prev_state.(balance) next_state.(balance).
   Proof.
-    intros state_intact Hreceive. 
+    intros state_intact Hreceive.
     unfold PiggyBank.receive in Hreceive.
     destruct prev_state; cbn in *; rewrite state_intact in Hreceive.
     destruct (ctx_amount ctx <=? 0) eqn:E; try discriminate.

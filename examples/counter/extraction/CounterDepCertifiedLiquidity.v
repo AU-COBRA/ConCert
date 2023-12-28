@@ -50,7 +50,7 @@ Module Counter.
 
 
   Definition dec_balance (st : storage) (new_balance : Z)
-             (p : (0 <=? new_balance) = true): storage :=
+             (p : (0 <=? new_balance) = true) : storage :=
     (st.1 - new_balance, st.2).
 
   Definition my_bool_dec := Eval compute in bool_dec.

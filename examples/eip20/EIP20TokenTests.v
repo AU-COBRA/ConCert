@@ -353,26 +353,26 @@ Definition delegate_made_no_transferFroms (approve_act_p : (Address * Address * 
 
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match snd approve_act_p with
-  | (approve _ _ ) => snd (fst approve_act_p)
+  | (approve _ _) => snd (fst approve_act_p)
   | (transfer_from allower _ _) => allower
   | _ => zero_address
   end.
 Definition delegate_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd approve_act_p) with
-  | (approve delegate _ ) => Some delegate
+  | (approve delegate _) => Some delegate
   | (transfer_from _ _ _) => Some (snd (fst approve_act_p))
   | _ => None
   end.
 
 Definition approve_amount (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd approve_act_p) with
-  | (approve _ amount ) => amount
+  | (approve _ amount) => amount
   | _ => 0
   end.
 
 Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd transferFrom_act_p) with
-  | (transfer_from _ _ amount ) => amount
+  | (transfer_from _ _ amount) => amount
   | _ => 0
   end.
 

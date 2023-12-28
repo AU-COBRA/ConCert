@@ -194,7 +194,7 @@ Module NamedSubst.
     | vTy ty => eTy ty
     end.
 
- Definition inst_env (ρ : env val) (e : expr) : expr :=
+  Definition inst_env (ρ : env val) (e : expr) : expr :=
     subst_env (map (fun x => (fst x, of_val (snd x))) ρ) e.
 
 End NamedSubst.

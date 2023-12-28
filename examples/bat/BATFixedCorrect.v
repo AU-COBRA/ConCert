@@ -1860,7 +1860,7 @@ Section Theories.
           apply N2Z.is_nonneg.
     }
     intros origin.
-    edestruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
+    edestruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some)].
     - eexists.
       constructor.
       eapply eval_transfer; auto.

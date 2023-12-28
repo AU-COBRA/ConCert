@@ -34,7 +34,7 @@ MetaCoq Run
              ["State" ; "mkState"; "balance" ; "donations" ; "owner";
               "deadline"; "goal"; "done";
               "Res" ; "Error";
-             "msg"; "Action"; "Transfer"; "Empty" ] "_coq").
+             "msg"; "Action"; "Transfer"; "Empty"] "_coq").
 MetaCoq Run (mkNames "" ["Donate"; "GetFunds"; "Claim"] "_coq").
 
 Import ListNotations.

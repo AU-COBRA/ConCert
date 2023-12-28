@@ -1000,7 +1000,7 @@ Section Theories.
             -- FMap_simpl_step.
           * unfold FMap.update.
             edestruct maybe_cases as [[-> ?H] | [-> _]].
-            -- apply N.eq_add_0 in H3 as []; subst. 
+            -- apply N.eq_add_0 in H3 as []; subst.
                edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
@@ -1068,7 +1068,7 @@ Section Theories.
                   rewrite fin_maps.map_to_list_delete; auto.
           * unfold FMap.update.
             edestruct maybe_cases as [[-> ?H] | [-> _]].
-            -- apply N.eq_add_0 in H3 as []; subst. 
+            -- apply N.eq_add_0 in H3 as []; subst.
                edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
@@ -1106,7 +1106,7 @@ Section Theories.
             -- rewrite N.sub_0_r. cbn.
                rewrite fin_maps.delete_notin.
                2: FMap_simpl_step.
-               rewrite fin_maps.delete_notin; auto. 
+               rewrite fin_maps.delete_notin; auto.
             -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.

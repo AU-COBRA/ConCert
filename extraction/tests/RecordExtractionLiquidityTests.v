@@ -15,7 +15,7 @@ Definition TT_defs :=
     remap <%% nat %%> "nat"
   ].
 
-Definition unwrap_sum {A} (s : A + A ) : A :=
+Definition unwrap_sum {A} (s : A + A) : A :=
   match s with
   | inl v | inr v => v
   end.

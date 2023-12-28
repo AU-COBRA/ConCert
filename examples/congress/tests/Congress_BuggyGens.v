@@ -89,7 +89,7 @@ Definition try_gNewOwner state calling_addr contract_addr : GOpt Address :=
     (gCongressMember_without_caller state calling_addr contract_addr).
 
 Definition validate_addr (a : Address) : GOpt (address_is_contract a = false) :=
-  match (Bool.bool_dec (address_is_contract a) true ) with
+  match (Bool.bool_dec (address_is_contract a) true) with
   | left _ => returnGen None
   | right p => returnGenSome (Bool.not_true_is_false _ p)
   end.
@@ -192,10 +192,10 @@ Fixpoint GCongressAction (env : Environment)
          - contract with a proposal and members must exist
          - only members which have not already voted can vote again *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        call vote_for_proposal ) ;
+                        call vote_for_proposal) ;
       (* vote_against_proposal *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        call vote_against_proposal ) ;
+                        call vote_against_proposal) ;
       (* retract_vote *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_with_votes congress_state)
                         call retract_vote) ;

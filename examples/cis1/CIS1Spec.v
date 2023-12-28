@@ -424,7 +424,7 @@ the given token type between balances. *)
          (params : CIS1_balanceOf_params)
          (prev_st next_st : Storage)
          (ret_ops : list ActionBody) : Prop :=
-    { balanceOf_operators_preserved:
+    { balanceOf_operators_preserved :
       forall addr, get_operators next_st addr = get_operators prev_st addr;
 
       balanceOf_token_ids_preserved :
@@ -765,7 +765,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   #[export]
   Hint Resolve in_owners_or_zero_balance_default get_owners_no_dup : hints.
 
-  Lemma get_balance_total_get_balance_default `{ChainBase} st token_id p owner:
+  Lemma get_balance_total_get_balance_default `{ChainBase} st token_id p owner :
     get_balance_total st token_id p owner = get_balance_default st token_id owner.
   Proof.
     unfold get_balance_total, get_balance_default, get_balance. rewrite p. cbn.

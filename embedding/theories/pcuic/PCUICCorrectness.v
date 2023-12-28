@@ -365,7 +365,7 @@ Proof.
         assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
         inversion Hok_constr; subst; clear Hok_constr.
 
-        remember (map (map_decl (subst_instance [])) _ ) as g.
+        remember (map (map_decl (subst_instance [])) _) as g.
         rewrite <- map_combine_snd_funprod in Heqg.
         rewrite All_map_id in Heqg by
             (apply All_subst_instance_type_to_term; eauto with hints;
@@ -396,7 +396,7 @@ Proof.
         change (reln [] 0 g) with (to_extended_list_k g 0).
         rewrite <- PCUICSubstitution.to_extended_list_k_map_subst by lia.
 
-        specialize (find_forallb_map _ Hfnd HH ) as Hclosed_t2; cbn in Hclosed_t2.
+        specialize (find_forallb_map _ Hfnd HH) as Hclosed_t2; cbn in Hclosed_t2.
 
         erewrite PCUICInstConv.subst_id with (s := rev (_)); eauto.
         2: { rewrite rev_length. rewrite to_extended_list_k_length. rewrite Hvass_eq.

@@ -296,7 +296,7 @@ Proof.
 Qed.
 
 Local Open Scope nat.
-Lemma lookup_map_sum_map_leq m k z:
+Lemma lookup_map_sum_map_leq m k z :
   map_forallb (Z.leb 0) m ->
   lookup_map m k = Some z ->
   (z <= sum_map m)%Z.
@@ -364,7 +364,7 @@ Proof.
     intros; lia.
 Qed.
 
-Lemma cf_transfer_cases {sch sctx msg init fin acts}:
+Lemma cf_transfer_cases {sch sctx msg init fin acts} :
   map_forallb (Z.leb 0) (donations_coq init) ->
   consistent_balance init ->
   Receive.receive sch sctx msg init = Some (fin, acts) ->
@@ -400,7 +400,7 @@ Local Open Scope Z.
 #[local]
 Hint Resolve cf_balance_consistent crowfunding_donations_non_negative : core.
 (** ** The actual contract balance is consistent with the local state *)
-Theorem cf_backed bstate cf_addr lstate:
+Theorem cf_backed bstate cf_addr lstate :
   let acts := chain_state_queue bstate in
   reachable bstate ->
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->

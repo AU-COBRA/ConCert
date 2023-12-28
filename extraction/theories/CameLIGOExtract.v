@@ -439,7 +439,7 @@ Definition CameLIGO_extract_single `{ChainBase} {A}
            (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
-           (harness: String.string)
+           (harness : String.string)
            (def : A) : TemplateMonad String.string :=
   '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
   let seeds := KernameSetProp.of_list [def_nm] in
@@ -451,7 +451,7 @@ Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
-           (harness: String.string)
+           (harness : String.string)
            (def : A) : TemplateMonad String.string :=
     '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
     let seeds := KernameSetProp.of_list [def_nm] in

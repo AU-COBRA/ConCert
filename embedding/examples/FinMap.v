@@ -70,7 +70,7 @@ MetaCoq Run
       (mkNames "" ["A"; "B"; "C"; "f"; "a";
                    "b"; "c"; "m"; "n"; "k";
                    "v"; "w"; "x"; "y"; "z";
-                   "lookup"; "add" ] "_coq").
+                   "lookup"; "add"] "_coq").
 
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,

@@ -940,24 +940,24 @@ Section PPLigo.
     <$
     "[@inline] let addTez (n : tez) (m : tez) = n + m" ;
     "[@inline] let subTez (n : tez) (m : tez) : tez option = n - m" ;
-    "[@inline] let leTez (a : tez ) (b : tez ) = a <= b" ;
-    "[@inline] let ltTez (a : tez ) (b : tez ) = a < b" ;
-    "[@inline] let gtbTez (a : tez ) (b : tez ) = a > b" ;
-    "[@inline] let eqTez (a : tez ) (b : tez ) = a = b" ;
-    "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez" ;
+    "[@inline] let leTez (a : tez) (b : tez) = a <= b" ;
+    "[@inline] let ltTez (a : tez) (b : tez) = a < b" ;
+    "[@inline] let gtbTez (a : tez) (b : tez) = a > b" ;
+    "[@inline] let eqTez (a : tez) (b : tez) = a = b" ;
+    "[@inline] let natural_to_mutez (a: nat) : tez = a * 1mutez" ;
     "[@inline] let divTez (a : tez) (b : tez) : tez = natural_to_mutez (a/b)" ;
     "[@inline] let multTez (n : tez) (m : tez) = (n/1tez) * m";
     "[@inline] let evenTez (i : tez) = (i mod 2n) = 0tez"
     $>.
   Definition nat_ops :=
     <$
-    "[@inline] let addN (a : nat ) (b : nat ) = a + b" ;
-    "[@inline] let multN (a : nat ) (b : nat ) = a * b" ;
-    "[@inline] let modN (a : nat ) (b : nat ) = a mod b" ;
-    "[@inline] let divN (a : nat ) (b : nat ) = a / b" ;
-    "[@inline] let eqN (a : nat ) (b : nat ) = a = b" ;
-    "[@inline] let lebN (a : nat ) (b : nat ) = a <= b" ;
-    "[@inline] let ltbN (a : nat ) (b : nat ) = a < b";
+    "[@inline] let addN (a : nat) (b : nat) = a + b" ;
+    "[@inline] let multN (a : nat) (b : nat) = a * b" ;
+    "[@inline] let modN (a : nat) (b : nat) = a mod b" ;
+    "[@inline] let divN (a : nat) (b : nat) = a / b" ;
+    "[@inline] let eqN (a : nat) (b : nat) = a = b" ;
+    "[@inline] let lebN (a : nat) (b : nat) = a <= b" ;
+    "[@inline] let ltbN (a : nat) (b : nat) = a < b";
     "let divN_opt (n : nat) (m : nat) : nat option = match ediv n m with | Some (q,_) -> Some q | None -> None";
     "let moduloN (n : nat) (m : nat) : nat = match ediv n m with | Some (_,r) -> r | None -> 0n";
     "let subOption (n : nat) (m : nat) : nat option = if n < m then None else Some (abs (n-m))";
@@ -967,8 +967,8 @@ Section PPLigo.
 
   Definition bool_ops :=
     <$
-    "[@inline] let andb (a : bool ) (b : bool ) = a && b" ;
-    "[@inline] let orb (a : bool ) (b : bool ) = a || b"
+    "[@inline] let andb (a : bool) (b : bool) = a && b" ;
+    "[@inline] let orb (a : bool) (b : bool) = a || b"
     $>.
 
   Definition time_ops :=
@@ -1035,8 +1035,8 @@ Section PPLigo.
   ; "}"
   ; ""
   ; "(* chain projections as functions *)"
-  ; "let chain_height (c : chain ) = c.chain_height_"
-  ; "let current_slot (c : chain ) = c.current_slot_"
+  ; "let chain_height (c : chain) = c.chain_height_"
+  ; "let current_slot (c : chain) = c.current_slot_"
   ; "let finalized_height (c : chain) = c.finalized_height_"
   $>.
 

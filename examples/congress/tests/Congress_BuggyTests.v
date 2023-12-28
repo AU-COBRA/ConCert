@@ -73,7 +73,7 @@ Definition forAllCongressChainTraces n :=
 
 Definition pre_post_assertion_congress P c Q :=
   pre_post_assertion 2 (snd unpacked_exploit_example) (gCongressChain 1) Congress_Buggy.contract c P Q.
-Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) ( at level 50). *)
+Notation "{{ P }} c {{ Q }}" := (pre_post_assertion_congress P c Q) (at level 50). *)
 
 Local Close Scope Z_scope.
 

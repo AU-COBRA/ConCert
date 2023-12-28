@@ -61,7 +61,8 @@ Instance showMsg : Show Msg :=
   show := string_of_Msg 20
 |}.
 
-(* TODO: fix printing for msg of type SerializedValue such that it works whenever it is serialized from type Msg *)
+(* TODO: fix printing for msg of type SerializedValue such that
+   it works whenever it is serialized from type Msg *)
 #[export]
 Instance showCongressAction : Show CongressAction :=
 {|

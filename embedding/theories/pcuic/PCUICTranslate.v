@@ -381,10 +381,10 @@ Module StdLib.
                         (in custom expr at level 0).
   Notation "a <= b" := [| {eConst (to_string_name <% Nat.leb %>)} {a} {b} |]
                         (in custom expr at level 0).
-  Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
-  Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
-  Notation "0" := [| Zero |] ( in custom expr at level 0).
-  Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
+  Notation "'Zero'" := (eConstr Nat "Z") (in custom expr at level 0).
+  Notation "'Suc'" := (eConstr Nat "Suc") (in custom expr at level 0).
+  Notation "0" := [| Zero |] (in custom expr at level 0).
+  Notation "1" := [| Suc Zero |] (in custom expr at level 0).
 
   Notation "'Zero'" := (pConstr "Z" [])
                   (in custom pat at level 0).
@@ -401,7 +401,7 @@ Module StdLib.
   Definition true_name := "true".
   Definition false_name := "false".
   Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
-  Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
+  Notation "'False'" := (pConstr false_name []) (in custom pat at level 0).
 
   Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
   Notation "'Cons' y z" := (pConstr "cons" [y; z])
@@ -411,7 +411,7 @@ Module StdLib.
 
 
   Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
-  Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
+  Notation "'False'" := (eConstr Bool false_name) (in custom expr at level 0).
 
   Notation "'star'" :=
     (eConstr Unit "Coq.Init.Datatypes.tt")

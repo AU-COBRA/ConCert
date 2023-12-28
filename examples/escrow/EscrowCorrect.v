@@ -179,7 +179,7 @@ Section Theories.
 
       | withdrawals =>
         buyer_confirmed inc_calls buyer_addr = true /\
-        (exists origin, filter (fun c => negb (call_amount c =? 0)%Z ) inc_calls =
+        (exists origin, filter (fun c => negb (call_amount c =? 0)%Z) inc_calls =
         [build_call_info origin buyer_addr (2 * item_worth) (Some commit_money)]) /\
         money_to trace caddr seller_addr + seller_withdrawable cstate = 3 * item_worth /\
         money_to trace caddr buyer_addr + buyer_withdrawable cstate = 1 * item_worth

@@ -39,7 +39,7 @@ Fixpoint build_prefix_table_ty (ty : type) (deps : env string) (p : string) : en
 
 Open Scope list.
 
-Definition build_prefix_table_gd (gd : global_dec) (deps : env string) (p : string): env string :=
+Definition build_prefix_table_gd (gd : global_dec) (deps : env string) (p : string) : env string :=
   match gd with
   | gdInd nm i ctors b =>
     concat (map (fun '(_,tys) => concat (map (fun '(_,ty) => build_prefix_table_ty ty deps p) tys)) ctors)

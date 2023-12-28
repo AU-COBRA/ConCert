@@ -258,7 +258,7 @@ Module FMap.
       - apply fin_maps.delete_idemp.
     Qed.
 
-    Lemma find_update_ne : forall (key1 key2 : K) (n: option V) (map : FMap K V),
+    Lemma find_update_ne : forall (key1 key2 : K) (n : option V) (map : FMap K V),
       key1 <> key2 ->
       FMap.find key1 (update key2 n map) =
       FMap.find key1 map.

@@ -80,7 +80,7 @@ Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr as L eqn:x
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr as L eqn:x
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr as L eqn:x
   end.
 
 Tactic Notation "destruct_match"
@@ -88,7 +88,7 @@ Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr as L
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr as L
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr as L
   end.
 
 Tactic Notation "destruct_match"
@@ -96,14 +96,14 @@ Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr eqn:x
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr eqn:x
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr eqn:x
   end.
 
 Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr
   end.
 
 Tactic Notation "destruct_match"
@@ -111,7 +111,7 @@ Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr as L
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr as L
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr as L
   end.
 
 Tactic Notation "destruct_match"
@@ -119,38 +119,38 @@ Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr eqn:x
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr eqn:x
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr eqn:x
   end.
 
 Tactic Notation "destruct_match"
        "in" "*" :=
   match goal with
   | [|- context [ match ?expr with _ => _ end ] ] => destruct expr
-  | [H: context [ match ?expr with _ => _ end ] |- _ ] => destruct expr
+  | [H: context [ match ?expr with _ => _ end ] |- _] => destruct expr
   end.
 
 Tactic Notation "destruct_match"
        "as" simple_intropattern(L)
        "eqn" ":" ident(x) :=
   match goal with
-  | [|- context [ match ?expr with _ => _ end ] ] => destruct expr as L eqn:x
+  | [|- context [ match ?expr with _ => _ end ]] => destruct expr as L eqn:x
   end.
 
 Tactic Notation "destruct_match"
        "as" simple_intropattern(L) :=
   match goal with
-  | [|- context [ match ?expr with _ => _ end ] ] => destruct expr as L
+  | [|- context [ match ?expr with _ => _ end ]] => destruct expr as L
   end.
 
 Tactic Notation "destruct_match"
        "eqn" ":" ident(x) :=
   match goal with
-  | [|- context [ match ?expr with _ => _ end ] ] => destruct expr eqn:x
+  | [|- context [ match ?expr with _ => _ end ]] => destruct expr eqn:x
   end.
 
 Tactic Notation "destruct_match" :=
   match goal with
-  | [|- context [ match ?expr with _ => _ end ] ] => destruct expr
+  | [|- context [ match ?expr with _ => _ end ]] => destruct expr
   end.
 
 Tactic Notation "destruct_match"
@@ -158,7 +158,7 @@ Tactic Notation "destruct_match"
        "eqn" ":" ident(x)
        "in" hyp(H) :=
   match goal with
-  | [H': context [ match ?expr with _ => _ end ] |- _ ] =>
+  | [H': context [ match ?expr with _ => _ end ] |- _] =>
     match H' with H => destruct expr as L eqn:x
     end
   end.
@@ -167,7 +167,7 @@ Tactic Notation "destruct_match"
        "as" simple_intropattern(L)
        "in" hyp(H) :=
   match goal with
-  | [H': context [ match ?expr with _ => _ end ] |- _ ] =>
+  | [H': context [ match ?expr with _ => _ end ] |- _] =>
     match H' with H => destruct expr as L end
   end.
 
@@ -175,14 +175,14 @@ Tactic Notation "destruct_match"
        "eqn" ":" ident(x)
        "in" hyp(H) :=
   match goal with
-  | [H': context [ match ?expr with _ => _ end ] |- _ ] =>
+  | [H': context [ match ?expr with _ => _ end ] |- _] =>
     match H' with H => destruct expr eqn:x end
   end.
 
 Tactic Notation "destruct_match"
        "in" hyp(H) :=
   match goal with
-  | [H': context [ match ?expr with _ => _ end ] |- _ ] =>
+  | [H': context [ match ?expr with _ => _ end ] |- _] =>
     match H' with H => destruct expr
     end
   end.

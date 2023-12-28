@@ -139,7 +139,7 @@ Definition is_app (e : expr) : bool :=
   end.
 
 
-Lemma mkApps_vars_to_apps l: forall (Σ : global_env) e,
+Lemma mkApps_vars_to_apps l : forall (Σ : global_env) e,
     P.mkApps (t⟦e⟧Σ) (map (expr_to_term Σ) l) =
     t⟦ vars_to_apps e l ⟧ Σ.
 Proof.
@@ -213,7 +213,7 @@ Proof.
     rewrite mkApps_unfold. now f_equal.
 Qed.
 
-Lemma decompose_inductive_value:
+Lemma decompose_inductive_value :
   forall Σ (t1 : type) (args : list type) ind,
     PcbvCurr.value Σ (type_to_term t1) ->
     decompose_inductive t1 = Some (ind, args) ->
@@ -575,7 +575,7 @@ Qed.
 #[export] Hint Resolve <- closed_mkApps : hints.
 #[export] Hint Resolve -> closed_mkApps : hints.
 
-Lemma genv_ok_constrs_ok Σ ind cs nparam:
+Lemma genv_ok_constrs_ok Σ ind cs nparam :
   genv_ok Σ ->
   resolve_inductive Σ ind = Some (nparam, cs) ->
   forallb (constr_ok nparam) cs.
@@ -638,7 +638,7 @@ Proof.
       eauto with hints.
 Qed.
 
-Lemma expr_closed_term_closed e n Σ:
+Lemma expr_closed_term_closed e n Σ :
   genv_ok Σ ->
   iclosed_n n e = true -> closedn n (t⟦e⟧Σ) = true.
 Proof.
@@ -735,10 +735,10 @@ Qed.
 #[export] Hint Constructors val_ok Forall : hints.
 #[export] Hint Unfold snd env_ok AllEnv compose : hints.
 
-#[export] Hint Resolve subst_env_iclosed_n_inv subst_env_iclosed_0_inv: hints.
+#[export] Hint Resolve subst_env_iclosed_n_inv subst_env_iclosed_0_inv : hints.
 #[export] Hint Resolve subst_env_iclosed_n subst_env_iclosed_0 : hints.
 
-Lemma option_to_res_ok {A} (o : option A) s v:
+Lemma option_to_res_ok {A} (o : option A) s v :
   option_to_res o s = Ok v ->
   o = Some v.
 Proof.
@@ -814,7 +814,7 @@ Proof.
   apply type_to_term_map_par_rec with (ρ := [(nm,e0)]); cbn; propify; eauto.
 Qed.
 
-Lemma subst_term_subst_env_rec e e0:
+Lemma subst_term_subst_env_rec e e0 :
   forall Σ n nm,
   genv_ok Σ ->
   ty_expr_env_ok (nil # [nm ~> e0]) n e ->
@@ -904,7 +904,7 @@ Proof.
              (p2 := (fun x => pName (fst x) =? s)%string)
              (f := fun x => ((fst x), (snd x){#|pVars (fst x)|+n1 := t⟦ e0 ⟧ Σ})) in Hfnd; auto.
          rewrite map_map in Hfnd. simpl in Hfnd. unfold fun_prod,id. simpl.
-         assert ( Hmap :
+         assert (Hmap :
                     (map (fun x => (id (fst x), (t⟦snd x⟧ Σ) {#|pVars (fst x)|+n1 := t⟦e0⟧ Σ})) l) =
                     (map (fun x => (fst x, t⟦(snd x) .[[(nm,e0)]](#|pVars (fst x)| + n1) ⟧ Σ)) l)).
          { eapply forall_map_spec'. apply H. intros a Hin' Ha. f_equal.
@@ -1057,7 +1057,7 @@ Qed.
 #[export] Hint Resolve subst_env_ty_compose_1 : hints.
 
 Lemma subst_env_compose_1 :
-  forall (nm : Ast.ename) (e e1: expr) k (ρ : env expr),
+  forall (nm : Ast.ename) (e e1 : expr) k (ρ : env expr),
     All (fun x => iclosed_n 0 (snd x) = true) ρ ->
     iclosed_n 0 e1 = true ->
     e.[ρ # [nm ~> e1]]k =
@@ -1103,7 +1103,7 @@ Proof.
 Qed.
 
 Lemma subst_env_swap_app :
-  forall (e: expr) (ρ1 ρ2 : env expr) n,
+  forall (e : expr) (ρ1 ρ2 : env expr) n,
     All (fun x => iclosed_n 0 (snd x) = true) ρ1 ->
     All (fun x => iclosed_n 0 (snd x) = true) ρ2 ->
     (e.[ρ1](n+#|ρ2|)).[ρ2]n = e.[ρ2++ρ1]n.
@@ -1125,7 +1125,7 @@ Qed.
 (* TODO: this should be an instance of a more general lemma, and
    we will restate this in terms of parallel substitutions *)
 Lemma subst_env_compose_2 :
-  forall (nm1 nm2 : ename) (e e1 e2: expr) (ρ : env expr),
+  forall (nm1 nm2 : ename) (e e1 e2 : expr) (ρ : env expr),
     All (fun x => iclosed_n 0 (snd x) = true) ρ ->
     iclosed_n 0 e1 = true ->
     iclosed_n 0 e2 = true ->
@@ -1136,7 +1136,7 @@ Proof.
   symmetry. eapply subst_env_swap_app; eauto.
 Qed.
 
-#[local] Remove Hints iclosed_n_geq: hints.
+#[local] Remove Hints iclosed_n_geq : hints.
 #[local] Remove Hints Bool.absurd_eq_true : core.
 
 Open Scope nat.
@@ -1490,7 +1490,7 @@ Proof.
 Qed.
 
 
-Lemma val_ok_ge_val_ok Σ v:
+Lemma val_ok_ge_val_ok Σ v :
   val_ok Σ v -> ge_val_ok Σ v.
 Proof.
   induction v using val_elim_full; intros Hok.
@@ -1574,7 +1574,7 @@ Proof.
       destruct (eval_type_i 0 ρ _) eqn:Hty; tryfalse; simpl in *.
       unfold is_true; repeat rewrite Bool.andb_true_iff in *.
       assert (ty_expr_env_ok (exprs (ρ # [e1 ~> v])) 0 e3 = true) by
-             (destruct Hc as [[? ?] ?]; repeat split; eauto with hints; eapply IHn; eauto ).
+             (destruct Hc as [[? ?] ?]; repeat split; eauto with hints; eapply IHn; eauto).
       simpl in H. destruct Hc as [[? ?] ?].
       repeat split.
       ** eapply IHn; eauto.
@@ -1853,7 +1853,7 @@ Proof.
     auto with all funelim.
 Qed.
 
-Lemma mkApps_constr_inv ind l1 l2 n1 n2 u1 u2:
+Lemma mkApps_constr_inv ind l1 l2 n1 n2 u1 u2 :
   mkApps (tConstruct ind n1 u1) l1 = mkApps (tConstruct ind n2 u2) l2 ->
   l1 = l2 /\ n1 = n2 /\ u1 = u2.
 Proof.
@@ -1862,7 +1862,7 @@ Proof.
   now destruct_and_split.
 Qed.
 
-Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p:
+Lemma nth_error_map_exists {A B} (f : A -> B) (l : list A) n p :
   nth_error (map f l) n = Some p ->
   exists p0 : A, p = f p0.
 Proof.
@@ -1917,7 +1917,7 @@ Definition not_stuck : term -> bool :=
 
 #[export] Hint Resolve PcbvCurr.value_final : hints.
 
-Lemma vars_to_apps_constr_not_lambda ind cn l Σ:
+Lemma vars_to_apps_constr_not_lambda ind cn l Σ :
   ~~ isLambda (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using MCList.rev_ind.
@@ -1925,7 +1925,7 @@ Proof.
   + simpl. now simpl_vars_to_apps.
 Qed.
 
-Lemma vars_to_apps_constr_not_fix_app ind cn l Σ:
+Lemma vars_to_apps_constr_not_fix_app ind cn l Σ :
   ~~ PcbvCurr.isFixApp (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using MCList.rev_ind.
@@ -1935,7 +1935,7 @@ Proof.
     now rewrite PcbvCurr.head_mkApps; destruct (resolve_constr Σ ind cn).
 Qed.
 
-Lemma vars_to_apps_constr_not_arity ind cn l Σ:
+Lemma vars_to_apps_constr_not_arity ind cn l Σ :
   ~~ PcbvCurr.isArityHead (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
   destruct l using MCList.rev_ind.
@@ -1957,7 +1957,7 @@ Qed.
 
 #[export] Hint Constructors All2 : hints.
 
-Lemma All_value_of_val:
+Lemma All_value_of_val :
   forall (Σ1 : global_env) Σ2 (Hsync : Σ1 ⋈ Σ2)
     (l : list val),
     All (val_ok Σ1) l -> All (fun v : val => PcbvCurr.value Σ2 (t⟦ of_val_i v ⟧ Σ1)) l.
@@ -1967,7 +1967,7 @@ Proof.
   intros. eapply Wcbv_of_value_value; eauto with hints.
 Qed.
 
-Lemma All_expr_iclosed_of_val:
+Lemma All_expr_iclosed_of_val :
   forall (Σ1 : global_env) (l0 : list val),
     All (val_ok Σ1) l0 -> All (fun x : val => iclosed_n 0 (of_val_i x)) l0.
 Proof.
@@ -1976,7 +1976,7 @@ Proof.
 Qed.
 
 
-Lemma All_term_closed_of_val:
+Lemma All_term_closed_of_val :
   forall (Σ1 : global_env) (l0 : list val),
     genv_ok Σ1 ->
     All (val_ok Σ1) l0 -> All (fun x : val => closed (t⟦ of_val_i x ⟧ Σ1)) l0.

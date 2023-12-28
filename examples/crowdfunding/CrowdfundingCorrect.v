@@ -74,7 +74,7 @@ Module CrowdfundingProperties.
     destruct msg;
       simpl;
       (match goal with
-       | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+       | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
        end); eauto.
   Qed.
 
@@ -92,7 +92,7 @@ Module CrowdfundingProperties.
              (post : State_coq -> list SimpleActionBody_coq -> Prop) :=
     forall init, pre init -> exists fin out, run entry init = (fin, out) /\ post fin out.
 
-  Notation "{{ P }} c {{ Q }}" := (assertion P c Q)( at level 50).
+  Notation "{{ P }} c {{ Q }}" := (assertion P c Q) (at level 50).
 
 
   (** The donations can be paid back to the backers if the goal is not
@@ -284,7 +284,7 @@ Module CrowdfundingProperties.
       destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
       ** (* it is not possible to get funds before the deadline, so the state is not modified *)
          (match goal with
-          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
           end); eauto; repeat eexists; simpl in *; intros;
            destruct (_ <? _); tryfalse.
       ** destruct (_ <? _); tryfalse. rewrite Bool.andb_false_r. simpl.
@@ -296,7 +296,7 @@ Module CrowdfundingProperties.
       destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
       ** (* it is not possible to get funds before the deadline, so the state is not modified *)
          (match goal with
-          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
           end);
           simpl in *; try destruct (lookup_map _ _); repeat eexists; eauto; intros; destruct (_ <? _); tryfalse.
       ** destruct (_ <? _); tryfalse. rewrite Bool.andb_false_l. simpl.
@@ -335,7 +335,7 @@ Module CrowdfundingProperties.
       unfold consistent_balance in *.
       unfold run. simpl.
          (match goal with
-          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
           end); eauto; repeat eexists; simpl in *; intros;
            destruct (_ <? _); tryfalse.
     + (* Claim *)
@@ -346,7 +346,7 @@ Module CrowdfundingProperties.
       * rewrite Bool.andb_false_r. repeat eexists; eauto.
         intros. destruct (done_coq _); tryfalse.
       * (match goal with
-         | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+         | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
          end);
           simpl in *; try destruct (lookup_map _ _) eqn:Hlook; repeat eexists; eauto; intros; destruct (_ <? _); tryfalse.
         cbn. now apply sum_map_sub_in.
@@ -439,14 +439,14 @@ Module CrowdfundingProperties.
       unfold donations_non_neg in *.
       unfold run. simpl.
          (match goal with
-          | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+          | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
           end); eauto; repeat eexists; simpl in *; intros;
            destruct (_ <? _); tryfalse.
     + (* Claim *)
       unfold donations_non_neg in *.
       unfold run. simpl.
       (match goal with
-         | [ |- context[(if ?x then _ else _ )] ] => destruct x eqn:Hx
+         | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
        end);
         simpl in *; try destruct (lookup_map _ _) eqn:Hlook; repeat eexists; eauto.
       simpl. now apply non_neg_add_0.
@@ -474,13 +474,13 @@ Module CrowdfundingProperties.
     destruct H as [Hfunded [Hown Hbalance]]. unfold funded,goal_reached,deadline_passed in *.
     subst. simpl in *.
     unfold run. simpl in *. subst OwnerAddr. eexists. eexists.
-    destruct (_ <? _); tryfalse. destruct ( _ =? _); tryfalse. simpl in *.
+    destruct (_ <? _); tryfalse. destruct (_ =? _); tryfalse. simpl in *.
     destruct (_ <=? _)%Z; tryfalse. repeat split; eauto.
     now constructor.
   Qed.
 
   (** Backers cannot claim their money if the campaign have succeeded (but owner haven't claimed the money yet, so the "done" flag is not set to [true]) *)
-  Lemma no_claim_if_succeeded BC CallCtx the_state:
+  Lemma no_claim_if_succeeded BC CallCtx the_state :
     {{ fun init =>
          funded BC.(Current_slot) init
          /\ ~~ init.(done_coq)

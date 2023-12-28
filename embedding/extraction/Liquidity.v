@@ -30,7 +30,7 @@ Record LiquidityModule :=
     init : expr;
     (* the [main] function must be of type
        message * storage -> option (list SimpleActionBody * storage) *)
-    main: string;
+    main : string;
     (* extra arguments to the main function for using in the wrapper;
        note that two mandatory arguments (MSG_ARG : message) and (STORAGE_ARG : storage)
        should not be the list *)
@@ -159,7 +159,7 @@ Definition isFalsePat (p : pat) :=
 (** We assume that before printing the Liquidity code
     [erase] has been applied to the expression *)
 
-Definition liquidify (TT TTty : env string ) : expr -> string :=
+Definition liquidify (TT TTty : env string) : expr -> string :=
   fix go (e : expr) : string :=
   match e with
   | eRel _ => "Error : indices are not supported"
@@ -253,17 +253,17 @@ Definition LiquidityPrelude :=
     ++ newLine
     ++ "let[@inline] addTez (n : tez) (m : tez) = n + m"
     ++ newLine
-    ++ "let[@inline] andb (a : bool ) (b : bool ) = a & b"
+    ++ "let[@inline] andb (a : bool) (b : bool) = a & b"
     ++ newLine
-    ++ "let[@inline] eqTez (a : tez ) (b : tez ) = a = b"
+    ++ "let[@inline] eqTez (a : tez) (b : tez) = a = b"
     ++ newLine
-    ++ "let[@inline] lebN (a : nat ) (b : nat ) = a <= b"
+    ++ "let[@inline] lebN (a : nat) (b : nat) = a <= b"
     ++ newLine
-    ++ "let[@inline] ltbN (a : nat ) (b : nat ) = a < b"
+    ++ "let[@inline] ltbN (a : nat) (b : nat) = a < b"
     ++ newLine
-    ++ "let[@inline] lebTez (a : tez ) (b : tez ) = a<=b"
+    ++ "let[@inline] lebTez (a : tez) (b : tez) = a<=b"
     ++ newLine
-    ++ "let[@inline] ltbTez (a : tez ) (b : tez ) = a<b"
+    ++ "let[@inline] ltbTez (a : tez) (b : tez) = a<b"
     ++ newLine
     ++ "let[@inline] eqb_addr (a1 : address) (a2 : address) = a1 = a2"
     ++ newLine
@@ -282,8 +282,8 @@ Definition printWrapperBody (f_call : string) :=
     ++ "| None -> failwith ()".
 
 
-Definition printWrapper (TTty: env string) (msgTy : type) (storageTy : type)
-           (extra_args : list string) (contract : string): string :=
+Definition printWrapper (TTty : env string) (msgTy : type) (storageTy : type)
+           (extra_args : list string) (contract : string) : string :=
   let mainDomainType :=
       inParens (ofType MSG_ARG (liquidifyTy TTty msgTy))
                ++ inParens (ofType "st" (liquidifyTy TTty storageTy)) in
@@ -304,11 +304,11 @@ Definition print_glob TT TTty (def_clause : string) (def_name : string)
 Definition simpleCallCtx :=
   "(Current.time (), (Current.sender (), (Current.amount (), Current.balance ())))".
 
-Definition printLiqDef (TT TTty: env string) (def_name : string) (e : expr) :=
+Definition printLiqDef (TT TTty : env string) (def_name : string) (e : expr) :=
   print_glob TT TTty "let" def_name (to_glob_def (erase e)).
 
 
-Definition printLiqInit (TT TTty: env string) (def_name : string) (e : expr) :=
+Definition printLiqInit (TT TTty : env string) (def_name : string) (e : expr) :=
   let (args, body) := to_glob_def (erase e) in
   (** We expect that the last parameter of the [init] is _always_ the simple call context [CallCtx] *)
   let init_params := firstn (List.length args - 1) args in
@@ -316,13 +316,13 @@ Definition printLiqInit (TT TTty: env string) (def_name : string) (e : expr) :=
              ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) init_params)
              ++ " = " ++ newLine
              (* FIXME: this is currently a workaround, since [init] cannot refer to any global definition *)
-             ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
+             ++ "let eqTez (a : tez) (b : tez) = a = b in"
              ++ newLine
              ++ printLiqDef TT TTty "f" e ++ newLine
              ++ "in" ++ newLine
              ++ printWrapperBody ("f " ++ sep " " (map fst init_params) ++ " " ++ simpleCallCtx).
 
-Definition liquidifyModule (TT TTty: env string) (module : LiquidityModule) :=
+Definition liquidifyModule (TT TTty : env string) (module : LiquidityModule) :=
   let dt := sep newLine (map (liquidifyInductive TTty) module.(datatypes)) in
   let st := liquidifyTy TTty module.(storage) in
   let fs := sep (newLine ++ newLine) (map (fun '(defName, body) => printLiqDef TT TTty defName body) module.(functions)) in

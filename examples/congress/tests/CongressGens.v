@@ -177,10 +177,10 @@ Fixpoint GCongressAction (env : Environment)
          - contract with a proposal and members must exist
          - only members which have not already voted can vote again *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        call vote_for_proposal ) ;
+                        call vote_for_proposal) ;
       (* vote_against_proposal *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_new_voters congress_state)
-                        call vote_against_proposal ) ;
+                        call vote_against_proposal) ;
       (* retract_vote *)
       (2, vote_proposal caddr (lc_contract_members_and_proposals_with_votes congress_state)
                         call retract_vote) ;
@@ -208,7 +208,7 @@ Fixpoint GCongressAction (env : Environment)
       | act_call caddr amount msg =>
         member <-- elems_opt members ;;
         let ca := cact_call caddr amount msg in
-        returnGenSome ( act)
+        returnGenSome (act)
         (* call caddr member (create_proposal [ca]) *)
       | _ => returnGenSome act
       end)
