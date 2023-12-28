@@ -114,7 +114,6 @@ Module Dexter2Extraction.
       (* NOTE: printed as local [let]-bound definitions in the init *)
       lmd_init_prelude := "";
 
-      (* TODO: maybe not needed, [lmd_prelude] should be enough *)
       lmd_receive_prelude := "";
 
       (* the main functionality *)

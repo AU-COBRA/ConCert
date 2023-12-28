@@ -315,7 +315,7 @@ Definition printLiqInit (TT TTty : env string) (def_name : string) (e : expr) :=
   "let%init" ++ " " ++ "storage "
              ++ sep " " (map (fun p => inParens (ofType (fst p) (liquidifyTy TTty (snd p)))) init_params)
              ++ " = " ++ newLine
-             (* FIXME: this is currently a workaround, since [init] cannot refer to any global definition *)
+             (* TODO: this is currently a workaround, since [init] cannot refer to any global definition *)
              ++ "let eqTez (a : tez) (b : tez) = a = b in"
              ++ newLine
              ++ printLiqDef TT TTty "f" e ++ newLine

@@ -617,7 +617,7 @@ Section PPTerm.
       let cst_name := string_of_kername c in
       let nm_tt := with_default (print_const_name c) (look TT cst_name) in
       (* NOTE: empty maps require type annotations *)
-      (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
+      (* TODO: this looks ad-hoc and should be controlled in remapping instead *)
       if (nm_tt =? "Map.empty") || (nm_tt =? "AddressMap.empty") then
         "(Map.empty: " ++ print_box_type ty_ctx TT bt ++ ")"
       else
@@ -629,7 +629,7 @@ Section PPTerm.
       | None =>
         let nm_tt := with_default (print_ctor_name (fst ind.(inductive_mind), bytestring.String.of_string nm)) (look TT nm) in
         (* NOTE: print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
-        (* FIXME: this looks ad-hoc and should be controlled in remapping instead *)
+        (* TODO: this looks ad-hoc and should be controlled in remapping instead *)
         if (uncapitalize nm =? "nil") && (eq_kername ind.(inductive_mind) <%% list %%>) then
         "([]:" ++ print_box_type ty_ctx TT bt ++ ")"
         else if ((nm =? "None") && (eq_kername ind.(inductive_mind) <%% option %%>)) ||

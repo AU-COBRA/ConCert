@@ -83,7 +83,7 @@ Set Printing Notations.
 
 (** Unquoting the definition of a record *)
 
-(* FIXME: disabled due to the issue with generating projections *)
+(* TODO: disabled due to the issue with generating projections *)
 (* MetaCoq Unquote Inductive (global_to_tc state_syn). *)
 
 (** As a result, we get a new Coq record [State_coq] *)
