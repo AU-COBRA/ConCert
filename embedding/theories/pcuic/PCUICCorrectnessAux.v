@@ -1,6 +1,7 @@
 (** * Auxiliary lemmas for the soundness proof. *)
 From MetaCoq.Utils Require Import MCList.
 From MetaCoq.Utils Require Import utils.
+From MetaCoq.Common Require Import config.
 From MetaCoq.PCUIC Require Import PCUICAst.
 From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
@@ -58,11 +59,11 @@ Notation "Σ |- t1 ⇓ t2 " := (PcbvCurr.eval Σ t1 t2) (at level 50).
     does if for inductives [trans_global_dec] and we use it precisely to unquote
     inductives.But it returns [mutual_inductive_entry] and we need
     [mutual_inductive_body] *)
-Definition genv_sync (Σ1 : list global_dec) (Σ2 : PCUICEnvironment.global_env ) :=
+Definition genv_sync (Σ1 : list global_dec) (Σ2 : PCUICEnvironment.global_env) :=
   forall ind_name c nparams i tys,
     resolve_constr Σ1 ind_name c = Some (nparams, i, tys) ->
     { x | let '(mib, oib, cb) := x in
-          declared_constructor Σ2 (mkInd (kername_of_string ind_name) 0, i) mib oib cb
+          declared_constructor_gen (lookup_env Σ2) (mkInd (kername_of_string ind_name) 0, i) mib oib cb
           /\ nparams = ind_npars mib /\ #|tys| = context_assumptions (cstr_args cb) (* same arities *)
     }.
 
@@ -176,11 +177,8 @@ Proof.
   + rewrite map_length. cbn in *.
     subst. rewrite H1 in *.
     econstructor; eauto.
-    Unshelve. admit. (* TODOM *)
-    (* unshelve eapply declared_constructor_to_gen; eauto. *)
-    admit.
   + now apply All_map.
-Admitted.
+Qed.
 
 Open Scope bool.
 

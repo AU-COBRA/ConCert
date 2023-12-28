@@ -126,7 +126,6 @@ Proof.
         repeat rewrite tApp_mkApps.
         rewrite <- mkApps_app.
         eapply PcbvCurr.eval_construct; eauto with hints.
-        unshelve eapply declared_constructor_to_gen; eauto; admit. (* TODOM *)
         assert (Hc : P.mkApps (tConstruct {| inductive_mind := kername_of_string i; inductive_ind := 0 |} n1 [])
     (map (expr_to_term Σ1) (map of_val_i l)) = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ1).
         { cbn. rewrite <- mkApps_vars_to_apps; cbn.
@@ -328,7 +327,6 @@ Proof.
       destruct H2 as [Hdctor?].
       eapply PcbvCurr.eval_iota; eauto.
       * now eapply map_nth_error.
-      * unshelve eapply declared_constructor_to_gen; eauto; admit. (* TODOM *)
       * cbn. rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
       * cbn.
         unfold etrans_branch.
@@ -544,7 +542,7 @@ Proof.
       erewrite eval_type_i_subst_env by eauto.
       eapply Wcvb_type_to_term_eval; eauto with hints.
       eapply closed_exprs; eauto.
-Admitted. (* TODOM *)
+Qed.
 
 (** ** Soundness for closed expressions (In the paper: Corollary 2)*)
 Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2
