@@ -22,7 +22,7 @@ Ltac insert_reduce :=
   match goal with
   | H : insert ?state ?ctx = _ |- _ =>
     unfold insert in H;
-    destruct (ctx_amount ctx <=? 0)%Z eqn:Epos in H; try discriminate;
+    destruct (ctx_amount ctx <? 0)%Z eqn:Epos in H; try discriminate;
     destruct (is_smashed state) eqn:Esmash in H; try discriminate
   end.
 
@@ -31,8 +31,7 @@ Ltac smash_reduce :=
   | H : smash ?state ?ctx = _ |- _ =>
     unfold smash in H;
     destruct (is_smashed state) eqn:Esmash in H; try discriminate;
-    destruct (address_neqb ctx.(ctx_from) state.(owner)) eqn:Eowner in H; try discriminate;
-    destruct (negb (ctx_amount ctx =? 0)%Z) eqn:Enonzero in H; try discriminate
+    destruct (address_neqb ctx.(ctx_from) state.(owner)) eqn:Eowner in H; try discriminate
   end.
 
 (** ** Functional properties *)
@@ -61,7 +60,7 @@ Section FunctionalProperties.
     smash prev_state ctx = Ok (next_state, acts) ->
     next_state.(piggyState) = Smashed /\
     next_state.(balance) = 0 /\
-    acts = [act_transfer prev_state.(owner) prev_state.(balance)].
+    acts = [act_transfer prev_state.(owner) (prev_state.(balance) + ctx.(ctx_amount))].
   Proof.
     intros Hsmash.
     smash_reduce.
@@ -77,14 +76,14 @@ Section FunctionalProperties.
     match msg with
       | Some Insert => acts = [] /\ Z.add ctx.(ctx_amount) prev_state.(balance) = next_state.(balance)
       | Some Smash => next_state.(piggyState) = Smashed /\ next_state.(balance) = 0
-                      /\ acts = [act_transfer prev_state.(owner) prev_state.(balance)]
+                      /\ acts = [act_transfer prev_state.(owner) (prev_state.(balance) + ctx.(ctx_amount))]
       | None => False
     end.
   Proof.
     intros Hreceive. unfold PiggyBank.receive in Hreceive.
     destruct msg; try discriminate.
     destruct m;
-    [apply insert_inserts_correct | apply smash_transfers_correctly with ctx];
+    [apply insert_inserts_correct | apply smash_transfers_correctly];
     apply Hreceive.
   Qed.
 End FunctionalProperties.
@@ -178,6 +177,7 @@ Section SafetyProperties.
     rewrite state_smashed. cbn.
     - destruct_match; eauto.
       destruct_match; eauto.
+      destruct_match; eauto.
     - eauto.
   Qed.
 
@@ -193,7 +193,7 @@ Section SafetyProperties.
     intros state_intact Hreceive.
     unfold PiggyBank.receive in Hreceive.
     destruct prev_state; cbn in *; rewrite state_intact in Hreceive.
-    destruct (ctx_amount ctx <=? 0) eqn:E; try discriminate.
+    destruct (ctx_amount ctx <? 0) eqn:E; try discriminate.
     inversion Hreceive; cbn; lia.
   Qed.
 
@@ -229,11 +229,11 @@ Section SafetyProperties.
     - lia.
     - unfold PiggyBank.receive in receive_some.
       destruct msg; try discriminate. destruct m;
-      [insert_reduce | smash_reduce; apply neq_false_eq in Enonzero];
+      [insert_reduce | smash_reduce];
       inversion receive_some; cbn; lia.
     - unfold PiggyBank.receive in receive_some.
       destruct msg; try discriminate. destruct m;
-      [insert_reduce | smash_reduce; apply neq_false_eq in Enonzero];
+      [insert_reduce | smash_reduce];
       inversion receive_some; destruct head; cbn in *; lia.
     - now erewrite sumZ_permutation in IH by eauto.
     - solve_facts.
@@ -320,7 +320,6 @@ Section SafetyProperties.
         /\ ctx_from ctx <> ctx_contract_address ctx).
         destruct facts as [Hamount [Hqueue _]].
         unfold is_smashed in Esmash. destruct prev_state.(piggyState) eqn:Estate; try discriminate.
-        apply neq_false_eq in Enonzero. rewrite Enonzero in Hamount.
         rewrite Hqueue, <- Hamount; try reflexivity. cbn. lia.
     - now destruct facts.
     - now erewrite sumZ_permutation in IH by eauto.
