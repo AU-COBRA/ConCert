@@ -11,30 +11,6 @@ From ConCert.Execution Require Import ResultMonad.
 Section BuildUtils.
 Context {BaseTypes : ChainBase}.
 
-(* The empty state is always reachable *)
-Lemma reachable_empty_state :
-  reachable empty_state.
-Proof.
-  repeat constructor.
-Qed.
-
-(* Transitivity property of reachable and ChainTrace *)
-Lemma reachable_trans from to :
-  reachable from -> ChainTrace from to -> reachable to.
-Proof.
-  intros [].
-  constructor.
-  now eapply ChainedList.clist_app.
-Qed.
-
-(* Transitivity property of reachable and ChainStep *)
-Lemma reachable_step from to :
-  reachable from -> ChainStep from to -> reachable to.
-Proof.
-  intros [].
-  now do 2 econstructor.
-Qed.
-
 (* If a state is reachable then the finalized_height cannot be larger than the chain_height *)
 Lemma finalized_heigh_chain_height bstate :
   reachable bstate ->
@@ -48,7 +24,7 @@ Proof.
     try destruct_action_eval;
     rewrite_environment_equiv;
     auto.
-    + now inversion valid_header.
+    now inversion valid_header.
 Qed.
 
 (* If a state is reachable and contract state is stored on an address
@@ -81,67 +57,6 @@ Proof.
   apply contract_states_deployed in deployed_state as []; auto.
   now eapply contract_addr_format.
 Qed.
-
-Hint Resolve reachable_empty_state
-             reachable_trans
-             reachable_step : core.
-
-(* A state `to` is reachable through `mid` if `mid` is reachable and there exists a trace
-    from `mid` to `to`. This captures that there is a valid execution ending up in `to`
-    and going through the state `mid` at some point *)
-Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mid to).
-
-(* A state is always reachable through itself *)
-Lemma reachable_through_refl : forall bstate,
-  reachable bstate -> reachable_through bstate bstate.
-Proof.
-  intros bstate reach.
-  split; auto.
-  do 2 constructor.
-Qed.
-
-(* Transitivity property of reachable_through and ChainStep *)
-Lemma reachable_through_trans' : forall from mid to,
-  reachable_through from mid -> ChainStep mid to -> reachable_through from to.
-Proof.
-  intros * [reach [trace]] step.
-  repeat (econstructor; eauto).
-Qed.
-
-(* Transitivity property of reachable_through *)
-Lemma reachable_through_trans : forall from mid to,
-  reachable_through from mid -> reachable_through mid to -> reachable_through from to.
-Proof.
-  intros * [[trace_from] [trace_mid]] [_ [trace_to]].
-  do 2 constructor.
-  assumption.
-  now eapply ChainedList.clist_app.
-Qed.
-
-(* Reachable_through can also be constructed from ChainStep instead of a
-   ChainTrace since a ChainTrace can be constructed from a ChainStep *)
-Lemma reachable_through_step : forall from to,
-  reachable from -> ChainStep from to -> reachable_through from to.
-Proof.
-  intros * reach_from step.
-  apply reachable_through_refl in reach_from.
-  now eapply reachable_through_trans'.
-Qed.
-
-(* Any ChainState that is reachable through another ChainState is reachable *)
-Lemma reachable_through_reachable : forall from to,
-  reachable_through from to -> reachable to.
-Proof.
-  intros * [[trace_from] [trace_to]].
-  constructor.
-  now eapply ChainedList.clist_app.
-Qed.
-
-Hint Resolve reachable_through_refl
-             reachable_through_trans'
-             reachable_through_trans
-             reachable_through_step
-             reachable_through_reachable : core.
 
 (* If a state has a contract deployed to some addr then any other state
     reachable through the first state must also have the same contract

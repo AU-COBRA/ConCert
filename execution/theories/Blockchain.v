@@ -605,7 +605,7 @@ Lemma account_balance_post (addr : Address) :
 Proof.
   destruct eval; cbn; rewrite_environment_equiv; cbn;
     destruct_address_eq; lia.
-Qed.
+Qed. (* TODO *)
 
 Lemma account_balance_post_to :
   eval_from eval <> eval_to eval ->
@@ -642,12 +642,15 @@ Qed.
 
 Lemma chain_height_post_action : chain_height post = chain_height pre.
 Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
+(* TODO *)
 
 Lemma current_slot_post_action : current_slot post = current_slot pre.
 Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
+(* TODO *)
 
 Lemma finalized_height_post_action : finalized_height post = finalized_height pre.
 Proof. destruct eval; rewrite_environment_equiv; auto. Qed.
+(* TODO *)
 
 Lemma contracts_post_pre_none contract :
   env_contracts post contract = None ->
@@ -655,6 +658,7 @@ Lemma contracts_post_pre_none contract :
 Proof.
   intros H.
   destruct eval; rewrite_environment_equiv; auto.
+  (* TODO *)
   cbn in *.
   destruct_address_eq; congruence.
 Qed.
@@ -765,26 +769,122 @@ Proof.
     unfold act_origin_is_eq_from in *; destruct Haddr; easy.
 Qed.
 
+Section Reachable.
+  Definition empty_state : ChainState :=
+    {| chain_state_env :=
+        {| env_chain :=
+              {| chain_height := 0;
+                current_slot := 0;
+                finalized_height := 0; |};
+            env_account_balances a := 0%Z;
+            env_contract_states a := None;
+            env_contracts a := None; |};
+      chain_state_queue := [] |}.
 
-Definition empty_state : ChainState :=
-  {| chain_state_env :=
-       {| env_chain :=
-            {| chain_height := 0;
-               current_slot := 0;
-               finalized_height := 0; |};
-          env_account_balances a := 0%Z;
-          env_contract_states a := None;
-          env_contracts a := None; |};
-     chain_state_queue := [] |}.
+  (* The ChainTrace captures that there is a valid execution where,
+  starting from one environment and queue of actions, we end up in a
+  different environment and queue of actions. *)
+  Definition ChainTrace := ChainedList ChainState ChainStep.
 
-(* The ChainTrace captures that there is a valid execution where,
-starting from one environment and queue of actions, we end up in a
-different environment and queue of actions. *)
-Definition ChainTrace := ChainedList ChainState ChainStep.
+  (* Additionally, a state is reachable if there is a trace ending in this trace. *)
+  Definition reachable (to : ChainState) : Prop :=
+    inhabited (ChainTrace empty_state to).
 
-(* Additionally, a state is reachable if there is a trace ending in this trace. *)
-Definition reachable (state : ChainState) : Prop :=
-  inhabited (ChainTrace empty_state state).
+  Lemma trace_reachable : forall {to},
+    ChainTrace empty_state to ->
+      reachable to.
+  Proof.
+    constructor.
+    assumption.
+  Qed.
+
+  (* The empty state is always reachable *)
+  Lemma reachable_empty_state :
+    reachable empty_state.
+  Proof.
+    repeat constructor.
+  Qed.
+
+  (* Transitivity property of reachable and ChainTrace *)
+  Lemma reachable_trans from to :
+    reachable from -> ChainTrace from to -> reachable to.
+  Proof.
+    intros [].
+    constructor.
+    eapply ChainedList.clist_app; eauto.
+  Qed.
+
+  (* Transitivity property of reachable and ChainStep *)
+  Lemma reachable_step from to :
+    reachable from -> ChainStep from to -> reachable to.
+  Proof.
+    intros [].
+    do 2 econstructor; eauto.
+  Qed.
+
+  (* A state `to` is reachable through `mid` if `mid` is reachable and there exists a trace
+      from `mid` to `to`. This captures that there is a valid execution ending up in `to`
+      and going through the state `mid` at some point *)
+  Definition reachable_through mid to := reachable mid /\ inhabited (ChainTrace mid to).
+
+  (* A state is always reachable through itself *)
+  Lemma reachable_through_refl : forall bstate,
+    reachable bstate -> reachable_through bstate bstate.
+  Proof.
+    intros bstate reach.
+    split; auto.
+    do 2 constructor.
+  Qed.
+
+  (* Transitivity property of reachable_through and ChainStep *)
+  Lemma reachable_through_trans' : forall from mid to,
+    reachable_through from mid -> ChainStep mid to -> reachable_through from to.
+  Proof.
+    intros * [reach [trace]] step.
+    repeat (econstructor; eauto).
+  Qed.
+
+  (* Transitivity property of reachable_through *)
+  Lemma reachable_through_trans : forall from mid to,
+    reachable_through from mid -> reachable_through mid to -> reachable_through from to.
+  Proof.
+    intros * [[trace_from] [trace_mid]] [_ [trace_to]].
+    do 2 constructor.
+    assumption.
+    eapply ChainedList.clist_app; eauto.
+  Qed.
+
+  (* Reachable_through can also be constructed from ChainStep instead of a
+    ChainTrace since a ChainTrace can be constructed from a ChainStep *)
+  Lemma reachable_through_step : forall from to,
+    reachable from -> ChainStep from to -> reachable_through from to.
+  Proof.
+    intros * reach_from step.
+    apply reachable_through_refl in reach_from.
+    eapply reachable_through_trans'; eauto.
+  Qed.
+
+  (* Any ChainState that is reachable through another ChainState is reachable *)
+  Lemma reachable_through_reachable : forall from to,
+    reachable_through from to -> reachable to.
+  Proof.
+    intros * [[trace_from] [trace_to]].
+    constructor.
+    eapply ChainedList.clist_app; eauto.
+  Qed.
+
+End Reachable.
+
+Hint Resolve trace_reachable
+             reachable_trans
+             reachable_step : core.
+
+Hint Resolve reachable_through_refl
+             reachable_through_trans'
+             reachable_through_trans
+             reachable_through_step
+             reachable_through_reachable : core.
+
 
 Definition outgoing_acts (state : ChainState) (addr : Address) : list ActionBody :=
   map act_body
@@ -976,14 +1076,6 @@ Ltac destruct_action_eval :=
   | [eval: ActionEvaluation _ _ _ _ |- _] => destruct eval
   end.
 
-Lemma trace_reachable : forall {to},
-    ChainTrace empty_state to ->
-      reachable to.
-Proof.
-  constructor.
-  assumption.
-Qed.
-
 Lemma contract_addr_format {to} (addr : Address) (wc : WeakContract) :
   reachable to ->
   env_contracts to addr = Some wc ->
@@ -1157,7 +1249,7 @@ Proof.
   intros has_deployment_info.
   pose proof (deployment_info_some _ _ _ has_deployment_info).
   destruct (env_contracts to caddr) as [wc|] eqn:?; try congruence.
-  eapply contract_addr_format; eauto.
+  apply contract_addr_format in Heqo; auto.
 Qed.
 
 Lemma incoming_txs_contract
@@ -2011,6 +2103,16 @@ Class ChainBuilderType :=
 Global Coercion builder_type : ChainBuilderType >-> Sortclass.
 Global Coercion builder_env : builder_type >-> Environment.
 End Blockchain.
+
+Hint Resolve trace_reachable
+             reachable_trans
+             reachable_step : core.
+
+Hint Resolve reachable_through_refl
+             reachable_through_trans'
+             reachable_through_trans
+             reachable_through_step
+             reachable_through_reachable : core.
 
 Ltac destruct_chain_step :=
   match goal with
