@@ -36,7 +36,7 @@ Definition test_chain_addrs_3 := [person_1; person_2; person_3].
 Definition test_chain_addrs_5 := test_chain_addrs_3 ++ [person_4; person_5].
 
 Definition empty_chain := lcb_initial AddrSize.
-Definition get_contracts (chain : LocalChainBuilder AddrSize ) :=
+Definition get_contracts (chain : LocalChainBuilder AddrSize) :=
   lc_contracts (lcb_lc chain).
 
 Definition build_call {A : Type}
@@ -138,7 +138,7 @@ Fixpoint pickDrop {T E}
     | (k, x) :: xs =>
       if (n <? k) then (k, x, xs)
       else let '(k', x', xs') := pickDrop default xs (n - k)
-          in (k', x', (k,x)::xs')
+          in (k', x', (k,x) :: xs')
   end.
 
 (* Backtracking generator for results instead of
@@ -376,7 +376,7 @@ Instance genFMapSized {A B : Type}
 (* Sample (@gFMapSized nat nat arbitrary arbitrary _ _ _ 1). *)
 
 
-Definition optToVector {A : Type} (n : nat): GOpt A -> G (list A) :=
+Definition optToVector {A : Type} (n : nat) : GOpt A -> G (list A) :=
   fun g =>
   l <- vectorOf n g ;;
   let l' := fold_left (fun acc aopt => match aopt with
@@ -408,7 +408,7 @@ Definition existsP {A prop : Type}
                    (g : G A)
                    (p : A -> bool) :=
   expectFailure (forAll g
-  (fun a => whenFail ("Success - found witness satisfying the predicate!" )
+  (fun a => whenFail ("Success - found witness satisfying the predicate!")
     (negb (p a)))).
 
 Definition existsPShrink
@@ -419,7 +419,7 @@ Definition existsPShrink
                    (g : G A)
                    (p : A -> bool) :=
   expectFailure (forAllShrink g shrink
-  (fun a => whenFail ("Success - found witness satisfying the predicate!" )
+  (fun a => whenFail ("Success - found witness satisfying the predicate!")
     (negb (p a)))).
 
 (* QuickChick (
@@ -428,14 +428,14 @@ Definition existsPShrink
 
 (* the shrinking variant may be more useful in some cases: *)
 (* QuickChick (
-  existsP arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0 )
+  existsP arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0)
 ). *)
 (* coqtop-stdout:[1; 2; 5; 0; 3]
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
    *)
 (* QuickChick (
-  existsPShrink arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0 )
+  existsPShrink arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0)
 ). *)
 (*
 coqtop-stdout:[4; 2]

@@ -28,9 +28,9 @@ Module Maps.
   Open Scope string.
 
   MetaCoq Run
-          ( mp_ <- tmCurrentModPath tt ;;
-            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["addr_map" ] "_coq").
+           (mp_ <- tmCurrentModPath tt ;;
+            let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
+            mkNames mp ["addr_map"] "_coq").
 
   Definition addr_map_acorn :=
     [\ data addr_map =
@@ -81,10 +81,10 @@ Module Maps.
     | cons (k,v) tl => mcons k v (of_list tl)
     end.
 
-  Lemma of_list_to_list m: of_list (to_list m) = m.
+  Lemma of_list_to_list m : of_list (to_list m) = m.
   Proof. induction m; simpl; congruence. Qed.
 
-  Lemma to_list_of_list l: to_list (of_list l) = l.
+  Lemma to_list_of_list l : to_list (of_list l) = l.
   Proof. induction l as [ | x l']; simpl; auto.
          destruct x. simpl; congruence. Qed.
 
@@ -158,10 +158,10 @@ Notation "a ==n b" := [| {eConst (to_string_name <% Nat.eqb %>)} {a} {b} |]
                         (in custom expr at level 0).
 
 
-Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
-Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
-Notation "0" := [| Zero |] ( in custom expr at level 0).
-Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
+Notation "'Zero'" := (eConstr Nat "Z") (in custom expr at level 0).
+Notation "'Suc'" := (eConstr Nat "Suc") (in custom expr at level 0).
+Notation "0" := [| Zero |] (in custom expr at level 0).
+Notation "1" := [| Suc Zero |] (in custom expr at level 0).
 
 Notation "'Zero'" := (pConstr "Z" [])
                 (in custom pat at level 0).
@@ -180,7 +180,7 @@ Notation "~ a" := [| {eConst (to_string_name <% negb %>)} {a} |]
 Definition true_name := "true".
 Definition false_name := "false".
 Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
-Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
+Notation "'False'" := (pConstr false_name []) (in custom pat at level 0).
 
 Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
 Notation "'Cons' y z" := (pConstr "cons" [y; z])
@@ -190,7 +190,7 @@ Notation "'Cons' y z" := (pConstr "cons" [y; z])
 
 
 Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
-Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
+Notation "'False'" := (eConstr Bool false_name) (in custom expr at level 0).
 
 Notation "'star'" :=
   (eConstr Unit "tt")

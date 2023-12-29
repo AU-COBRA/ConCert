@@ -113,7 +113,7 @@ Section EIP20TokenExtraction.
             allowances := AddressMap.empty |}.
   Open Scope Z_scope.
 
-  Definition printERC20Wrapper (contract : string): string :=
+  Definition printERC20Wrapper (contract : string) : string :=
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " (" ++ liquidity_call_ctx ++ ", param) st" ++ " with"

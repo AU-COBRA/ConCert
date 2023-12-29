@@ -71,7 +71,7 @@ Section TraceGens.
         match builder_add_block init_cb (new_header header) (acts ++ [act]) with
         | Ok cb => acts ++ [act]
         | Err error => acts
-        end ) acts [] in
+        end) acts [] in
       (* TODO: also try to trim block here if valid_acts is empty *)
       match builder_add_block init_cb (new_header header) valid_acts with
       | Ok cb => build_chain_builder cb blocks
@@ -401,7 +401,7 @@ Section TraceGens.
   Definition reachableFromSized_chaintrace
                           (maxLength : nat)
                           (init_lc : ChainBuilder)
-                          (gTrace : ChainBuilder -> nat -> G ChainBuilder )
+                          (gTrace : ChainBuilder -> nat -> G ChainBuilder)
                           (pf : ChainState -> bool)
                           : Checker :=
     existsP (gTrace init_lc maxLength) (fun cb =>

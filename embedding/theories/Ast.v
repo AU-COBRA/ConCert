@@ -70,7 +70,7 @@ Definition expr_ind_case (P : expr -> Prop)
            (Hty : forall t : type, P (eTy t)) :
   forall e : expr, P e.
 Proof.
-  refine (fix ind (e : expr) := _ ).
+  refine (fix ind (e : expr) := _).
   destruct e.
   + apply Hrel.
   + apply Hvar.
@@ -140,7 +140,7 @@ Fixpoint lookup {A} (l : list (string * A)) key : option A :=
   | (key', v) :: xs => if eqb key' key then Some v else lookup xs key
   end.
 
-Fixpoint lookup_global ( Σ : global_env) (key : ename) : option global_dec :=
+Fixpoint lookup_global (Σ : global_env) (key : ename) : option global_dec :=
   match Σ with
   | [] => None
   | gdInd key' n v r :: xs => if eqb key' key then Some (gdInd key' n v r) else lookup_global xs key
@@ -218,8 +218,8 @@ Fixpoint indexify (l : list (ename * nat)) (e : expr) : expr :=
     | Some v => eRel v
     end
   | eLambda nm ty b =>
-    eLambda nm (indexify_type l ty) (indexify ((nm,0 ) :: bump_indices l 1) b)
-  | eTyLam nm b => eTyLam nm (indexify ((nm,0 ) :: bump_indices l 1) b)
+    eLambda nm (indexify_type l ty) (indexify ((nm,0) :: bump_indices l 1) b)
+  | eTyLam nm b => eTyLam nm (indexify ((nm,0) :: bump_indices l 1) b)
   | eLetIn nm e1 ty e2 =>
     eLetIn nm (indexify l e1) (indexify_type l ty) (indexify ((nm, 0) :: bump_indices l 1) e2)
   | eApp e1 e2 => eApp (indexify l e1) (indexify l e2)

@@ -160,25 +160,25 @@ Module NamedSubst.
   (** Currently we do not use named substitution in our soundness proof. *)
 
   (** NOTE: assumes, that expression in [ρ] are closed! *)
- Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=
-  match e with
-  | eRel i as e' => e'
-  | eVar nm => match lookup ρ nm with
-                    | Some v => v
-                    | None => e
-                    end
-  | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key nm ρ) b)
-  | eTyLam nm b => eTyLam nm (subst_env (remove_by_key nm ρ) b)
-  | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key nm ρ) e2)
-  | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
-  | eConstr t i as e' => e'
-  | eConst nm => eConst nm
-  | eCase nm_i ty e bs =>
-    (* TODO: this case is not complete! We ignore variables bound by patterns *)
-    eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
-  | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
-  | eTy _ => e
-  end.
+  Fixpoint subst_env (ρ : list (ename * expr)) (e : expr) : expr :=
+    match e with
+    | eRel i as e' => e'
+    | eVar nm => match lookup ρ nm with
+                      | Some v => v
+                      | None => e
+                      end
+    | eLambda nm ty b => eLambda nm ty (subst_env (remove_by_key nm ρ) b)
+    | eTyLam nm b => eTyLam nm (subst_env (remove_by_key nm ρ) b)
+    | eLetIn nm e1 ty e2 => eLetIn nm (subst_env ρ e1) ty (subst_env (remove_by_key nm ρ) e2)
+    | eApp e1 e2 => eApp (subst_env ρ e1) (subst_env ρ e2)
+    | eConstr t i as e' => e'
+    | eConst nm => eConst nm
+    | eCase nm_i ty e bs =>
+      (* TODO: this case is not complete! We ignore variables bound by patterns *)
+      eCase nm_i ty (subst_env ρ e) (map (fun x => (fst x, subst_env ρ (snd x))) bs)
+    | eFix nm v ty1 ty2 b => eFix nm v ty1 ty2 (subst_env (remove_by_key v ρ) b)
+    | eTy _ => e
+    end.
 
   Fixpoint of_val (v : val) : expr :=
     match v with
@@ -194,7 +194,7 @@ Module NamedSubst.
     | vTy ty => eTy ty
     end.
 
- Definition inst_env (ρ : env val) (e : expr) : expr :=
+  Definition inst_env (ρ : env val) (e : expr) : expr :=
     subst_env (map (fun x => (fst x, of_val (snd x))) ρ) e.
 
 End NamedSubst.
@@ -214,76 +214,151 @@ Module Equivalence.
       (forall fixname ty2 , inst_env_i ρ1 (eFix fixname n ty1 ty2 e1) =
        inst_env_i ρ2 (eFix fixname n ty1 ty2 e2)) ->
        (forall fixname, vClos ρ1 n (cmFix fixname) ty1 ty2 e1 ≈ vClos ρ2 n (cmFix fixname) ty1 ty2 e2)
-   | veqClosTyLam ρ1 ρ2 nm e1 e2 :
-       inst_env_i ρ1 (eTyLam nm e1) = inst_env_i ρ2 (eTyLam nm e2) ->
-       (* ty2 used only by a fixpoint, so it doesn't matter here *)
-       vTyClos ρ1 nm e1 ≈ vTyClos ρ2 nm e2
-   | veqTy ty :
-       vTy ty ≈ vTy ty
+  | veqClosTyLam ρ1 ρ2 nm e1 e2 :
+      inst_env_i ρ1 (eTyLam nm e1) = inst_env_i ρ2 (eTyLam nm e2) ->
+      (* ty2 used only by a fixpoint, so it doesn't matter here *)
+      vTyClos ρ1 nm e1 ≈ vTyClos ρ2 nm e2
+  | veqTy ty :
+      vTy ty ≈ vTy ty
    where
    "v1 ≈ v2" := (val_equiv v1 v2).
 
-   Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
-   Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
+  Definition list_val_equiv vs1 vs2 := Forall2 (fun v1 v2 => v1 ≈ v2) vs1 vs2.
+  Notation " vs1 ≈ₗ vs2 " := (list_val_equiv vs1 vs2) (at level 50).
 
-   #[export]
-   Instance val_equiv_reflexive : Reflexive val_equiv.
-   Proof.
-     intros v. induction v using val_ind_full.
-     + constructor.
-       induction l; constructor; inversion H; easy.
-     + destruct cm; constructor; reflexivity.
-     + constructor. reflexivity.
-     + constructor.
-   Defined.
+  #[export]
+  Instance val_equiv_reflexive : Reflexive val_equiv.
+  Proof.
+    intros v. induction v using val_ind_full.
+    + constructor.
+      induction l; constructor; inversion H; easy.
+    + destruct cm; constructor; reflexivity.
+    + constructor. reflexivity.
+    + constructor.
+  Defined.
 
-   (* TODO: Add the rest to prove that [val_equiv] is indeed an equivalence *)
-   Axiom val_equiv_symmetric : Symmetric val_equiv.
-   Axiom val_equiv_transitive : Transitive val_equiv.
-
-   #[export]
-   Existing Instance val_equiv_symmetric.
-   #[export]
-   Existing Instance val_equiv_transitive.
-
-   (* TODO: Define these *)
-   Axiom list_val_equiv_reflexive : Reflexive list_val_equiv.
-   Axiom list_val_equiv_symmetric : Symmetric list_val_equiv.
-   Axiom list_val_equiv_transitive : Transitive list_val_equiv.
-
-   #[export]
-   Existing Instance list_val_equiv_reflexive.
-   #[export]
-   Existing Instance list_val_equiv_symmetric.
-   #[export]
-   Existing Instance list_val_equiv_transitive.
-
-   Lemma list_val_compat v1 v2 vs1 vs2 :
-     v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
-   Proof.
-     intros Heq Heql.
-     constructor; easy.
-   Qed.
-
-   #[export]
-   Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
-   Proof.
-      cbv; intros; apply list_val_compat; assumption.
-    Defined.
-
-    Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : ename) :
-      vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
-    Proof.
-      intros Heql.
+  #[export]
+  Instance val_equiv_symmetric : Symmetric val_equiv.
+  Proof.
+    intros v1.
+    induction v1 using val_ind_full; intros.
+    - inversion H0.
+      subst.
       constructor.
-      induction Heql.
-      + constructor.
-      + constructor; assumption.
-    Defined.
+      apply All_Forall.Forall2_sym.
+      now eapply All_Forall.Forall2_impl'.
+    - destruct cm; inversion H; now constructor.
+    - inversion H. now constructor.
+    - inversion H. now constructor.
+  Qed.
 
-    #[export]
-    Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
-    Proof.
-      cbv; intros; apply constr_cons_compat; assumption.
-    Defined.
+  Lemma Forall2_trans' {A B C}
+        (P : A -> B -> Prop) (Q : B -> C -> Prop) (R : A -> C -> Prop) {l1 l2 l3} :
+    Forall (fun v2 => forall v1 z, P v1 v2 -> Q v2 z -> R v1 z) l2 ->
+    Forall2 P l1 l2 -> Forall2 Q l2 l3 -> Forall2 R l1 l3.
+  Proof.
+    intros.
+    generalize dependent l1.
+    generalize dependent l3.
+    induction l2; intros.
+    - inversion H0.
+      inversion H1.
+      constructor.
+    - inversion H0.
+      inversion H1.
+      subst.
+      inversion H.
+      now constructor.
+  Qed.
+
+  #[export]
+  Instance val_equiv_transitive : Transitive val_equiv.
+  Proof.
+    intros v1 v2.
+    generalize dependent v1.
+    induction v2 using val_ind_full; intros.
+    - inversion H0.
+      inversion H1.
+      subst.
+      constructor.
+      eapply Forall2_trans'; eauto.
+    - destruct cm; inversion H; inversion H0; now constructor.
+    - inversion H. inversion H0. now constructor.
+    - now inversion H.
+  Qed.
+
+  #[export]
+  Instance val_equiv_equivalence : Equivalence val_equiv := {}.
+
+  #[export]
+  Instance list_val_equiv_reflexive : Reflexive list_val_equiv.
+  Proof.
+    intros v.
+    induction v; now constructor.
+  Qed.
+
+  #[export]
+  Instance list_val_equiv_symmetric : Symmetric list_val_equiv.
+  Proof.
+    intros v.
+    induction v; intros.
+    - now inversion H.
+    - inversion H.
+      subst.
+      constructor.
+      + symmetry. assumption.
+      + apply All_Forall.Forall2_sym.
+        now eapply All_Forall.Forall2_impl.
+  Qed.
+
+  #[export]
+  Instance list_val_equiv_transitive : Transitive list_val_equiv.
+  Proof.
+    intros v1 v2.
+    generalize dependent v1.
+    induction v2; intros.
+    - now inversion H.
+    - inversion H.
+      inversion H0.
+      subst.
+      constructor.
+      + now transitivity a.
+      + eapply Forall2_trans'; try apply H5; eauto.
+        cbn.
+        apply All_Forall.In_Forall.
+        intros.
+        now transitivity x0.
+  Qed.
+
+  #[export]
+  Instance list_val_equiv_equivalence : Equivalence list_val_equiv := {}.
+
+  Lemma list_val_compat v1 v2 vs1 vs2 :
+    v1 ≈ v2 -> vs1 ≈ₗ vs2 -> (v1 :: vs1) ≈ₗ (v2 :: vs2).
+  Proof.
+    intros Heq Heql.
+    constructor; easy.
+  Qed.
+
+  #[export]
+  Instance cons_compat : Proper (val_equiv ==> list_val_equiv ==> list_val_equiv) cons.
+  Proof.
+    cbv; intros; apply list_val_compat; assumption.
+  Defined.
+
+  Lemma constr_cons_compat (vs1 vs2 : list val) (i : inductive) (nm : ename) :
+    vs1 ≈ₗ vs2 -> (vConstr i nm vs1) ≈ (vConstr i nm vs2).
+  Proof.
+    intros Heql.
+    constructor.
+    induction Heql.
+    + constructor.
+    + constructor; assumption.
+  Defined.
+
+  #[export]
+  Instance constr_morph i nm : Proper (list_val_equiv ==> val_equiv) (vConstr i nm).
+  Proof.
+    cbv; intros; apply constr_cons_compat; assumption.
+  Defined.
 End Equivalence.

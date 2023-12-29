@@ -83,7 +83,7 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
           extract_transforms :=
             (* TODO: a 'false' second-last arg disables fully
                expanded environments - only for boardroomvoting *)
-            [dearg_transform overridden_masks true true true true true ]
+            [dearg_transform overridden_masks true true true true true]
        |}
   |}.
 

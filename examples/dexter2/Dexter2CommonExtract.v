@@ -44,10 +44,10 @@ Definition mk_callback_ligo : String.string :=
 (** Next two definition are borrowed from the actual Dexter 2 implementation
      https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo *)
 Definition natural_to_mutez_ligo : String.string :=
-  "[@inline] let natural_to_mutez (a: nat): tez = a * 1mutez".
+  "[@inline] let natural_to_mutez (a: nat) : tez = a * 1mutez".
 
 Definition mutez_to_natural_ligo : String.string :=
-  "[@inline] let mutez_to_natural (a: tez): nat = a / 1mutez".
+  "[@inline] let mutez_to_natural (a: tez) : nat = a / 1mutez".
 
 (** We change the signature of the original definition slightly, so it takes a [nat] and converts
     in to [tez]. We also return [operation option] instead of failing *)

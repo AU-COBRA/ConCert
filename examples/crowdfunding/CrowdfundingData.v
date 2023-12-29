@@ -26,14 +26,14 @@ Set Nonrecursive Elimination Schemes.
 
 (** Generating names for the data structures. We also add a prefix, corresponding ti the current module path. *)
 MetaCoq Run
-        ( mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+         (mp_ <- tmCurrentModPath tt ;;
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
              ["State" ; "mkState"; "balance" ; "donations" ; "owner";
               "deadline"; "goal"; "done";
               "Res" ; "Error";
               "Msg"; "Donate"; "GetFunds"; "Claim";
-              "Action"; "Transfer"; "Empty" ] "_coq").
+              "Action"; "Transfer"; "Empty"] "_coq").
 
 Import ListNotations.
 
@@ -83,7 +83,7 @@ Set Printing Notations.
 
 (** Unquoting the definition of a record *)
 
-(* FIXME: disabled due to the issue with generating projections *)
+(* TODO: disabled due to the issue with generating projections *)
 (* MetaCoq Unquote Inductive (global_to_tc state_syn). *)
 
 (** As a result, we get a new Coq record [State_coq] *)
@@ -133,10 +133,10 @@ Module Notations.
                       (in custom expr at level 0).
 
   Notation " x ::: xs" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} {xs} |]
-                            ( in custom expr at level 0).
+                            (in custom expr at level 0).
 
   Notation "[ x ]" := [| {eConstr List "cons"} {eTy (tyInd SActionBody)} {x} Nil |]
-                        ( in custom expr at level 0,
+                        (in custom expr at level 0,
                           x custom expr at level 1).
   (** Constructors. [Res] is an abbreviation for [Some (st, [action]) : option (State * list ActionBody)] *)
 

@@ -113,7 +113,7 @@ Definition CROWDFUNDING_MODULE :
          ++ Common.nl
          ++ "let snd (p : 'a * 'b) : 'b = p.(1) in"
          ++ Common.nl
-         ++ "let eqTez (a : tez ) (b : tez ) = a = b in"
+         ++ "let eqTez (a : tez) (b : tez) = a = b in"
          ++ Common.nl
          ++ "let default_error = 1 in" ;
 

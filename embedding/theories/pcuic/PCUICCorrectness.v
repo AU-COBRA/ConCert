@@ -13,6 +13,7 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICCorrectnessAux.
 From ConCert.Embedding Require Import Wf.
 From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import Utils.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
 From Coq Require Import String.
@@ -125,7 +126,6 @@ Proof.
         repeat rewrite tApp_mkApps.
         rewrite <- mkApps_app.
         eapply PcbvCurr.eval_construct; eauto with hints.
-        unshelve eapply declared_constructor_to_gen; eauto; admit. (* TODOM *)
         assert (Hc : P.mkApps (tConstruct {| inductive_mind := kername_of_string i; inductive_ind := 0 |} n1 [])
     (map (expr_to_term Σ1) (map of_val_i l)) = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ1).
         { cbn. rewrite <- mkApps_vars_to_apps; cbn.
@@ -327,7 +327,6 @@ Proof.
       destruct H2 as [Hdctor?].
       eapply PcbvCurr.eval_iota; eauto.
       * now eapply map_nth_error.
-      * unshelve eapply declared_constructor_to_gen; eauto; admit. (* TODOM *)
       * cbn. rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
       * cbn.
         unfold etrans_branch.
@@ -365,7 +364,7 @@ Proof.
         assert (Hok_constr: val_ok Σ1 (vConstr i0 c.1 l2)) by eauto 8 with hints.
         inversion Hok_constr; subst; clear Hok_constr.
 
-        remember (map (map_decl (subst_instance [])) _ ) as g.
+        remember (map (map_decl (subst_instance [])) _) as g.
         rewrite <- map_combine_snd_funprod in Heqg.
         rewrite All_map_id in Heqg by
             (apply All_subst_instance_type_to_term; eauto with hints;
@@ -396,7 +395,7 @@ Proof.
         change (reln [] 0 g) with (to_extended_list_k g 0).
         rewrite <- PCUICSubstitution.to_extended_list_k_map_subst by lia.
 
-        specialize (find_forallb_map _ Hfnd HH ) as Hclosed_t2; cbn in Hclosed_t2.
+        specialize (find_forallb_map _ Hfnd HH) as Hclosed_t2; cbn in Hclosed_t2.
 
         erewrite PCUICInstConv.subst_id with (s := rev (_)); eauto.
         2: { rewrite rev_length. rewrite to_extended_list_k_length. rewrite Hvass_eq.
@@ -543,7 +542,7 @@ Proof.
       erewrite eval_type_i_subst_env by eauto.
       eapply Wcvb_type_to_term_eval; eauto with hints.
       eapply closed_exprs; eauto.
-Admitted. (* TODOM *)
+Qed.
 
 (** ** Soundness for closed expressions (In the paper: Corollary 2)*)
 Corollary expr_to_term_sound_closed (n : nat) Σ1 Σ2

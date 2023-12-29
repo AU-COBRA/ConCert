@@ -276,6 +276,19 @@ Definition sum_allowances_le_init_supply_P :=
   {{checker_get_state sum_allowances_le_init_supply}}.
 
 (* QuickChick (expectFailure sum_allowances_le_init_supply_P). *)
+(* Chain{| 
+Block 1 [
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; 
+Block 5 [
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 10%256 32)}]; 
+Block 6 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 11%256 33)}]; 
+Block 7 [
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 13%256 41)}]; |}
+
+ChainState{env: Environment{chain: Chain{height: 4, current slot: 7, final height: 0}, contract states:...}, queue: }
++++ Failed (as expected) after 14 tests and 10 shrinks. (0 discards)
+*)
 
 Definition person_has_tokens person (n : N) :=
   fun cs =>
@@ -285,26 +298,46 @@ Definition person_has_tokens person (n : N) :=
     end.
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
+(* Chain{| 
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 0)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; |}
 
-(* TODO: check if the properties below make sense now, some of the definitions seems to be missing, e.g. [chain_with_token_deployed] *)
+Success - found witness satisfying the predicate!
++++ Failed (as expected) after 1 tests and 0 shrinks. (0 discards)
+*)
 
-(* QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))). *)
-(* QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0). *)
+(* QuickChick (token_cb ~~> person_has_tokens creator 0). *)
+(* Chain{| 
+Block 1 [
+Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};
+Action{act_from: 10%256, act_body: (act_transfer 13%256, 0)};
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; |}
 
-(* QuickChick (token_reachableFrom_implies_reachable
-  chain_with_token_deployed
-  (person_has_tokens creator 10)
-  (person_has_tokens creator 0)
-). *)
+Success - found witness satisfying the predicate!
++++ Failed (as expected) after 1 tests and 0 shrinks. (0 discards)
+*)
 
 (* This (false) property says that from the initial chain where the token contract has been deployed,
    if there is a reachable state where the creator has 5 tokens, then any trace afterwards
    will satisfy that the creator has 10 tokens. This is obviously not true, and QC will give us a counterexample. *)
+(* reachableFrom_implies_chaintracePropSized *)
 (* QuickChick (
-    chain_with_token_deployed
-    ~~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
-    ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
+    token_cb
+    ~~~> (fun cs => if person_has_tokens creator 5 cs.(chain_state_env) then Some tt else None)
+    ===> (fun _ _ post_trace => person_has_tokens creator 10 (last post_trace empty_state))
 ). *)
+(* Chain{| 
+Block 1 [
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; 
+Block 7 [
+Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 11%256 32)}]; |}
+
+*** Failed after 1 tests and 9 shrinks. (0 discards)
+*)
 
 Definition get_approve_act (act : Action) : option (Address * Address * EIP20Token.Msg) :=
   match act.(act_body) with
@@ -353,26 +386,26 @@ Definition delegate_made_no_transferFroms (approve_act_p : (Address * Address * 
 
 Definition allower_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match snd approve_act_p with
-  | (approve _ _ ) => snd (fst approve_act_p)
+  | (approve _ _) => snd (fst approve_act_p)
   | (transfer_from allower _ _) => allower
   | _ => zero_address
   end.
 Definition delegate_addr (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd approve_act_p) with
-  | (approve delegate _ ) => Some delegate
+  | (approve delegate _) => Some delegate
   | (transfer_from _ _ _) => Some (snd (fst approve_act_p))
   | _ => None
   end.
 
 Definition approve_amount (approve_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd approve_act_p) with
-  | (approve _ amount ) => amount
+  | (approve _ amount) => amount
   | _ => 0
   end.
 
 Definition transfer_from_amount (transferFrom_act_p : (Address * Address * EIP20Token.Msg)) :=
   match (snd transferFrom_act_p) with
-  | (transfer_from _ _ amount ) => amount
+  | (transfer_from _ _ amount) => amount
   | _ => 0
   end.
 

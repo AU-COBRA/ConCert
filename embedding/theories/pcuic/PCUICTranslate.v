@@ -11,6 +11,7 @@ From MetaCoq.Template Require Import Loader.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import Utils.
 From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Extras.
 From ConCert.Utils Require StringExtra.
@@ -27,62 +28,6 @@ Import ListNotations.
 (** ** Translation of types *)
 
 Reserved Notation "T⟦ ty ⟧ " (at level 5).
-
-Fixpoint mdots (prefix : modpath) (l : list MCString.string) :=
-  match l with
-  | [] => prefix
-  | h :: tl => mdots (MPdot prefix h) tl
-  end.
-
-(** Parses a string containing a file path and a module path
-    separated in a way that helps to recover the kername structure.
- E.g. "Path/To/File#ModuleName.NestedModuleName" *)
-Definition modpath_of_string (s : string) : modpath :=
-  let fpath_mod := StringExtra.str_split "#" s in
-  let fpath := hd "" fpath_mod in
-  let module := hd "" (tl fpath_mod) in
-  let fpath_items := map TCString.of_string (rev (StringExtra.str_split "/" fpath)) in
-  let mod_items := map TCString.of_string (StringExtra.str_split "." module) in
-  let fp := MPfile fpath_items in
-  if module =? "" then fp
-  else mdots fp mod_items.
-
-(** Parses a string containing a file path, a module path separated
-    and a name in a way that helps to recover the kername structure.
-    E.g. "Path/To/File#ModuleName.NestedModuleName@FunctionName" *)
-Definition kername_of_string (s : string) : kername :=
-  let qualified_name := StringExtra.str_split "@" s in
-  if Nat.eqb (List.length qualified_name) 1
-  then (* unqualified name was given*)
-    (MPfile [], TCString.of_string (hd "" qualified_name))
-  else let path := hd "" qualified_name in
-       let name := TCString.of_string (hd "" (tl qualified_name)) in
-       (modpath_of_string path, name).
-
-(** The printing functions below are similar to the ones from MetaCoq,
-    but we use different separators for different parts of the [kername] *)
-Notation s_to_bs := bytestring.String.of_string.
-Definition string_of_dirpath (dp : dirpath) : string :=
-  TCString.to_string (TCString.concat (s_to_bs "/") (rev dp)).
-
-Fixpoint string_of_modpath (mp : modpath) : string :=
-  match mp with
-  | MPfile dp => string_of_dirpath dp
-  | MPbound dp id _ =>
-    (* currently not supported by the parser *)
-    (string_of_dirpath dp ++ "$" ++ (TCString.to_string id))%string
-  | MPdot mp0 id =>
-    match mp0 with
-    | MPfile _ => (string_of_modpath mp0 ++ "#" ++ (TCString.to_string id))%string
-    | _ => (string_of_modpath mp0 ++ "." ++ (TCString.to_string id))%string
-    end
-  end.
-
-Definition string_of_kername (kn : kername) :=
-  (string_of_modpath kn.1 ++ "@" ++ TCString.to_string kn.2)%string.
-
-Definition aRelevant (n : name) :=
-  {| binder_name := n; binder_relevance := Relevant |}.
 
 (** Translation of types to PCUIC terms. Universal types become Pi-types with the
     first argument being of type [Set]. Keeping them in [Set] is crucial,
@@ -256,24 +201,6 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
    mie
   end.
 
-(** Extracts a constant name, inductive name or returns None *)
-(* TODO: move to utils *)
-Definition to_kername (t : Ast.term) : option kername :=
-  match t with
-  | Ast.tConst c _ => Some c
-  | Ast.tInd c _ => Some c.(inductive_mind)
-  | _ => None
-  end.
-(* TODO: move to utils *)
-Definition to_string_name (t : Ast.term) : string :=
-  match to_kername t with
-  | Some kn => string_of_kername kn
-  | None => "Not a constant or inductive"
-  end.
-
-Example qualified_bool : to_string_name (<% bool %>) = "Coq/Init/Datatypes@bool".
-Proof. reflexivity. Qed.
-
 Fixpoint add_prefix_ty (ty : type) (ps : env string) :=
   match ty with
   | tyInd nm =>
@@ -381,10 +308,10 @@ Module StdLib.
                         (in custom expr at level 0).
   Notation "a <= b" := [| {eConst (to_string_name <% Nat.leb %>)} {a} {b} |]
                         (in custom expr at level 0).
-  Notation "'Zero'" := (eConstr Nat "Z") ( in custom expr at level 0).
-  Notation "'Suc'" := (eConstr Nat "Suc") ( in custom expr at level 0).
-  Notation "0" := [| Zero |] ( in custom expr at level 0).
-  Notation "1" := [| Suc Zero |] ( in custom expr at level 0).
+  Notation "'Zero'" := (eConstr Nat "Z") (in custom expr at level 0).
+  Notation "'Suc'" := (eConstr Nat "Suc") (in custom expr at level 0).
+  Notation "0" := [| Zero |] (in custom expr at level 0).
+  Notation "1" := [| Suc Zero |] (in custom expr at level 0).
 
   Notation "'Zero'" := (pConstr "Z" [])
                   (in custom pat at level 0).
@@ -401,7 +328,7 @@ Module StdLib.
   Definition true_name := "true".
   Definition false_name := "false".
   Notation "'True'" := (pConstr true_name []) (in custom pat at level 0).
-  Notation "'False'" := (pConstr false_name []) ( in custom pat at level 0).
+  Notation "'False'" := (pConstr false_name []) (in custom pat at level 0).
 
   Notation "'Nil'" := (pConstr "nil" []) (in custom pat at level 0).
   Notation "'Cons' y z" := (pConstr "cons" [y; z])
@@ -411,7 +338,7 @@ Module StdLib.
 
 
   Notation "'True'" := (eConstr Bool true_name) (in custom expr at level 0).
-  Notation "'False'" := (eConstr Bool false_name) ( in custom expr at level 0).
+  Notation "'False'" := (eConstr Bool false_name) (in custom expr at level 0).
 
   Notation "'star'" :=
     (eConstr Unit "Coq.Init.Datatypes.tt")

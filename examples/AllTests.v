@@ -171,27 +171,16 @@ Module EIP20Token.
   (* Success - found witness satisfying the predicate!
   +++ Failed (as expected) after 1 tests and 0 shrinks. (0 discards) *)
 
-  (* Test doesn't work *)(*
-  Time QuickChick (chain_with_token_deployed ~~> (fun lc => isSome (person_has_tokens person_3 12 lc))).*)
-
-  (* Test doesn't work *)(*
-  Time QuickChick (chain_with_token_deployed ~~> person_has_tokens creator 0).*)
-
-  (* Test doesn't work *)(*
-  Time QuickChick (token_reachableFrom_implies_reachable
-    chain_with_token_deployed
-    (person_has_tokens creator 10)
-    (person_has_tokens creator 0)
-  ).*)
-
-  (* Test doesn't work *)(*
-  Time QuickChick (
-    {
-      chain_with_token_deployed
-      ~~~> (person_has_tokens creator 5 o next_lc_of_lcstep)
-      ===> (fun _ _ post_trace => isSome (person_has_tokens creator 10 (last_state post_trace)))
-    }
-  ).*)
+  Time QuickChick (token_cb ~~> person_has_tokens creator 0).
+  (* Success - found witness satisfying the predicate!
+  +++ Failed (as expected) after 1 tests and 0 shrinks. (0 discards)*)
+  
+  Time QuickChick (expectFailure (
+    token_cb
+    ~~~> (fun cs => if person_has_tokens creator 5 cs.(chain_state_env) then Some tt else None)
+    ===> (fun _ _ post_trace => person_has_tokens creator 10 (last post_trace empty_state))
+  )).
+  (* *** Failed after 1 tests and 9 shrinks. (0 discards) *)
 
   Time QuickChick (expectFailure reapprove_transfer_from_safe_P).
   (* *** Failed (as expected) after 1 tests and 4 shrinks. (14 discards) *)

@@ -31,7 +31,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 (** We generate names for inductives and constants (prefixed with a module path) *)
 MetaCoq Run
         (mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp ["Maybe"; "Map"] "Acorn").
 
 (** And constructors (just names, no module path prefix) *)
@@ -70,7 +70,7 @@ MetaCoq Run
       (mkNames "" ["A"; "B"; "C"; "f"; "a";
                    "b"; "c"; "m"; "n"; "k";
                    "v"; "w"; "x"; "y"; "z";
-                   "lookup"; "add" ] "_coq").
+                   "lookup"; "add"] "_coq").
 
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,

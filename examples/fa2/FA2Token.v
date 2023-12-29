@@ -311,7 +311,7 @@ Section FA2Token.
     end.
 
   Open Scope bool_scope.
-  Definition mk_transfer_destination_from_descr (dst_descr: transfer_destination_descriptor)
+  Definition mk_transfer_destination_from_descr (dst_descr : transfer_destination_descriptor)
                                                 : option transfer_destination :=
     do to <- dst_descr.(transfer_dst_descr_to_) ;
     Some {|
@@ -320,7 +320,7 @@ Section FA2Token.
       amount := dst_descr.(transfer_dst_descr_amount)
     |}.
 
-  Definition mk_transfer_from_descr (descr: transfer_descriptor) : option transfer :=
+  Definition mk_transfer_from_descr (descr : transfer_descriptor) : option transfer :=
     do from <- descr.(transfer_descr_from_) ;
     let iter := (fun dst_descr acc_opt =>
       do acc <- acc_opt;
@@ -520,7 +520,7 @@ Section FA2Token.
     | _ => Err default_error
     end.
 
-  Definition map_values_FMap {A B C: Type}
+  Definition map_values_FMap {A B C : Type}
                             `{countable.Countable A}
                             `{base.EqDecision A}
                              (f : B -> C)

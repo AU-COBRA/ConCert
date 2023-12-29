@@ -4,7 +4,7 @@ Import ListNotations.
 
 Module RemoveProperties.
 
-  Lemma not_in_remove_same {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A):
+  Lemma not_in_remove_same {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x : A) :
     ~ In x l -> remove eq_dec x l = l.
   Proof.
     induction l.
@@ -13,7 +13,7 @@ Module RemoveProperties.
       destruct (eq_dec x a); intuition; congruence.
   Qed.
 
-    Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A):
+    Lemma not_in_remove {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l : list A) (x y : A) :
     ~ In x l -> ~ In x (remove eq_dec y l).
   Proof.
     induction l.
@@ -69,13 +69,13 @@ Module RemoveProperties.
     apply (not_in_remove _ _ _ _ H HH).
   Qed.
 
-  Lemma In_remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
+  Lemma In_remove_all {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A) :
     ~ (In x to_remove) -> In x (remove_all eq_dec to_remove xs) -> In x xs.
   Proof.
     induction to_remove; cbn in *; intuition; eauto with hints.
   Qed.
 
-  Lemma remove_all_not_in_to_remove {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A):
+  Lemma remove_all_not_in_to_remove {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) (x : A) :
     ~ (In x to_remove) -> In x xs -> In x (remove_all eq_dec to_remove xs).
   Proof.
     intros H1 H2.
@@ -95,7 +95,7 @@ Module RemoveProperties.
   Hint Resolve In_remove : hints.
 
   Lemma remove_extensional {A : Type} (eq_dec : forall x y : A, {x = y} + {x <> y}) (l1 l2 : list A) (y : A) :
-    (forall x, In x l1 <-> In x l2 ) -> (forall x, In x (remove eq_dec y l1) <-> In x (remove eq_dec y l2)).
+    (forall x, In x l1 <-> In x l2) -> (forall x, In x (remove eq_dec y l1) <-> In x (remove eq_dec y l2)).
   Proof.
     intros H x.
     split.

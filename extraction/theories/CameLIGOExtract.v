@@ -121,7 +121,7 @@ Definition TT_remap_default : list (kername * String.string) :=
     remap <%% Z %%> "tez"
   (* NOTE: subtracting two [nat]s gives [int], so we remap [N] to [int]
     and use truncated subtraction *)
-  (* FIXME: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
+  (* TODO: this doesn't look right. [N] should be [nat] in CameLIGO and [Z] should be
      [int]. However, [Z] is also used as the type of currency, that could lead to clashes
      in the extracted code. *)
   ; remap <%% N %%> "int"
@@ -153,7 +153,7 @@ Definition TT_remap_default : list (kername * String.string) :=
   ; remap <%% Pos.leb %%> "leN"
   ; remap <%% Pos.eqb %%> "eqN"
   ; remap <%% Z.add %%> "addTez"
-  (* FIXME: subtraction of tez returns option in LIGO now We should
+  (* TODO: subtraction of tez returns option in LIGO now We should
      not use Z.sub directly, but a similar operation that returns
      [option Z] instead. For now, it can be provided and remapped by
      each contract, but ideally it should be in some central place. *)
@@ -439,7 +439,7 @@ Definition CameLIGO_extract_single `{ChainBase} {A}
            (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
-           (harness: String.string)
+           (harness : String.string)
            (def : A) : TemplateMonad String.string :=
   '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
   let seeds := KernameSetProp.of_list [def_nm] in
@@ -451,7 +451,7 @@ Definition CameLIGO_prepare_extraction_single `{ChainBase} {A}
            (TT_defs : list (kername * String.string))
            (TT_ctors : env String.string)
            (prelude : String.string)
-           (harness: String.string)
+           (harness : String.string)
            (def : A) : TemplateMonad String.string :=
     '(Σ,def_nm) <- quote_and_preprocess_one_def inline def ;;
     let seeds := KernameSetProp.of_list [def_nm] in

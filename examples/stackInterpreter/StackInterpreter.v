@@ -10,7 +10,7 @@ From Coq Require Import ZArith.
 Local Open Scope string_scope.
 
 Section StackInterpreter.
-  Context {Base: ChainBase}.
+  Context {Base : ChainBase}.
 
   Definition map_key_type := string * Z.
 

@@ -45,7 +45,7 @@ Module CrowdfundingContract.
    Import CrowdfundingData.Notations.
 
    (** We specialise some polymorphic constructors to avoid writing types all the time *)
-   Notation "'#Just' a" := [| {eConstr (to_string_name <% option %>) "Some"} {eTy [! Result!]} {a}|]
+   Notation "'#Just' a" := [| {eConstr (Utils.to_string_name <% option %>) "Some"} {eTy [! Result!]} {a}|]
                            (in custom expr at level 0,
                                a custom expr at level 1).
 
@@ -56,11 +56,11 @@ Module CrowdfundingContract.
                                a custom expr at level 1,
                                b custom expr at level 1).
 
-   Notation "'#Nothing'" := (eApp (eConstr (to_string_name <% option %>) "None") (eTy [!Result!]))
+   Notation "'#Nothing'" := (eApp (eConstr (Utils.to_string_name <% option %>) "None") (eTy [!Result!]))
                              (in custom expr at level 0).
 
-   Definition SCtx := to_string_name <% SimpleContractCallContext_coq %>.
-   Definition SChain := to_string_name <% SimpleChain_coq %>.
+   Definition SCtx := Utils.to_string_name <% SimpleContractCallContext_coq %>.
+   Definition SChain := Utils.to_string_name <% SimpleChain_coq %>.
 
    Definition crowdfunding : expr :=
     [| \chain : SChain => \c : SCtx => \m : Msg => \s : State =>

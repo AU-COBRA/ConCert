@@ -281,7 +281,7 @@ Module TestInterpreter.
     IObs ("blah", 0); IOp Add;
     IObs ("blah", 0); IOp Add; IElse;
     IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0;
-    IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IEndIf ].
+    IPushZ 0; IPushZ 0; IPushZ 0; IPushZ 0; IEndIf].
   (* Just add the global environment (Map [(("blah", 0), (ZVal 0))])) *)
   (* Compute List.length blah. *)
 

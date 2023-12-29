@@ -9,7 +9,7 @@ Import ListNotations.
 Definition fun_prod {A B C D} (f : A -> C) (g : B -> D) : A * B -> C * D :=
   fun x => (f (fst x), g (snd x)).
 
-Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A):
+Lemma forallb_Forall_iff {A} (p : A -> bool) (l : list A) :
   Forall (fun x => p x = true) l <-> forallb p l = true.
 Proof.
   split.
@@ -75,7 +75,7 @@ Qed.
 
 Section CombineProp.
 
-  Lemma combine_app : forall A B (l2 l2': list B) (l1 l1' : list A),
+  Lemma combine_app : forall A B (l2 l2' : list B) (l1 l1' : list A),
     #|l1| = #|l2| ->
     combine (l1 ++ l1') (l2 ++ l2') = combine l1 l2 ++ combine l1' l2'.
   Proof.

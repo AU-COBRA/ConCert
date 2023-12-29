@@ -57,7 +57,7 @@ Module iTokenBuggyGens (Info : iTokenBuggyGensInfo).
     addr <- gAccount ;;
     (* fix the number of minted tokens to 0, 1, or 2*)
     amount <- choose (0, 2) ;;
-    returnGenSome (addr, mint amount ).
+    returnGenSome (addr, mint amount).
 
   Definition gBurn (state : iTokenBuggy.State) : GOpt (Address * Msg) :=
     '(addr, balance) <-- sampleFMapOpt_filter state.(balances) (fun '(_,balance) => 0 <? balance) ;;

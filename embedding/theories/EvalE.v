@@ -68,7 +68,7 @@ Inductive val : Type :=
 | vTyClos : env val -> ename -> expr -> val
 | vTy : type -> val.
 
-Definition AllEnv {A} (P: A -> Type) : env A -> Type := All (P ∘ snd).
+Definition AllEnv {A} (P : A -> Type) : env A -> Type := All (P ∘ snd).
 
 (** An induction principle that takes into account nested occurrences of
     elements of [val] in the list of arguments of [vConstr] and in
@@ -234,7 +234,7 @@ Definition is_type_val (v : val) : bool :=
  | _ => false
 end.
 
-Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type): bool :=
+Fixpoint valid_ty_env (n : nat) (ρ : env val) (ty : type) : bool :=
   match ty with
   | tyInd x => true
   | tyForall v ty0 => valid_ty_env (S n) ρ ty0

@@ -5,6 +5,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Prelude.
+From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
@@ -47,7 +48,7 @@ Module CrowdfundingContract.
      [| \"o" : Maybe Unit => \"b" : Maybe Result =>
         case "o" : Maybe Unit return Maybe Result of
         | Just "_" -> "b"
-        | Nothing -> $Nothing$Maybe [: Result ] |].
+        | Nothing -> $Nothing$Maybe [: Result] |].
 
     MetaCoq Unquote Definition maybe_bind_unit :=
       (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
@@ -119,7 +120,7 @@ Module CrowdfundingContract.
 
 
     (** We specialise some polymorphic constructors to avoid writing types all the time *)
-    Notation "'#Just' a" := [| $Just$Maybe [: Result ] {a}|]
+    Notation "'#Just' a" := [| $Just$Maybe [: Result] {a}|]
                             (in custom expr at level 0,
                                 a custom expr at level 1).
 
@@ -128,14 +129,14 @@ Module CrowdfundingContract.
                                 a custom expr at level 1,
                                 b custom expr at level 1).
 
-    Notation "'#Nothing'" := [| $Nothing$Maybe [: Result ] |]
+    Notation "'#Nothing'" := [| $Nothing$Maybe [: Result] |]
                                 (in custom expr at level 0).
 
     Notation "'#Nil'" := [| Nil SActionBody |]
                             (in custom expr at level 0).
 
     Notation "[ x ]" := [| Cons SActionBody {x} #Nil |]
-                          ( in custom expr at level 0,
+                           (in custom expr at level 0,
                             x custom expr at level 1).
 
 
@@ -146,7 +147,7 @@ Module CrowdfundingContract.
 
     (** We make the remapping to the Liquidity primitives easier by using this abbreviation for the lookup, since in Liquidity the arguments are swapped *)
     Definition lookup_map' k m := PreludeExt.Maps.lookup_map m k.
-    Notation "'findm' a b" := [| {eConst (to_string_name <% lookup_map' %> )} {a} {b} |]
+    Notation "'findm' a b" := [| {eConst (to_string_name <% lookup_map' %>)} {a} {b} |]
           (in custom expr at level 0,
               a custom expr at level 1,
               b custom expr at level 1).

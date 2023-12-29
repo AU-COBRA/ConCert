@@ -26,10 +26,10 @@ Open Scope nat.
 (** ** Wrappers for some primitive types *)
 
 MetaCoq Run
-        ( mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+         (mp_ <- tmCurrentModPath tt ;;
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp ["address"; "time"; "ContractAddr";
-                      "UserAddr"; "Time" ; "Money" ] "_coq").
+                      "UserAddr"; "Time" ; "Money"] "_coq").
 
 
 Definition address_ty :=
@@ -104,7 +104,7 @@ Notation "'acc_balance' st" :=
 Notation "'mkCallCtx' now sender sent_am bal " :=
   [| Pair time (address × (money × money)) {now}
           (Pair address (money × money) {sender}
-                (Pair money money {sent_am} {bal} )) |]
+                (Pair money money {sent_am} {bal})) |]
     (in custom expr at level 0).
 
 (** A simple representation of the call context *)
@@ -119,19 +119,19 @@ Definition sc_sent_amount (ctx : SimpleCallCtx) : Z := ctx.2.2.1.
 Definition sc_acc_balance (ctx : SimpleCallCtx) : Z := ctx.2.2.2.
 
 
-Definition is_contract (addr: address_coq) :=
+Definition is_contract (addr : address_coq) :=
   match addr with
   | ContractAddr_coq _ => true
   | UserAddr_coq _ => false
   end.
 
-Definition encode_addr (addr: address_coq) : nat + nat :=
+Definition encode_addr (addr : address_coq) : nat + nat :=
   match addr with
   | ContractAddr_coq x => inl x
   | UserAddr_coq x => inr x
   end.
 
-Definition decode_addr (addr: nat + nat) : address_coq :=
+Definition decode_addr (addr : nat + nat) : address_coq :=
   match addr with
   | inl x => ContractAddr_coq x
   | inr x => UserAddr_coq x
@@ -210,9 +210,9 @@ Module Maps.
 
 
   MetaCoq Run
-          ( mp_ <- tmCurrentModPath tt ;;
-            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["addr_map" ] "_coq").
+           (mp_ <- tmCurrentModPath tt ;;
+            let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
+            mkNames mp ["addr_map"] "_coq").
 
   Definition addr_map_acorn :=
     [\ data addr_map =
@@ -263,10 +263,10 @@ Module Maps.
     | cons (k,v) tl => mcons k v (of_list tl)
     end.
 
-  Lemma of_list_to_list m: of_list (to_list m) = m.
+  Lemma of_list_to_list m : of_list (to_list m) = m.
   Proof. induction m; simpl; congruence. Qed.
 
-  Lemma to_list_of_list l: to_list (of_list l) = l.
+  Lemma to_list_of_list l : to_list (of_list l) = l.
   Proof. induction l as [ | x l']; simpl; auto.
          destruct x. simpl; congruence. Qed.
 

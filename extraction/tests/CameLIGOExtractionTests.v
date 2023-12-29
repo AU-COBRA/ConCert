@@ -45,14 +45,14 @@ Module BoolRect.
   Definition max_nat (n m : nat) := my_stupid_if (Nat.leb n m) m n.
 
   Definition harness (func : string) : string :=
-    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some ( " ++ func ++ " 2n 3n))".
+    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (" ++ func ++ " 2n 3n))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
               []
               []
               TT_rename_ctors_default
-              "let lebN (a : nat ) (b : nat ) = a <= b"
+              "let lebN (a : nat) (b : nat) = a <= b"
               (harness "max_nat")
               max_nat ;;
         tmDefinition "cameligo_max"%bs t).
@@ -79,7 +79,7 @@ Module FoldLeft.
   Definition sum (xs : list nat) := foldL Nat.add xs 0.
 
   Definition harness (sum_func : string) : string :=
-    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some ( " ++ sum_func ++ "([1n;2n;3n])))".
+    "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (" ++ sum_func ++ "([1n;2n;3n])))".
 
   Time MetaCoq Run
        (t <- CameLIGO_extract_single
@@ -138,7 +138,7 @@ Module SafeHead.
       (* NOTE: we use [False_rect] to have more control over the extracted code.
          Leaving a hole for the whole branch potentially leads to polymorphic
          definitions in the extracted code and type like [eq], since we would have to
-         leave the whole goal branch transparent (use [Defined] instead of [Qed] ).
+         leave the whole goal branch transparent (use [Defined] instead of [Qed]).
          In this case, one has to inspect the extracted code and inline such definitions *)
       fun _ => ex_falso _ _
     | hd :: tl => fun _ => hd
