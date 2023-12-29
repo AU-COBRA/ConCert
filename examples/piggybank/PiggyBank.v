@@ -79,17 +79,16 @@ Section PiggyBankImpl.
 
   Definition insert (state : State) (ctx : ContractCallContext) : Result :=
     let amount := ctx.(ctx_amount) in
-    do _ <- throwIf (amount <=? 0) error_amount_not_positive;
+    do _ <- throwIf (amount <? 0) error_amount_not_positive;
     do _ <- throwIf (is_smashed state) error_already_smashed;
     let state := state<| balance ::= Z.add amount |> in
     Ok (state, []).
 
   Definition smash (state : State) (ctx : ContractCallContext) : Result :=
     let owner := state.(owner) in
-    do _ <- throwIf (is_smashed state) error_already_smashed;
     do _ <- throwIf (address_neqb ctx.(ctx_from) owner) error_not_owner;
-    do _ <- throwIf (negb (ctx.(ctx_amount) =? 0)) error_amount_not_zero;
-    let acts := [act_transfer owner state.(balance)] in
+    do _ <- throwIf (is_smashed state) error_already_smashed;
+    let acts := [act_transfer owner (state.(balance) + ctx.(ctx_amount))] in
     let state := state<| balance := 0 |><| piggyState := Smashed |> in
     Ok (state, acts).
 
