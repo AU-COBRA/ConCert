@@ -312,6 +312,9 @@ Section Theories.
   Instance Base : ChainBase := LocalChainBase AddrSize.
   Instance Builder : ChainBuilderType := LocalChainBuilderImpl AddrSize true.
 
+  Definition get_new_contract_addr (n : N) : option Address :=
+      BoundedN.of_N (@ContractAddrBase AddrSize + n)%N.
+
   Open Scope nat.
   Definition exploit_example : option (Address * Builder) :=
     let chain := builder_initial in
@@ -335,9 +338,9 @@ Section Theories.
     let dep_congress := create_deployment 50 contract {| setup_rules := rules |} in
     let dep_exploit := create_deployment 0 exploit_contract tt in
     do chain <- add_block chain [dep_congress; dep_exploit];
-    let contracts := map fst (FMap.elements (lc_contracts (lcb_lc chain))) in
-    let exploit := nth 0 contracts creator in
-    let congress := nth 1 contracts creator in
+      (* Some (creator, chain). *)
+    do exploit <- get_new_contract_addr 1;
+    do congress <- get_new_contract_addr 0;
     (* Add creator to congress, create a proposal to transfer *)
     (* some money to exploit contract, vote for the proposal, and execute the proposal *)
     let add_creator := add_member creator in
@@ -350,7 +353,7 @@ Section Theories.
     do chain <- add_block chain act_bodies;
     Some (congress, chain).
 
-  Definition unpacked_exploit_example : Address * Builder :=
+   Definition unpacked_exploit_example : Address * Builder :=
     unpack_option exploit_example.
 
   Definition num_acts_created_in_proposals (calls : list (ContractCallInfo Msg)) :=

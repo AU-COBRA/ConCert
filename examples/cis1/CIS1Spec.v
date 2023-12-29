@@ -611,7 +611,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
   Proof.
     intros Hin.
     destruct Hin as [Hin | Hbal].
-    revert dependent owner.
+    generalize dependent owner.
     -induction owners; intros owner Hin Hnodup.
      + inversion Hin.
      + inversion Hin; subst; clear Hin.
@@ -655,7 +655,7 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     sum_balances st token_id owners1 = sum_balances st token_id owners2.
   Proof.
     intros Hnodup1 Hnodup2 Hiff.
-    revert dependent owners2.
+    generalize dependent owners2.
     induction owners1; intros.
     + cbn in *. destruct owners2; auto.
       destruct (Hiff a); cbn in *.
@@ -783,8 +783,8 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       forall token_id,
         token_id_exists prev_st token_id = token_id_exists next_st token_id.
   Proof.
-    revert dependent prev_st.
-    revert dependent ops.
+    generalize dependent prev_st.
+    generalize dependent ops.
     cbn.
     induction transfers.
     - intros ops prev_st spec token_id.
@@ -810,9 +810,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
       ~ In (token_id, addr) (transfer_to params) ->
     get_balance_opt prev_st token_id addr = get_balance_opt next_st token_id addr.
   Proof.
-    revert dependent next_st.
-    revert dependent prev_st.
-    revert dependent ops.
+    generalize dependent next_st.
+    generalize dependent prev_st.
+    generalize dependent ops.
     induction transfers.
     - cbn; intros ops prev_st next_st spec addr token_id.
       destruct spec. cbn in *; now subst.
@@ -925,9 +925,9 @@ Module CIS1Balances (cis1_types : CIS1Types) (cis1_view : CIS1View cis1_types).
     sum_balances prev_st token_id owners1 = sum_balances next_st token_id owners2.
   Proof.
     destruct spec as [Htr Hcalls].
-    revert dependent prev_st.
-    revert dependent next_st.
-    revert dependent ops.
+    generalize dependent prev_st.
+    generalize dependent next_st.
+    generalize dependent ops.
     induction transfers; intros ops ? next_st prev_st Htr ? ?.
     - cbn in *. now subst.
     - cbn in *.

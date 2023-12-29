@@ -61,7 +61,7 @@ Module RemoveProperties.
   Lemma remove_all_In {A} (eq_dec : forall x y : A, {x = y} + {x <> y}) (to_remove : list A) (xs : list A) :
     Forall (fun x => ~ In x (remove_all eq_dec to_remove xs)) to_remove.
   Proof.
-    revert dependent xs.
+    generalize dependent xs.
     induction to_remove; simpl; auto.
     constructor; eauto with hints.
     unshelve eapply (@Forall_impl _ _ _ _ _ (IHto_remove xs)).

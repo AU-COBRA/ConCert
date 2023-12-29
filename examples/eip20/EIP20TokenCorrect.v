@@ -195,29 +195,59 @@ Section Theories.
     rewrite add_is_partial_alter_plus; auto.
     edestruct (address_eqb from to) eqn:from_to_eq;
       destruct FMap.find eqn:from_prev;
-      destruct_address_eq; try discriminate; subst; cbn in *;
-      repeat match goal with
-      | H : _ <= 0 |- _ => apply N.lt_eq_cases in H as [H | H]; try lia; subst
-      | |- context [ with_default _ (FMap.find to balances) ] => destruct (FMap.find to balances) eqn:to_prev; cbn
-      | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
-      | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
-      | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-      | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
-      | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add_existing; eauto
-      | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
-      | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
-      | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-      | H : FMap.find ?x ?m = Some _ |- context [ sumN _ ((_, _) :: FMap.elements (FMap.remove ?x ?m)) ] => rewrite fin_maps.map_to_list_delete; auto
-      | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: FMap.elements (FMap.remove ?x _)) ] => rewrite fin_maps.map_to_list_delete; auto
-      | H : FMap.find ?x _ = Some ?n |- context [ sumN _ ((?x, ?n) :: (_, _) :: FMap.elements (FMap.remove ?x _)) ] => rewrite sumN_swap, fin_maps.map_to_list_delete; auto
-      | |- context [ _ + 0 ] => rewrite N.add_0_r
-      | |- context [ 0 + _ ] => rewrite N.add_0_l
-      | |- context [ sumN _ ((?t, ?n + ?m) :: _) ] => erewrite sumN_split with (x := (t, n)) (y := (_, m)) by lia
-      | |- context [ sumN _ ((_, ?n) :: (_, ?m - ?n) :: _) ] => erewrite <- sumN_split with (z := (_, n + m - n)) by lia
-    end.
-    Unshelve. eauto.
+      destruct_address_eq; try discriminate; subst; cbn in *.
+      - do 3 FMap_simpl_step.
+        simpl with_default.
+        rewrite N.sub_add by assumption.
+        rewrite fin_maps.map_to_list_delete; auto.
+      - do 3 FMap_simpl_step.
+        simpl with_default.
+        rewrite N.sub_add by assumption.
+        reflexivity.
+      - FMap_simpl_step.
+        destruct (FMap.find to balances) eqn:to_prev; cbn.
+        + FMap_simpl_step.
+          2: FMap_simpl_step.
+          rewrite (sumN_split _ (to, amount) (to, n1)) by lia.
+          rewrite <- sumN_inv.
+          rewrite fin_maps.map_to_list_delete; auto.
+          2: FMap_simpl_step.
+          FMap_simpl_step.
+          cbn.
+          rewrite <- N.add_assoc.
+          rewrite (N.add_comm _ amount).
+          rewrite N.add_assoc.
+          rewrite N.sub_add by assumption.
+          rewrite N.add_comm.
+          change (n) with ((fun '(_, v) => v) (from, n)).
+          rewrite sumN_inv.
+          rewrite fin_maps.map_to_list_delete; auto.
+        + FMap_simpl_step.
+          2: FMap_simpl_step.
+          rewrite N.add_0_l. cbn.
+          rewrite FMap.elements_add_existing; eauto.
+          rewrite N.add_comm.
+          change (amount) with ((fun '(_, v) => v) (from, amount)).
+          rewrite sumN_inv.
+          rewrite <- (sumN_split _ _ _ (from, n - amount + amount)) by lia.
+          rewrite N.sub_add by assumption.
+          rewrite fin_maps.map_to_list_delete; auto.
+      - FMap_simpl_step.
+        destruct (FMap.find to balances) eqn:to_prev; cbn.
+        + FMap_simpl_step.
+          2: FMap_simpl_step.
+          rewrite (sumN_split _ (to, amount) (to, n0)) by lia.
+          rewrite <- sumN_inv.
+          rewrite fin_maps.map_to_list_delete; auto.
+          2: FMap_simpl_step.
+          FMap_simpl_step.
+          cbn. lia.
+        + FMap_simpl_step.
+          2: FMap_simpl_step.
+          cbn.
+          FMap_simpl_step.
+          cbn. lia.
   Qed.
-
   (* end hide *)
 
 

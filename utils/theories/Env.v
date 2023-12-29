@@ -64,9 +64,10 @@ Fixpoint remove_by_key {A} (key : string) (ρ : env A) : env A :=
 Lemma lookup_i_length {A} (ρ : env A) n :
   (n <? length ρ) = true -> {e | lookup_i ρ n = Some e}.
 Proof.
-  intros H. revert dependent n.
+  intros H. generalize dependent n.
   induction ρ; intros; propify; simpl in *.
-  elimtype False. lia.
+  cut False; only 1: (let hn := fresh "H" in intro hn; elim hn; try clear hn).
+  lia.
   destruct a. destruct n.
   + simpl; eauto.
   + simpl.
@@ -79,7 +80,7 @@ Qed.
 Lemma lookup_i_length_false {A} (ρ : env A) n :
   (n <? length ρ) = false -> lookup_i ρ n = None.
 Proof.
-  intros H. revert dependent n.
+  intros H. generalize dependent n.
   induction ρ; intros; propify; simpl in *; auto.
   destruct a. destruct n.
   + simpl; eauto.

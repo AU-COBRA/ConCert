@@ -503,8 +503,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
       destruct (Bool.bool_dec (address_is_contract send_results_to)) eqn:Haddr;
         inversion Hparams; subst; clear Hparams.
       cbn.
-      revert dependent next_st.
-      revert dependent send_results_to.
+      generalize dependent next_st.
+      generalize dependent send_results_to.
       induction query.
       - now intros ? ? ? Hparams; cbn in *.
       - intros. cbn.
@@ -536,8 +536,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
         inversion Hreceive; subst; clear Hreceive.
         constructor.
         * cbn.
-          revert dependent next_st.
-          revert dependent prev_st.
+          generalize dependent next_st.
+          generalize dependent prev_st.
           induction params.
           ** cbn in *. congruence.
           ** intros prev_st next_st Hreceive.
@@ -550,8 +550,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
              *** cbn in *. now apply wccd_transfer_single_cis1.
              *** now eapply IHparams.
         * cbn.
-          revert dependent prev_st.
-          revert dependent next_st.
+          generalize dependent prev_st.
+          generalize dependent next_st.
           induction params.
           ** intros; cbn; auto.
           ** intros; cbn -[wccd_transfer_single] in *.
@@ -592,8 +592,8 @@ Module WccdReceiveSpec <: CIS1ReceiveSpec WccdTypes WccdView.
              now rewrite fin_maps.lookup_insert_ne.
         * destruct (AddressMap.find _ _) eqn:Haddr; inversion Hreceive; subst; clear Hreceive.
           destruct a as [bal ops]; cbn in *.
-          revert dependent ops.
-          revert dependent prev_st.
+          generalize dependent ops.
+          generalize dependent prev_st.
           induction params; intros prev_st ops Haddr.
           ** cbn.
              unfold AddressMap.add,AddressMap.find in *.

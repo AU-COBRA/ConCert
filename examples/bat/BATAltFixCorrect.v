@@ -617,7 +617,9 @@ Section Theories.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
       erewrite sumN_split with (x := (ctx_from ctx, _)) (y := (ctx_from ctx, _)) by eauto.
-      now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
+      rewrite sumN_swap.
+      rewrite <- sumN_inv.
+      now rewrite fin_maps.map_to_list_delete.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add; auto.
       now rewrite N.add_comm.
@@ -635,7 +637,9 @@ Section Theories.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
       erewrite sumN_split with (x := ((batFundDeposit prev_state), _)) (y := ((batFundDeposit prev_state), _)) by eauto.
-      now rewrite sumN_swap, fin_maps.map_to_list_delete, N.add_comm.
+      rewrite sumN_swap.
+      rewrite <- sumN_inv.
+      now rewrite fin_maps.map_to_list_delete.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add; auto.
       now rewrite N.add_comm.
@@ -652,9 +656,14 @@ Section Theories.
     result_to_option.
     setoid_rewrite FMap.elements_add_existing; eauto.
     simpl with_default.
+    rewrite N.add_comm. 
+    cbn.
+    rewrite <- N.add_sub_assoc. 2: lia.
+    rewrite (N.add_comm (t mod tokenExchangeRate prev_state) _).
+    rewrite N.add_sub, N.add_comm.
     change t with ((fun '(_, v) => v) (ctx_from ctx, t)).
-    rewrite sumN_inv, sumN_swap, fin_maps.map_to_list_delete by auto. cbn.
-    now rewrite N.add_comm, N.add_sub.
+    rewrite sumN_inv.
+    now rewrite fin_maps.map_to_list_delete.
   Qed.
 
   Lemma init_preserves_balances_sum : forall state chain ctx setup,
@@ -729,7 +738,7 @@ Section Theories.
         rewrite <- N.add_sub_swap, balance_sum, N.sub_add.
         now rewrite N.add_sub.
         apply N_add_le.
-        now apply N.mod_le.
+        now apply N.Div0.mod_le.
         apply balance_le_sum_balances.
     - contract_induction; intros;
         only 1: instantiate (CallFacts := fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
@@ -758,7 +767,7 @@ Section Theories.
     - apply try_create_tokens_total_supply_correct in receive_some.
       rewrite <- receive_some. apply N.le_add_r.
     - apply try_finalize_total_supply_correct in receive_some. lia.
-    - specialize try_refund_is_some as [_ refund_implications].
+    - edestruct try_refund_is_some as [_ refund_implications].
       rewrite receive_some in refund_implications.
       now destruct refund_implications; eauto.
   Qed.
@@ -939,7 +948,7 @@ Section Theories.
       + (* Prove that there is enough balance to evaluate action *)
         now apply account_balance_nonnegative.
       + (* Prove that receive action returns Some *)
-        specialize (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
+        edestruct (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
         * unfold Blockchain.receive.
           rewrite receive_some.
           now contract_simpl.
@@ -1130,7 +1139,7 @@ Section Theories.
                 lia.
           }
 
-          specialize deployed_implies_constants_valid as
+          edestruct deployed_implies_constants_valid as
               (cstate' & contract_state' & _ & _ & echange_rate_nonzero & can_hit_fund_min); eauto.
           cbn in contract_state'.
           rewrite contract_state in contract_state'.
@@ -1281,7 +1290,7 @@ Section Theories.
       - now destruct_address_eq.
       - now destruct_address_eq.
     }
-    specialize constants_are_constant as
+    edestruct constants_are_constant as
       (dep_info & cstate' & deploy_info' & deployed_state' & ? & ? & ? & ? & ? & ? & ? & ?); eauto.
     unfold contract_state in deployed_state'. cbn in deployed_state'.
     rewrite deployed_state, deserialize_serialize in deployed_state'.
@@ -1480,7 +1489,7 @@ Section Theories.
         now rewrite IH, no_new_acts.
       + apply try_create_tokens_only_change_token_state in receive_some as finalized_unchanged.
         apply try_create_tokens_acts_correct in receive_some as no_new_acts.
-        specialize try_create_tokens_is_some as (_ & (_ & _ & _ & funding_active & _)); eauto.
+        edestruct try_create_tokens_is_some as (_ & (_ & _ & _ & funding_active & _)); eauto.
         rewrite <- finalized_unchanged in not_finalized.
         destruct not_finalized as [not_finalized _].
         rewrite no_new_acts, IH; auto.
@@ -1488,7 +1497,7 @@ Section Theories.
         now destruct not_finalized as [not_finalized _].
       + apply try_refund_only_change_token_state in receive_some as finalized_unchanged.
         apply try_refund_total_supply_correct in receive_some as new_supply.
-        specialize try_refund_is_some as
+        edestruct try_refund_is_some as
           (_ & (_ & _ & funding_over%Nat.lt_nge & goal_not_hit & _)); eauto.
         destruct not_finalized as [_ [funding_not_over | goal_hit]].
         * now rewrite <- finalized_unchanged in funding_not_over.
@@ -1505,7 +1514,7 @@ Section Theories.
       split.
       + eapply bat_no_self_calls'; eauto.
         now constructor.
-      + specialize sum_balances_eq_total_supply as
+      + edestruct sum_balances_eq_total_supply as
           (? & ? & ?); eauto.
         now constructor.
         easy.
@@ -1617,16 +1626,16 @@ Section Theories.
     - solve_facts.
       destruct_and_split.
       + now apply Z.ge_le.
-      + specialize deployed_implies_constants_valid as
+      + edestruct deployed_implies_constants_valid as
           (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
         now constructor.
         easy.
-      + specialize sum_balances_eq_total_supply as
+      + edestruct sum_balances_eq_total_supply as
           (cstate' & deployed_state' & ?); eauto.
         now constructor.
         easy.
       + intros.
-        specialize funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
+        edestruct funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
         now constructor.
         now apply no_acts.
       + eapply bat_no_self_calls'; eauto.
@@ -1648,11 +1657,11 @@ Section Theories.
     intros * reach deployed can_receive_funds.
     assert (trace := reach).
     destruct trace as [trace].
-    specialize contract_balance_bound as
+    edestruct contract_balance_bound as
       (cstate & dep_info & deployed_state & deployed_info &
       contract_balance_bound_finalized & contract_balance_bound); eauto.
     apply deployment_amount_nonnegative in deployed_info as dep_amount_nonnegative.
-    specialize deployed_implies_constants_valid as
+    edestruct deployed_implies_constants_valid as
       (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _); eauto.
     rewrite deployed_state in deployed_state'.
     inversion deployed_state'.
@@ -1685,7 +1694,7 @@ Section Theories.
           apply N2Z.is_nonneg.
     }
     intros origin.
-    destruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
+    edestruct can_receive_funds as [receive_not_contract | (wc & cstate' & deployed' & deployed_state' & new_state & receive_some )].
     - eexists.
       constructor.
       eapply eval_transfer; auto.

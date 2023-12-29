@@ -48,7 +48,7 @@ Module CounterRefinementTypes.
     st + inc.
   Next Obligation.
     destruct inc;
-    propify; lia.
+    propify; cbn; lia.
   Qed.
 
   Program Definition dec_counter (st : storage) (dec : {z : Z | 0 <? z}) :
@@ -56,7 +56,7 @@ Module CounterRefinementTypes.
     st - dec.
   Next Obligation.
     destruct dec;
-    propify; lia.
+    propify; cbn; lia.
   Qed.
 
   Definition counter (msg : msg)

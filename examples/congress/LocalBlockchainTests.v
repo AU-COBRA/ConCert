@@ -3,6 +3,7 @@ implementation, showing that everything computes from within Coq. It
 also contains specializations of the results proven in Congress.v to
 our particular implementations of blockchains. *)
 
+From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
@@ -137,8 +138,8 @@ Section LocalBlockchainTests.
                  build_act person_1 person_1 (add_person person_2)] in
     unpack_result (add_block chain4 acts).
 
-  Goal (FMap.elements (congress_state chain5).(members)) = [(person_1, tt); (person_2, tt)].
-  Proof. vm_compute. reflexivity. Qed.
+  Goal Permutation.Permutation (FMap.elements (congress_state chain5).(members)) [(person_1, tt); (person_2, tt)].
+  Proof. vm_compute. perm_simplify. Qed.
   Goal (env_account_balances chain5 congress_1) = 5%Z.
   Proof. vm_compute. reflexivity. Qed.
 

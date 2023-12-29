@@ -10,19 +10,19 @@ homepage: "https://github.com/AU-COBRA/ConCert"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
-  "coq" {= "8.17.0"}
-  "coq-bignums" {= "9.0.0+coq8.17"}
-  "coq-metacoq-common" {= "1.2+8.17"}
-  "coq-metacoq-erasure" {= "1.2+8.17"}
-  "coq-metacoq-pcuic" {= "1.2+8.17"}
-  "coq-metacoq-safechecker" {= "1.2+8.17"}
-  "coq-metacoq-template" {= "1.2+8.17"}
-  "coq-metacoq-template-pcuic" {= "1.2+8.17"}
-  "coq-metacoq-utils" {= "1.2+8.17"}
+  "coq" {= "8.18.0"}
+  "coq-bignums" {= "9.0.0+coq8.18"}
+  "coq-metacoq-common" {= "1.2.1+8.18"}
+  "coq-metacoq-erasure" {= "1.2.1+8.18"}
+  "coq-metacoq-pcuic" {= "1.2.1+8.18"}
+  "coq-metacoq-safechecker" {= "1.2.1+8.18"}
+  "coq-metacoq-template" {= "1.2.1+8.18"}
+  "coq-metacoq-template-pcuic" {= "1.2.1+8.18"}
+  "coq-metacoq-utils" {= "1.2.1+8.18"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
-  "coq-quickchick" {= "2.0.0"}
-  "coq-stdpp" {= "1.8.0"}
+  "coq-quickchick" {= "dev"}
+  "coq-stdpp" {= "1.9.0"}
 ]
 build: [
   [make]
@@ -37,10 +37,14 @@ dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
 pin-depends: [
   [
     "coq-rust-extraction.dev"
-    "git+https://github.com/AU-COBRA/coq-rust-extraction.git#f31a52ba2c1bddd42e9f9df8fca6c297ac359fae"
+    "git+https://github.com/AU-COBRA/coq-rust-extraction.git#0053733e56008c917bf43d12e8bf0616d3b9a856"
   ]
   [
     "coq-elm-extraction.dev"
-    "git+https://github.com/AU-COBRA/coq-elm-extraction.git#0c0a733486f915162a194ee646d5f11d2ffc5cc0"
+    "git+https://github.com/AU-COBRA/coq-elm-extraction.git#903320120e3f36d7857161e5680fabeb6e743c6b"
+  ]
+  [
+    "coq-quickchick.dev"
+    "git+https://github.com/4ever2/QuickChick.git#bc61d58045feeb754264df9494965c280e266e1c"
   ]
 ]
