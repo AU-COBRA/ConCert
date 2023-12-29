@@ -11,14 +11,14 @@ doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
   "coq" {= "8.18.0"}
-  "coq-bignums" {= "9.0.0+coq8.17"}
-  "coq-metacoq-common" {= "1.2.1+8.17"}
-  "coq-metacoq-erasure" {= "1.2.1+8.17"}
-  "coq-metacoq-pcuic" {= "1.2.1+8.17"}
-  "coq-metacoq-safechecker" {= "1.2.1+8.17"}
-  "coq-metacoq-template" {= "1.2.1+8.17"}
-  "coq-metacoq-template-pcuic" {= "1.2.1+8.17"}
-  "coq-metacoq-utils" {= "1.2.1+8.17"}
+  "coq-bignums" {= "9.0.0+coq8.18"}
+  "coq-metacoq-common" {= "1.2.1+8.18"}
+  "coq-metacoq-erasure" {= "1.2.1+8.18"}
+  "coq-metacoq-pcuic" {= "1.2.1+8.18"}
+  "coq-metacoq-safechecker" {= "1.2.1+8.18"}
+  "coq-metacoq-template" {= "1.2.1+8.18"}
+  "coq-metacoq-template-pcuic" {= "1.2.1+8.18"}
+  "coq-metacoq-utils" {= "1.2.1+8.18"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
   "coq-quickchick" {= "dev"}
