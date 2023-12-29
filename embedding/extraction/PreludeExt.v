@@ -26,8 +26,8 @@ Open Scope nat.
 (** ** Wrappers for some primitive types *)
 
 MetaCoq Run
-        ( mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+         (mp_ <- tmCurrentModPath tt ;;
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp ["address"; "time"; "ContractAddr";
                       "UserAddr"; "Time" ; "Money"] "_coq").
 
@@ -210,8 +210,8 @@ Module Maps.
 
 
   MetaCoq Run
-          ( mp_ <- tmCurrentModPath tt ;;
-            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+           (mp_ <- tmCurrentModPath tt ;;
+            let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
             mkNames mp ["addr_map"] "_coq").
 
   Definition addr_map_acorn :=

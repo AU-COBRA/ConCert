@@ -13,6 +13,7 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICCorrectnessAux.
 From ConCert.Embedding Require Import Wf.
 From ConCert.Embedding Require Import Misc.
+From ConCert.Embedding Require Import Utils.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
 From Coq Require Import String.

@@ -26,8 +26,8 @@ Set Nonrecursive Elimination Schemes.
 
 (** Generating names for the data structures. We also add a prefix, corresponding ti the current module path. *)
 MetaCoq Run
-        ( mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+         (mp_ <- tmCurrentModPath tt ;;
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
              ["State" ; "mkState"; "balance" ; "donations" ; "owner";
               "deadline"; "goal"; "done";

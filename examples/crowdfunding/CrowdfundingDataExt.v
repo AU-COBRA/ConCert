@@ -28,8 +28,8 @@ Import PreludeExt.Maps.
 
 (** Generating names for the data structures *)
 MetaCoq Run
-        ( mp_ <- tmCurrentModPath tt ;;
-          let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+         (mp_ <- tmCurrentModPath tt ;;
+          let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
              ["State" ; "mkState"; "balance" ; "donations" ; "owner";
               "deadline"; "goal"; "done";

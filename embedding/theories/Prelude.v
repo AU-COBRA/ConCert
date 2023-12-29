@@ -28,8 +28,8 @@ Module Maps.
   Open Scope string.
 
   MetaCoq Run
-          ( mp_ <- tmCurrentModPath tt ;;
-            let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+           (mp_ <- tmCurrentModPath tt ;;
+            let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
             mkNames mp ["addr_map"] "_coq").
 
   Definition addr_map_acorn :=

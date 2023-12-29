@@ -21,6 +21,7 @@ From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import PCUICFacts.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import Wf.
+From ConCert.Embedding Require Import Utils.
 
 
 Notation "'eval' ( n , Σ , ρ , e )" := (expr_eval_i Σ n ρ e) (at level 100).

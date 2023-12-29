@@ -23,7 +23,7 @@ Module Counter.
   (** Generating names for the data structures *)
   MetaCoq Run
           (mp_ <- tmCurrentModPath tt ;;
-           let mp := (PCUICTranslate.string_of_modpath mp_ ++ "@")%string in
+           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
             mkNames mp ["state"; "MkState"; "owner"; "msg"] "_coq").
 
   (** Variable names and constructor names *)

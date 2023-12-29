@@ -51,7 +51,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
   match ty with
   | tyInd nm =>
     (* ignore module path on printing *)
-    let (_, nm') := PCUICTranslate.kername_of_string nm in
+    let (_, nm') := Utils.kername_of_string nm in
     TCString.to_string (Extras.with_default nm' (option_map TCString.of_string (look TT nm)))
   | tyForall x b => "forall " ++ "'" ++ x ++ liquidifyTy TT b
   (* is it a product? *)
@@ -59,7 +59,7 @@ Fixpoint liquidifyTy (TT : env string) (ty : type) : string :=
     match ty1 with
       | (tyApp (tyInd ty_nm) A) =>
         (* ignore module path on printing *)
-        let (_, nm') := PCUICTranslate.kername_of_string ty_nm in
+        let (_, nm') := Utils.kername_of_string ty_nm in
         if TCString.to_string nm' =? "prod" then
           inParens (liquidifyTy TT A ++ " * " ++ liquidifyTy TT ty2)
         else inParens (liquidifyTy TT ty2 ++ " " ++ liquidifyTy TT ty1)
@@ -89,7 +89,7 @@ Definition liquidifyInductive (TT : env string) (gd : global_dec) : string :=
   match gd with
   | gdInd nm nparams ctors is_record =>
     (* ignore module path on printing *)
-    let (_, nm') := PCUICTranslate.kername_of_string nm in
+    let (_, nm') := Utils.kername_of_string nm in
     "type " ++ nm' ++ " = " ++
     if is_record then
       Extras.with_default "Not a Record!" (head (map (printRecord TT) ctors))
@@ -182,7 +182,7 @@ Definition liquidify (TT TTty : env string) : expr -> string :=
         else default_app
     | eConst cst =>
       (* ignore module path *)
-      let (_, cst') := PCUICTranslate.kername_of_string cst in
+      let (_, cst') := Utils.kername_of_string cst in
       (* is it a first projection? *)
       if cst' =? "fst" then go e2 ++ "." ++ inParens ("0")
       else
@@ -204,13 +204,13 @@ Definition liquidify (TT TTty : env string) : expr -> string :=
           else ctor
   | eConst cst =>
     (* ignore module path *)
-    let (_, cst') := PCUICTranslate.kername_of_string cst in
+    let (_, cst') := Utils.kername_of_string cst in
     Extras.with_default cst' (option_map TCString.of_string (look TT cst))
   | eCase (ind,_) _ d bs =>
     match bs with
     | [b1; b2] => (* Handling if-then-else *)
       (* ignore module path *)
-      let (_, ind') := PCUICTranslate.kername_of_string ind in
+      let (_, ind') := Utils.kername_of_string ind in
       if (ind' =? "bool") then
         if (isTruePat (fst b1)) && (isFalsePat (fst b2)) then
           "if " ++ inParens (go d)
