@@ -37,7 +37,7 @@ jobs:
       - run: sudo apt-get update
       - name: Restore opam cache
         id: opam-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: "~/.opam"
           key: opam-${{env.OCAML_COMILER_VERSION}}-${{hashFiles('.github/coq-concert.opam.locked')}}
