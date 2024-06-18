@@ -50,12 +50,23 @@ Open Scope monad_scope.
 
 Definition result_err_bytestring A := result A bytestring.String.t.
 
+(* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+Import List.
+Import ListNotations.
+From MetaCoq.Erasure.Typed Require Import Optimize.
+Definition extract_within_coq : extract_template_env_params :=
+  {| template_transforms := [];
+     check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| optimize_prop_discr := true;
+          extract_transforms := [dearg_transform (fun _ => None) true false true true true] |} |}.
+
 Definition extract_ (p : program) : result_err_bytestring _ :=
   entry <- match snd p with
            | tConst kn _ => ret kn
            | _ => Err (s_to_bs "Expected program to be a tConst")
            end;;
-  extract_template_env_within_coq
+  extract_template_env extract_within_coq
          (fst p)
          (Kernames.KernameSet.singleton entry)
          (fun k => false).
@@ -66,7 +77,7 @@ Definition extract_body {A} (def : A) : TemplateMonad _ :=
            | tConst kn _ => ret kn
            | _ => tmFail (s_to_bs "Expected program to be a tConst")
           end ;;
-  res <- tmEval Common.lazy (extract_template_env_within_coq
+  res <- tmEval Common.lazy (extract_template_env extract_within_coq
                (fst p)
                (Kernames.KernameSet.singleton entry)
                (fun k => false));;
