@@ -138,7 +138,7 @@ Definition extract_within_coq : extract_template_env_params :=
           extract_transforms := [dearg_transform (fun _ => None) true false true true true] |} |}.
 
 Definition counter_extract :=
-    Eval vm_compute in
+  Eval vm_compute in
     extract_template_env extract_within_coq
       counter_env
       (KernameSet.singleton counter_name)
@@ -147,10 +147,11 @@ Definition counter_extract :=
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 
-Definition counter_result := Eval compute in
-     (env <- counter_extract ;;
-      '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
-      ret lines).
+Definition counter_result :=
+  Eval compute in
+    (env <- counter_extract ;;
+    '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
+    ret lines).
 
 Definition wrap_in_delimiters s :=
   concat Common.nl [""; "{-START-} "; s; "{-END-}"].

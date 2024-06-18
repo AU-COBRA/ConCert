@@ -150,17 +150,17 @@ Section Theories.
 
   Ltac FMap_simpl_step :=
     match goal with
-      | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => setoid_rewrite FMap.find_add
+      | |- context [ FMap.find ?x (FMap.add ?x _ _) ] => rewrite FMap.find_add
       | H : FMap.find ?t ?m = Some _ |- FMap.find ?t ?m = Some _ => cbn; rewrite H; f_equal; lia
-      | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => setoid_rewrite FMap.find_add_ne; eauto
-      | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => setoid_rewrite FMap.find_add_ne; eauto
-      | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add_existing; eauto
-      | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => setoid_rewrite FMap.add_add
-      | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add; eauto
+      | H : ?x <> ?y |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+      | H : ?y <> ?x |- context [ FMap.find ?x (FMap.add ?y _ _) ] => rewrite FMap.find_add_ne; eauto
+      | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add_existing; eauto
+      | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
+      | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
       | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
-      | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter
-      | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne; auto
-      | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne
+      | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter
+      | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne; auto
+      | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne
       | H : context [ AddressMap.find _ _ ] |- _ => rewrite AddressMap_find_convertible in H
       | H : context [ AddressMap.add _ _ _ ] |- _ => rewrite AddressMap_add_convertible in H
       | H : context [ increment_balance _ _ _ ] |- _ => rewrite increment_balanace_is_partial_alter_plus in H
@@ -665,6 +665,9 @@ Section Theories.
   Qed.
 
 
+  Remove Hints MCRelations.on_rel_refl : typeclass_instances.
+  Remove Hints MCRelations.on_rel_trans : typeclass_instances.
+  Remove Hints MCRelations.on_rel_sym : typeclass_instances.
 
   (** ** Sum of balances always equals total supply *)
   Lemma sum_balances_eq_total_supply bstate caddr :
@@ -680,7 +683,8 @@ Section Theories.
       inversion_clear init_some.
       unfold sum_balances.
       setoid_rewrite FMap.elements_add; auto.
-      setoid_rewrite FMap.elements_empty. cbn. lia.
+
+      rewrite FMap.elements_empty. cbn. lia.
     - intros IH receive_some.
       unfold Blockchain.receive in *.
       cbn in *.
