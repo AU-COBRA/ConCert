@@ -134,6 +134,8 @@ html: all
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
 		--external https://metacoq.github.io/html MetaCoq \
 		--external https://coq-community.org/coq-ext-lib/v0.11.7 ExtLib \
+		--external https://au-cobra.github.io/coq-elm-extraction/ ElmExtraction \
+		--external https://au-cobra.github.io/coq-rust-extraction/ RustExtraction \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \
