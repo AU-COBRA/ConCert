@@ -1,9 +1,12 @@
+Local Unset Universe Checking.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Examples.Escrow Require Import Escrow.
 From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
+
+Local Set Universe Checking.
 
 
 Definition ESCROW_MODULE : ConcordiumMod _ _ :=

@@ -240,9 +240,9 @@ Lemma type_value_term_value Σ ty :
   PcbvCurr.value Σ (type_to_term ty).
 Proof.
   intros Hc Hty. induction Hty.
-  + simpl. constructor. apply tInd_atom.
+  + simpl. constructor. constructor. apply tInd_atom.
   + simpl. now constructor.
-  + simpl. now constructor.
+  + simpl. constructor. now constructor.
   + simpl in *. propify. destruct_hyps.
     erewrite decompose_inductive_mkApps by eauto.
     rewrite <- mkApps_unfold.
@@ -250,7 +250,7 @@ Proof.
     * apply tInd_value_head.
     * apply All_app_inv; eauto.
       eapply decompose_inductive_value with (t1 := ty1); eauto.
-  + constructor; eauto.
+  + do 2 constructor; eauto.
 Qed.
 
 #[export] Hint Constructors ty_val : hints.
@@ -369,9 +369,9 @@ Proof.
     inversion Hok; subst.
     eapply Wcbv_value_vars_to_apps; eauto.
     eapply All_impl_inner; eauto.
-  + destruct cm. constructor; auto.
-    simpl. now constructor.
-  + simpl in *. constructor; auto.
+  + destruct cm. do 2 constructor; auto.
+    simpl. now do 2 constructor.
+  + simpl in *. do 2 constructor; auto.
   + simpl in *.
     inversion Hok; subst. now eapply type_value_term_value.
 Qed.

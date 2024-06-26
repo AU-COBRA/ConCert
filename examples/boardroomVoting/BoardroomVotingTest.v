@@ -1,4 +1,5 @@
-From Coq Require Import Cyclic31.
+(* From Coq Require Import Cyclic31. *)
+From Coq.Numbers.Cyclic.Int63 Require Import Cyclic63.
 From Coq Require Import List.
 From Coq Require Import Znumtheory.
 From ConCert.Utils Require Import Extras.

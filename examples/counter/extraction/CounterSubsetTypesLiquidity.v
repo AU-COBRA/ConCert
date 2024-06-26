@@ -1,7 +1,7 @@
 (** * Extraction of a counter contract with subset types to Liquidity and CameLIGO *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
-
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
@@ -17,6 +17,8 @@ From Coq Require Import String.
 From Coq Require Import Lia.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Open Scope Z.

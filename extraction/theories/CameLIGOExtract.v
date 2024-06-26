@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith_base.
@@ -25,6 +26,8 @@ From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import TemplateMonad.
 
 Import MCMonadNotation ListNotations.
+
+Local Set Universe Checking.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation error : Type) :=
   { lmd_module_name : string ;

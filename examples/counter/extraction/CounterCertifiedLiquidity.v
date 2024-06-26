@@ -1,5 +1,5 @@
 (** * Extraction of a simple counter contract *)
-
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
@@ -15,6 +15,8 @@ From Coq Require Import Lia.
 From Coq Require Import ZArith.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Open Scope Z.

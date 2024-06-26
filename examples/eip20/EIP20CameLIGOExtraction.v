@@ -1,5 +1,6 @@
 (** * Extraction of various contracts to CameLIGO *)
 
+Local Unset Universe Checking.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
@@ -12,6 +13,8 @@ From ConCert.Execution Require ContractCommon.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.EIP20 Require EIP20Token.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 

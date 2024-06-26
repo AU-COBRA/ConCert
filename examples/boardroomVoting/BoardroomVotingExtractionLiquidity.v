@@ -1,7 +1,7 @@
 (** * Extraction of the Boardroom voting contract Liquidity *)
 
 (** NOTE: Currently does not compile due to some restrictions on closures in Liquidity. Moreover, the printing of literals might need adjustments. *)
-
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
@@ -19,6 +19,8 @@ From Coq Require Import List.
 From Coq Require Import String.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Open Scope Z.

@@ -2,6 +2,8 @@
 
 (** We provide a configuration required for the contract extraction:
     additional remappings, definitions to inline, etc. *)
+
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import CameLIGOPretty.
@@ -17,6 +19,8 @@ From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
+
+Local Set Universe Checking.
 
 
 Local Open Scope string_scope.

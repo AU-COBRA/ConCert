@@ -1,5 +1,5 @@
 (** * Extraction of various contracts to CameLIGO *)
-
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
@@ -11,6 +11,10 @@ From Coq Require Import String.
 
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
+(* TODO: tmp, remove later? *)
+Context `{Blockchain.ChainBase}.
 
 Local Close Scope bs_scope.
 Local Open Scope string_scope.

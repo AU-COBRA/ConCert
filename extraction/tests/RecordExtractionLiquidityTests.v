@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From Coq Require Import List.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
@@ -6,6 +7,8 @@ From ConCert.Utils Require Import StringExtra.
 From ConCert.Extraction Require Import LiquidityExtract.
 
 Import ListNotations.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 
