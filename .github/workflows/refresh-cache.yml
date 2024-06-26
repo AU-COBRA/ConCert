@@ -2,6 +2,9 @@ name: Refresh cache
 on:
   schedule:
     - cron: 0 1 * * MON
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}"
+  cancel-in-progress: true
 permissions:
   contents: read
 env:
