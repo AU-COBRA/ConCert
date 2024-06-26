@@ -87,69 +87,12 @@ jobs:
           opam exec -- make -j${{ env.JOBS }} examples
           echo "::endgroup::"
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.69.0
-          target: wasm32-unknown-unknown
-      - name: Set up Concordium tools
-        run: |
-          curl -L -O https://distribution.concordium.software/tools/linux/cargo-concordium_1.0.0
-          sudo chmod +x cargo-concordium_1.0.0
-          sudo mv cargo-concordium_1.0.0 /usr/local/bin/cargo-concordium
-
-      - name: Set up LIGO v0.59.0
-        run: |
-          curl -L -O https://gitlab.com/ligolang/ligo/-/jobs/3553205311/artifacts/raw/ligo
-          sudo chmod +x ./ligo
-          sudo mv ligo /usr/local/bin/
-
-      - name: Set up Liquidity
-        run: |
-          sudo chmod +x ./extra/docker/liquidity
-          sudo mv extra/docker/liquidity /usr/local/bin/
-
-      - name: Test extraction
-        run: |
-          echo "::group::Running tests"
-          git config --global url.https://github.com/.insteadOf git@github.com:
-          make -j${{ env.JOBS }} test-extraction
-          echo "::endgroup::"
-
-      - name: Upload Liquidity extraction logs
-        if: false # Do we still want these logs?
+      - name: Upload extraction results
         uses: actions/upload-artifact@v4
         with:
-          name: Liquidity logs
-          path: extraction/tests/extracted-code/liquidity-extract/liquidity.log
-          retention-days: 14
-
-      - name: Prepare extraction results
-        if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-        run: |
-          echo "::group::Cleaning up extracted code"
-          make -j${{ env.JOBS }} clean-extraction-out-files
-          make -j${{ env.JOBS }} clean-compiled-extraction
-          find extraction/tests/extracted-code -name 'placeholder' -delete
-          echo "::endgroup::"
-
-          cp LICENSE extraction/tests/extracted-code/LICENSE
-          cp extra/extraction-results.md extraction/tests/extracted-code/README.md
-          cp .gitattributes extraction/tests/extracted-code/.gitattributes
-
-      - name: Push to the extraction results repository
-        # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
-        if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          SSH_DEPLOY_KEY: ${{ secrets.EXTRACTION_RESULTS_DEPLOY_KEY }}
-        with:
-          source-directory: 'extraction/tests/extracted-code'
-          destination-github-username: 'AU-COBRA'
-          destination-repository-name: 'extraction-results'
-          user-email: danil.v.annenkov@gmail.com
-          commit-message: See ORIGIN_COMMIT from $GITHUB_REF
-          target-branch: master
+          name: extraction-results
+          path: extraction/tests/extracted-code
+          retention-days: 2
 
       - name: Build documentation
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -180,6 +123,75 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch ${{ github.ref_name }}
+        uses: actions/checkout@v4
+
+      - name: Download extraction results
+        uses: actions/download-artifact@v4
+        with:
+          name: extraction-results
+          path: extraction/tests/extracted-code
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.69.0
+          target: wasm32-unknown-unknown
+      - name: Set up Concordium tools
+        run: |
+          curl -L -O https://distribution.concordium.software/tools/linux/cargo-concordium_1.0.0
+          sudo chmod +x cargo-concordium_1.0.0
+          sudo mv cargo-concordium_1.0.0 /usr/local/bin/cargo-concordium
+
+      - name: Set up LIGO v0.59.0
+        run: |
+          curl -L -O https://gitlab.com/ligolang/ligo/-/jobs/3553205311/artifacts/raw/ligo
+          sudo chmod +x ./ligo
+          sudo mv ligo /usr/local/bin/
+
+      - name: Set up Liquidity
+        run: |
+          sudo chmod +x ./extra/docker/liquidity
+          sudo mv extra/docker/liquidity /usr/local/bin/
+
+      - name: Test extraction
+        run: |
+          echo "::group::Running tests"
+          git config --global url.https://github.com/.insteadOf git@github.com:
+          make -j${{ env.JOBS }} test-extraction
+          echo "::endgroup::"
+
+      - name: Prepare extraction results
+        if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
+        run: |
+          echo "::group::Cleaning up extracted code"
+          make -j${{ env.JOBS }} clean-extraction-out-files
+          make -j${{ env.JOBS }} clean-compiled-extraction
+          find extraction/tests/extracted-code -name 'placeholder' -delete
+          echo "::endgroup::"
+
+          cp LICENSE extraction/tests/extracted-code/LICENSE
+          cp extra/extraction-results.md extraction/tests/extracted-code/README.md
+          cp .gitattributes extraction/tests/extracted-code/.gitattributes
+
+      - name: Push to the extraction results repository
+        # don't push the extraction results on pull requests and push only from the master branch of the AU-COBRA/ConCert repo.
+        if: github.event_name == 'push' && github.repository == 'AU-COBRA/ConCert' && github.ref == 'refs/heads/master'
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          SSH_DEPLOY_KEY: ${{ secrets.EXTRACTION_RESULTS_DEPLOY_KEY }}
+        with:
+          source-directory: 'extraction/tests/extracted-code'
+          destination-github-username: 'AU-COBRA'
+          destination-repository-name: 'extraction-results'
+          user-email: danil.v.annenkov@gmail.com
+          commit-message: See ORIGIN_COMMIT from $GITHUB_REF
+          target-branch: master
 
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
