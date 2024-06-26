@@ -112,6 +112,7 @@ jobs:
       - name: Test extraction
         run: |
           echo "::group::Running tests"
+          git config --global url.https://github.com/.insteadOf git@github.com:
           make -j${{ env.JOBS }} test-extraction
           echo "::endgroup::"
 
