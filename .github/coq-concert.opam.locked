@@ -34,7 +34,7 @@ pin-depends: [
   ["coq-metacoq-erasure.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
 ]
 build: [
-  [make]
+  [make "core"]
   [make "examples"] {with-test}
   [make "html"] {with-doc}
 ]
