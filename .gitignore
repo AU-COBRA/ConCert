@@ -2,6 +2,9 @@
 *.tmp
 .DS_Store
 
+# Nix outputs
+result
+
 # dpd-graph outputs
 *.dpd
 *.dot
