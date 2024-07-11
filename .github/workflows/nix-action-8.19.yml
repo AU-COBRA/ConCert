@@ -321,6 +321,13 @@ name: Nix CI for bundle 8.19
   pull_request_target:
     paths-ignore:
     - .github/workflows/nix-action-8.19.yml
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
     types:
     - opened
     - synchronize
