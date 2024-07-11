@@ -722,6 +722,8 @@ Section PPTerm.
     | tFix _ _ => fun _ => "NotSupportedMutualFix"
     | tCoFix l n => fun _ => "NotSupportedCoFix"
     | tPrim _ => fun _ => "NotSupportedCoqPrimitive"
+    | tLazy _ => fun _ => "NotSupportedLazy"
+    | tForce _ => fun _ => "NotSupportedForce"
   end.
 
 End PPTerm.

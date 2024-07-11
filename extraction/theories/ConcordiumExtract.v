@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith.
@@ -18,6 +19,8 @@ From RustExtraction Require Import PrettyPrinterMonad.
 From RustExtraction Require Import Printing.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Local Notation bs_to_s := bytestring.String.to_string.

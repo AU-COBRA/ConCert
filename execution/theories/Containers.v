@@ -135,10 +135,11 @@ Module FMap.
       Permutation (keys (add k v' m)) (keys m).
     Proof.
       revert k.
+      (* Search (stdpp.base.lookup _ _ = _ -> Permutation _ _). *)
       induction m using fin_maps.map_ind; intros k find_some.
       + rewrite find_empty in find_some.
         congruence.
-      + destruct (stdpp.base.decide (k = i)) as [->|].
+      + destruct (EqDecision0 k i) as [->|].
         * rewrite fin_maps.insert_insert.
           unfold keys.
           rewrite 2!fin_maps.map_to_list_insert by auto.
@@ -153,6 +154,7 @@ Module FMap.
           cbn.
           now rewrite IHm.
     Qed.
+
 
     Lemma ind (P : FMap K V -> Prop) :
       P empty ->
@@ -193,7 +195,7 @@ Module FMap.
       - rewrite elements_empty, find_empty.
         split; easy.
       - rewrite elements_add by auto.
-        destruct (stdpp.base.decide (k = k0)) as [->|?].
+        destruct (EqDecision0 k k0) as [->|?].
         + rewrite find_add.
           cbn.
           split; intros.

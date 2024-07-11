@@ -1,5 +1,5 @@
 (** * Extraction of Escrow to CameLIGO and liquidity *)
-
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
@@ -11,6 +11,8 @@ From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
 From Coq Require Import String.
 From Coq Require Import ZArith_base.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 

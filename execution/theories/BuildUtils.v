@@ -604,7 +604,7 @@ Proof.
     split; eauto.
     do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
     + now apply finalized_heigh_chain_height.
-    + apply NPeano.Nat.sub_0_le in slot_hit.
+    + apply Nat.sub_0_le in slot_hit.
       rewrite_environment_equiv. cbn. lia.
   - specialize (forward_time_exact bstate reward creator slot) as
       (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq); eauto.

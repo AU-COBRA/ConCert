@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Monad.
@@ -16,6 +17,9 @@ From Coq Require Import List.
 From Coq Require Import String.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
+
 Open Scope string.
 
 #[local]
@@ -62,7 +66,8 @@ Definition extract_params :=
      template_transforms := [template_inline should_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [Optimize.dearg_transform (fun _ => None) true true true true true] |} |}.
+          (* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+          extract_transforms := [Optimize.dearg_transform (fun _ => None) true false true true true] |} |}.
 
 Axiom extraction_chain_base : ChainBase.
 #[local]

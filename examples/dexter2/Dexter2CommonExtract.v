@@ -1,5 +1,6 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
+Local Unset Universe Checking.
 From Coq Require Import List.
 From Coq Require Import String.
 From Coq Require Import ZArith_base.
@@ -15,6 +16,8 @@ From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.Dexter2 Require Dexter2CPMM.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import StringExtra.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 

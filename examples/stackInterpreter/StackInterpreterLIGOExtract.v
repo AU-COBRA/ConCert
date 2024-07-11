@@ -1,4 +1,5 @@
 (** * Extraction of an interpreter for a stack based DSL *)
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
@@ -13,6 +14,7 @@ Local Open Scope string_scope.
 Import MCMonadNotation.
 Import Interpreter.
 
+Local Set Universe Checking.
 
 
 Module CameLIGOInterp.
