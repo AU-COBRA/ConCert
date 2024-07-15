@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreter.
 From RustExtraction Require Import RustExtract.
 From RustExtraction Require Import Printing.
@@ -10,6 +11,8 @@ From Coq Require Import String.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
+
+Local Set Universe Checking.
 
 Open Scope string.
 

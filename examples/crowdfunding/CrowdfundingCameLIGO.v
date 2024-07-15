@@ -1,5 +1,5 @@
 (** * Extraction of various contracts to CameLIGO *)
-
+Local Unset Universe Checking.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import String.
@@ -16,6 +16,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Open Scope Z.

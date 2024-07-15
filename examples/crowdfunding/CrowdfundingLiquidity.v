@@ -1,5 +1,5 @@
 (** * Extraction of a crowdfunding contract *)
-
+Local Unset Universe Checking.
 From Coq Require Import ZArith.
 From Coq Require Import String.
 From ConCert.Embedding Require Import Notations.
@@ -17,6 +17,8 @@ Import AcornBlockchain.
 Import MCMonadNotation.
 Import CrowdfundingContract.
 Import Receive.
+
+Local Set Universe Checking.
 
 Local Open Scope string_scope.
 Open Scope Z.

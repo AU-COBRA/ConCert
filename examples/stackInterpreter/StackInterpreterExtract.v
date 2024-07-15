@@ -1,4 +1,5 @@
 (** * Extraction of an interpreter for a stack based DSL *)
+Local Unset Universe Checking.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Containers.
@@ -10,6 +11,8 @@ From Coq Require Import String.
 From Coq Require Import ZArith_base.
 Local Open Scope string_scope.
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Definition map_key_type := (string * Z).
 Definition action := ActionBody.

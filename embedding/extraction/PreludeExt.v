@@ -144,12 +144,12 @@ Next Obligation.
   intros a b. destruct a,b; simpl.
   - destruct (n =? n0)%nat eqn:Heq.
     * constructor. now rewrite Nat.eqb_eq in *.
-    * constructor. now rewrite NPeano.Nat.eqb_neq in *.
+    * constructor. now rewrite Nat.eqb_neq in *.
   - now constructor.
   - now constructor.
   - destruct (n =? n0)%nat eqn:Heq.
     * constructor. now rewrite Nat.eqb_eq in *.
-    * constructor. now rewrite NPeano.Nat.eqb_neq in *.
+    * constructor. now rewrite Nat.eqb_neq in *.
 Qed.
 Next Obligation.
   intros ??. unfold base.Decision.

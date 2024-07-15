@@ -470,6 +470,8 @@ Section Countable.
            (t : SerializedType) : countable.Countable (interp_type t).
   Proof. induction t; typeclasses eauto. Defined.
 
+  Import (hints) stdpp.base.
+
   Global Instance SerializedValue_EqDecision : stdpp.base.EqDecision SerializedValue.
   Proof.
     intros x y.

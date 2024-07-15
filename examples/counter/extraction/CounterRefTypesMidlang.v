@@ -1,6 +1,7 @@
 (** * Extraction of a counter contract with refinement types to Midlang *)
 
 (** The contract uses refinement types to specify some functional correctness properties *)
+Local Unset Universe Checking.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ElmExtraction Require Import Common.
@@ -16,6 +17,8 @@ From Coq Require Import String.
 From Coq Require Import ZArith.
 
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 Open Scope string.
 
 #[local]
@@ -128,10 +131,18 @@ Definition ignored_concert_types :=
          <%% @ContractCallContext %%>;
          <%% @SerializedValue %%>].
 
+(* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+From MetaCoq.Erasure.Typed Require Import Optimize.
+Definition extract_within_coq : extract_template_env_params :=
+  {| template_transforms := [];
+     check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
+     pcuic_args :=
+       {| optimize_prop_discr := true;
+          extract_transforms := [dearg_transform (fun _ => None) true false true true true] |} |}.
 
 Definition counter_extract :=
-    Eval vm_compute in
-    extract_template_env_within_coq
+  Eval vm_compute in
+    extract_template_env extract_within_coq
       counter_env
       (KernameSet.singleton counter_name)
       (fun kn => List.existsb (eq_kername kn)
@@ -139,10 +150,11 @@ Definition counter_extract :=
                                  ++ map fst midlang_translation_map
                                  ++ map fst TT)).
 
-Definition counter_result := Eval compute in
-     (env <- counter_extract ;;
-      '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
-      ret lines).
+Definition counter_result :=
+  Eval compute in
+    (env <- counter_extract ;;
+    '(_, lines) <- finish_print_lines (print_env env midlang_counter_translate);;
+    ret lines).
 
 Definition wrap_in_delimiters s :=
   concat Common.nl [""; "{-START-} "; s; "{-END-}"].

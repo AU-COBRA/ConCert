@@ -15,6 +15,7 @@
 
    Note: Only specializes ChainBase when it is the very first abstraction. *)
 (* From Coq Require Import String. *)
+Local Unset Universe Checking.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
@@ -29,6 +30,8 @@ From Coq Require Import List.
 
 Import ListNotations.
 Import MCMonadNotation.
+
+Local Set Universe Checking.
 
 Local Open Scope bs_scope.
 

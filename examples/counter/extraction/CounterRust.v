@@ -1,3 +1,4 @@
+Local Unset Universe Checking.
 From ConCert.Examples.Counter Require Counter.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
@@ -5,6 +6,8 @@ From RustExtraction Require Import RustExtract.
 From Coq Require Import Bool.
 From Coq Require Import String.
 From MetaCoq.Template Require Import All.
+
+Local Set Universe Checking.
 
 Open Scope string.
 
