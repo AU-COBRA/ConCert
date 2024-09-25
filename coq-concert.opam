@@ -16,7 +16,7 @@ doc: "https://au-cobra.github.io/ConCert/toc.html"
 depends: [
   "coq" {>= "8.17" & < "8.19~"}
   "coq-bignums" {>= "8"}
-  "coq-quickchick" {= "dev"}
+  "coq-quickchick" {>= "2.0.4"}
   "coq-metacoq-utils" {>= "1.2" & < "1.3~"}
   "coq-metacoq-common" {>= "1.2" & < "1.3~"}
   "coq-metacoq-template" {>= "1.2" & < "1.3~"}
@@ -32,7 +32,6 @@ depends: [
 pin-depends: [
   ["coq-rust-extraction.dev" "git+https://github.com/AU-COBRA/coq-rust-extraction.git#0053733e56008c917bf43d12e8bf0616d3b9a856"]
   ["coq-elm-extraction.dev" "git+https://github.com/AU-COBRA/coq-elm-extraction.git#903320120e3f36d7857161e5680fabeb6e743c6b"]
-  ["coq-quickchick.dev" "git+https://github.com/4ever2/QuickChick.git#bc61d58045feeb754264df9494965c280e266e1c"]
 ]
 
 build: [

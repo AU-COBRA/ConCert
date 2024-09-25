@@ -21,7 +21,7 @@ depends: [
   "coq-metacoq-utils" {= "1.2.1+8.18"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
-  "coq-quickchick" {= "dev"}
+  "coq-quickchick" {= "2.0.4"}
   "coq-stdpp" {= "1.9.0"}
 ]
 build: [
@@ -42,9 +42,5 @@ pin-depends: [
   [
     "coq-elm-extraction.dev"
     "git+https://github.com/AU-COBRA/coq-elm-extraction.git#903320120e3f36d7857161e5680fabeb6e743c6b"
-  ]
-  [
-    "coq-quickchick.dev"
-    "git+https://github.com/4ever2/QuickChick.git#bc61d58045feeb754264df9494965c280e266e1c"
   ]
 ]
