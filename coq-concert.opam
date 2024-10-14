@@ -24,14 +24,9 @@ depends: [
   "coq-metacoq-pcuic" {>= "1.3.1" & < "1.4~"}
   "coq-metacoq-safechecker" {>= "1.3.1" & < "1.4~"}
   "coq-metacoq-erasure" {>= "1.3.1" & < "1.4~"}
-  "coq-rust-extraction" {= "dev"}
-  "coq-elm-extraction" {= "dev"}
+  "coq-rust-extraction" {= "0.1.0"}
+  "coq-elm-extraction" {= "0.1.0"}
   "coq-stdpp" {>= "1.9.0" & < "1.11~"}
-]
-
-pin-depends: [
-  ["coq-rust-extraction.dev" "git+https://github.com/AU-COBRA/coq-rust-extraction.git#7a5e27c1242abf36cf265e170562a057ac3415f6"]
-  ["coq-elm-extraction.dev" "git+https://github.com/AU-COBRA/coq-elm-extraction.git#32eff8eefebc9b2b7fe81c2653559a819740058b"]
 ]
 
 build: [
