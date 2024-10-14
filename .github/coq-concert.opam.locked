@@ -22,7 +22,7 @@ depends: [
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
   "coq-quickchick" {= "2.0.4"}
-  "coq-stdpp" {= "1.9.0"}
+  "coq-stdpp" {= "1.10.0"}
 ]
 build: [
   [make]

@@ -26,7 +26,7 @@ depends: [
   "coq-metacoq-erasure" {>= "1.3.1" & < "1.4~"}
   "coq-rust-extraction" {= "dev"}
   "coq-elm-extraction" {= "dev"}
-  "coq-stdpp" {= "1.9.0"}
+  "coq-stdpp" {>= "1.9.0" & < "1.11~"}
 ]
 
 pin-depends: [
