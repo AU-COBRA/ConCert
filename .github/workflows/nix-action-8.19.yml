@@ -31,7 +31,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
     - name: Cachix install
-      uses: cachix/install-nix-action@v27
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
@@ -107,7 +107,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
     - name: Cachix install
-      uses: cachix/install-nix-action@v27
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
@@ -170,7 +170,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
     - name: Cachix install
-      uses: cachix/install-nix-action@v27
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
@@ -218,7 +218,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
     - name: Cachix install
-      uses: cachix/install-nix-action@v27
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
@@ -290,7 +290,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
     - name: Cachix install
-      uses: cachix/install-nix-action@v27
+      uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
@@ -321,6 +321,13 @@ name: Nix CI for bundle 8.19
   pull_request_target:
     paths-ignore:
     - .github/workflows/nix-action-8.19.yml
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - '**.editorconfig'
+    - 'LICENSE'
+    - 'papers/**'
+    - 'extra/docker/**'
     types:
     - opened
     - synchronize
@@ -328,3 +335,8 @@ name: Nix CI for bundle 8.19
   push:
     branches:
     - master
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}"
+  cancel-in-progress: true
+permissions:
+  contents: read
