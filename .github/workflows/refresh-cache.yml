@@ -1,5 +1,6 @@
 name: Refresh cache
 on:
+  workflow_dispatch:
   schedule:
     - cron: 0 1 * * MON
 concurrency:
@@ -8,7 +9,7 @@ concurrency:
 permissions:
   contents: read
 env:
-  OCAML_COMILER_VERSION: "4.13.1"
+  OCAML_COMILER_VERSION: "4.14.2"
 jobs:
   cache:
     runs-on: ubuntu-latest

@@ -1,5 +1,6 @@
 name: Lint Opam
 on:
+  workflow_dispatch:
   pull_request:
     paths:
     - '**.opam'
@@ -17,7 +18,7 @@ jobs:
       - name: Set up opam
         uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-compiler: 4.13.x
+          ocaml-compiler: 4.14.x
           opam-repositories: |
             coq-released: https://coq.inria.fr/opam/released
             default: https://opam.ocaml.org
