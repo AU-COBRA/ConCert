@@ -1,5 +1,6 @@
 name: Lint Opam
 on:
+  workflow_dispatch:
   pull_request:
     paths:
     - '**.opam'
