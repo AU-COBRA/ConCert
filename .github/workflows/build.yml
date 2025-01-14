@@ -27,8 +27,8 @@ concurrency:
 permissions:
   contents: read
 env:
-  OCAML_COMILER_VERSION: "4.13.1"
   JOBS: 2
+  OCAML_COMILER_VERSION: "4.14.2"
 jobs:
   build:
     runs-on: ubuntu-latest
