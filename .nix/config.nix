@@ -13,6 +13,8 @@
     coqPackages.metacoq.override.version = "coq-8.19";
     coqPackages.stdpp.override.version = "1.10.0";
     coqPackages.QuickChick.override.version = "2.0.4";
+    coqPackages.RustExtraction.override.version = "0.1.0";
+    coqPackages.ElmExtraction.override.version = "0.1.0";
   };
 
   cachix.coq = {};
