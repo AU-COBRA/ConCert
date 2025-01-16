@@ -62,7 +62,8 @@ Definition extract_params :=
      template_transforms := [template_inline should_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          extract_transforms := [Optimize.dearg_transform (fun _ => None) true true true true true] |} |}.
+          (* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+          extract_transforms := [Optimize.dearg_transform (fun _ => None) true false true true true] |} |}.
 
 Axiom extraction_chain_base : ChainBase.
 #[local]

@@ -35,7 +35,7 @@ Reserved Notation "T⟦ ty ⟧ " (at level 5).
 Fixpoint type_to_term (ty : type) : term :=
   match ty with
   | tyInd i => tInd (mkInd (kername_of_string i) 0) []
-  | tyForall nm ty => tProd (aRelevant (nNamed (TCString.of_string nm))) (tSort Universe.type0) T⟦ty⟧
+  | tyForall nm ty => tProd (aRelevant (nNamed (TCString.of_string nm))) (tSort Sort.type0) T⟦ty⟧
   | tyVar nm => tVar (TCString.of_string nm)
   | tyApp ty1 ty2 => tApp T⟦ty1⟧ T⟦ty2⟧
   | tyArr ty1 ty2 =>
@@ -84,7 +84,7 @@ Fixpoint expr_to_term (Σ : global_env) (e : expr) : term :=
   | eRel i => tRel i
   | eVar nm => tVar (TCString.of_string nm)
   | eLambda nm ty b => tLambda (aRelevant (nNamed (TCString.of_string nm))) T⟦ty⟧ t⟦b⟧Σ
-  | eTyLam nm b => tLambda (aRelevant (nNamed (TCString.of_string nm))) (tSort Universe.type0) t⟦b⟧Σ
+  | eTyLam nm b => tLambda (aRelevant (nNamed (TCString.of_string nm))) (tSort Sort.type0) t⟦b⟧Σ
   | eLetIn nm e1 ty e2 => tLetIn (aRelevant (nNamed (TCString.of_string nm))) t⟦e1⟧Σ T⟦ty⟧ t⟦e2⟧Σ
   | eApp e1 e2 => tApp t⟦e1⟧Σ t⟦e2⟧Σ
   | eConstr i t =>
@@ -175,7 +175,7 @@ Definition trans_one_constr (ind_name : ename) (nparam : nat) (c : constr) : ter
 Fixpoint gen_params n := match n with
                          | O => []
                          | S n' => let nm := ("A" ++ string_of_nat n)%bs in
-                                  let decl := (tSort Universe.type0) in
+                                  let decl := (tSort Sort.type0) in
                                   gen_params n' ++ [mkdecl (aRelevant (nNamed nm)) None (decl)]
                          end.
 
@@ -185,7 +185,7 @@ Definition trans_global_dec (gd : global_dec) : mutual_inductive_entry :=
     let (mp,unqualified_nm) := kername_of_string nm in
     let oie := {|
           mind_entry_typename := unqualified_nm;
-          mind_entry_arity := tSort Universe.type0;
+          mind_entry_arity := tSort Sort.type0;
           mind_entry_template := false;
           mind_entry_consnames :=
             map (fun c => let (mp,unqualified_nm) := kername_of_string c.1 in

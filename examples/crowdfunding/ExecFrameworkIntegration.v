@@ -35,7 +35,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 Global Program Instance CB : ChainBase :=
   build_chain_base nat Nat.eqb _ _ _ _ Nat.odd. (* Odd addresses are addresses of contracts :) *)
 Next Obligation.
-  eapply NPeano.Nat.eqb_spec.
+  eapply Nat.eqb_spec.
 Defined.
 
 Definition to_chain (sc : SimpleChain_coq) : Chain :=

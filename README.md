@@ -13,7 +13,7 @@ ConCert can find real-world attacks as explained
 
 ## How to build
 
-Our development works with Coq 8.17 and depends on MetaCoq, and std++.
+Our development works with Coq 8.19 and depends on MetaCoq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
@@ -21,11 +21,11 @@ Branches compatible with older versions of Coq can be found [here](https://githu
 
 ### Install dependencies and build ConCert locally
 
-Installing the necessary dependencies requires the opam package manager and a switch with Coq 8.17 installed.
+Installing the necessary dependencies requires the opam package manager and a switch with Coq 8.19 installed.
 If you don't already have a switch set up run the following commands
 
 ```bash
-opam switch create . 4.10.2 --repositories default,coq-released=https://coq.inria.fr/opam/released
+opam switch create . 4.14.2 --repositories default,coq-released=https://coq.inria.fr/opam/released
 eval $(opam env)
 ```
 

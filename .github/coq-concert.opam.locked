@@ -10,19 +10,28 @@ homepage: "https://github.com/AU-COBRA/ConCert"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
-  "coq" {= "8.18.0"}
-  "coq-bignums" {= "9.0.0+coq8.18"}
-  "coq-metacoq-common" {= "1.2.1+8.18"}
-  "coq-metacoq-erasure" {= "1.2.1+8.18"}
-  "coq-metacoq-pcuic" {= "1.2.1+8.18"}
-  "coq-metacoq-safechecker" {= "1.2.1+8.18"}
-  "coq-metacoq-template" {= "1.2.1+8.18"}
-  "coq-metacoq-template-pcuic" {= "1.2.1+8.18"}
-  "coq-metacoq-utils" {= "1.2.1+8.18"}
-  "coq-rust-extraction" {= "dev"}
-  "coq-elm-extraction" {= "dev"}
+  "coq" {= "8.19.0"}
+  "coq-bignums" {= "9.0.0+coq8.19"}
+  "coq-metacoq-common" {= "1.3.2+8.19"}
+  "coq-metacoq-erasure" {= "1.3.2+8.19"}
+  "coq-metacoq-pcuic" {= "1.3.2+8.19"}
+  "coq-metacoq-safechecker" {= "1.3.2+8.19"}
+  "coq-metacoq-template" {= "1.3.2+8.19"}
+  "coq-metacoq-template-pcuic" {= "1.3.2+8.19"}
+  "coq-metacoq-utils" {= "1.3.2+8.19"}
+  "coq-rust-extraction" {= "0.1.0"}
+  "coq-elm-extraction" {= "0.1.0"}
   "coq-quickchick" {= "2.0.4"}
-  "coq-stdpp" {= "1.9.0"}
+  "coq-stdpp" {= "1.10.0"}
+]
+pin-depends: [
+  ["coq-metacoq-utils.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-common.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-template.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-template-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-safechecker.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-erasure.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
 ]
 build: [
   [make]
@@ -34,13 +43,3 @@ install: [
   [make "-C" "examples" "install"] {with-test}
 ]
 dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
-pin-depends: [
-  [
-    "coq-rust-extraction.dev"
-    "git+https://github.com/AU-COBRA/coq-rust-extraction.git#0053733e56008c917bf43d12e8bf0616d3b9a856"
-  ]
-  [
-    "coq-elm-extraction.dev"
-    "git+https://github.com/AU-COBRA/coq-elm-extraction.git#903320120e3f36d7857161e5680fabeb6e743c6b"
-  ]
-]
