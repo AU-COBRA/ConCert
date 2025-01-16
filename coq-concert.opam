@@ -29,6 +29,16 @@ depends: [
   "coq-stdpp" {>= "1.9.0" & < "1.11~"}
 ]
 
+pin-depends: [
+  ["coq-metacoq-utils.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-common.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-template.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-template-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-safechecker.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+  ["coq-metacoq-erasure.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
+]
+
 build: [
   [make]
   [make "examples"] {with-test}
