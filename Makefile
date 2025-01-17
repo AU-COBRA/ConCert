@@ -1,5 +1,8 @@
-all: utils execution embedding extraction
+all: utils execution embedding extraction examples
 .PHONY: all
+
+core: utils execution embedding extraction
+.PHONY: core
 
 utils:
 	+make -C utils
