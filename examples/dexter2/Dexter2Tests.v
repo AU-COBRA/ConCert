@@ -3,6 +3,7 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.

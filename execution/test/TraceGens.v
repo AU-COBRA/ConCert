@@ -24,6 +24,7 @@ Import MonadNotation. Open Scope monad_scope.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 
+#[warnings="-notation-incompatible-prefix"]
 Import QcNotation.
 Import BoundedN.Stdpp.
 Import ListNotations.

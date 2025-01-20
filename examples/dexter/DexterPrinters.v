@@ -1,5 +1,6 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.EIP20 Require Import EIP20Token.

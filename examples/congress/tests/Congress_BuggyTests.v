@@ -3,6 +3,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
 From ConCert.Examples.Congress Require Export Congress_BuggyGens.

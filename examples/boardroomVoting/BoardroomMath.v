@@ -716,14 +716,14 @@ Section WithBoardroomAxioms.
     {
       rewrite (map_on_bs _ pvs 0).
       unfold sks_list.
-      rewrite map_length, seq_length.
+      rewrite length_map, length_seq.
       match goal with
       | [|- Permutation ?l ?l'] => enough (l = l') as eq by (now rewrite eq)
       end.
       apply map_ext_in.
       intros i iin.
       assert (i < length bs)%nat by (apply in_seq in iin; lia).
-      rewrite map_nth_alt with (d2 := 0%nat) by (now rewrite seq_length).
+      rewrite map_nth_alt with (d2 := 0%nat) by (now rewrite length_seq).
       rewrite seq_nth.
       cbn.
       rewrite <- perm in iin.
@@ -738,7 +738,7 @@ Section WithBoardroomAxioms.
       - f_equal.
         clear -perm len_pks pks_sks geti_i.
         apply list_eq_nth.
-        { now rewrite map_length, seq_length. }
+        { now rewrite length_map, length_seq. }
         intros i a a' ntha ntha'.
         assert (isin: In i (seq 0 (length bs))).
         {
@@ -762,7 +762,7 @@ Section WithBoardroomAxioms.
 
     rewrite <- H0.
     unfold bruteforce_tally.
-    rewrite map_length, seq_length.
+    rewrite length_map, length_seq.
     rewrite mul_public_votes.
     rewrite <- (sumnat_map svs (fun sv => if sv then 1%nat else 0%nat)).
     enough (Permutation (map svs bs) (map svsi (seq 0 (length sks_list)))).
@@ -771,16 +771,16 @@ Section WithBoardroomAxioms.
       rewrite sumnat_map.
       rewrite sumZ_sumnat_votes.
       unfold sks_list.
-      rewrite map_length, seq_length.
+      rewrite length_map, length_seq.
       rewrite bruteforce_tally_aux_correct; auto.
       rewrite <- Nat.mul_1_l.
-      rewrite <- (seq_length (length bs) 0) at 2.
+      rewrite <- (length_seq (length bs) 0) at 2.
       apply sumnat_max.
       intros i iin.
       destruct (svsi i); lia.
     }
     unfold sks_list.
-    rewrite map_length, !seq_length.
+    rewrite length_map, !length_seq.
     rewrite <- perm.
     pose proof (seq_NoDup (length bs) 0).
     rewrite <- perm in H1.

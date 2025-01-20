@@ -602,13 +602,13 @@ Module BoardroomVoting (Params : BoardroomParams).
           split; [lia|].
           split; [tauto|].
           split.
-          { rewrite app_length, FMap.size_add_new by auto; cbn; lia. }
+          { rewrite length_app, FMap.size_add_new by auto; cbn; lia. }
           apply Z.ltb_lt in lt.
-          rewrite app_length in *.
+          rewrite length_app in *.
           cbn.
           fold (has_tallied prev_inc_calls).
           fold (signups prev_inc_calls).
-          rewrite app_length, map_app; cbn.
+          rewrite length_app, map_app; cbn.
           split; [destruct_and_split; congruence|].
           split; [lia|].
           intros [signup_assum msg_assum] order_assum num_signups_assum.
@@ -616,7 +616,7 @@ Module BoardroomVoting (Params : BoardroomParams).
           unshelve epose proof (IH _ _ _) as IH.
           * auto.
           * rewrite seq_app in order_assum.
-            rewrite zip_app in order_assum by (now rewrite seq_length).
+            rewrite zip_app in order_assum by (now rewrite length_seq).
             apply All_app in order_assum.
             tauto.
           * intros.
@@ -651,12 +651,12 @@ Module BoardroomVoting (Params : BoardroomParams).
               cbn.
               unfold make_signup_msg in signup_assum.
               rewrite nth_error_snoc.
-              rewrite seq_app, zip_app in order_assum by (now rewrite seq_length).
+              rewrite seq_app, zip_app in order_assum by (now rewrite length_seq).
               apply All_app in order_assum.
               cbn in order_assum.
               destruct order_assum as [_ []].
               split; [lia|].
-              rewrite pks_signups, map_length.
+              rewrite pks_signups, length_map.
               split; [symmetry; tauto|].
               split; [congruence|].
               left; easy.

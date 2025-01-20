@@ -149,7 +149,7 @@ Section CrowdfundingExtraction.
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
+  Redirect "cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
   MetaCoq Run (tmMsg (String.of_string cameLIGO_crowdfunding)).
 
 End CrowdfundingExtraction.

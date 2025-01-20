@@ -170,7 +170,7 @@ Module EscrowLiquidityExtraction.
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/escrow.liq"
+  Redirect "liquidity-extract/escrow.liq"
   MetaCoq Run (tmMsg (String.of_string liquidity_escrow)).
 
 End EscrowLiquidityExtraction.

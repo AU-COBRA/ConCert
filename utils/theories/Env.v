@@ -48,9 +48,9 @@ Fixpoint lookup_i {A} (ρ : env A) (i : nat) : option A :=
   end.
 
 (** A value environment lookup: *)
-Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 10).
+Notation "ρ # '(' k ')'" := (lookup ρ k) (at level 65).
 (** A value environment extension: *)
-Notation "ρ # [ k ~> v ]" := ((k,v) :: ρ) (at level 50).
+Notation "ρ # [ k ~> v ]" := ((k,v) :: ρ) (at level 65).
 
 Fixpoint remove_by_key {A} (key : string) (ρ : env A) : env A :=
   match ρ with

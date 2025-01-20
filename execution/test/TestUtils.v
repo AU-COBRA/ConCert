@@ -5,6 +5,7 @@ From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From QuickChick Require Import QuickChick.
+#[warnings="-notation-incompatible-prefix"]
 Import QcNotation. Import MonadNotation. Import BindOptNotation.
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.

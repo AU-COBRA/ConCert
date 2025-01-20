@@ -234,7 +234,7 @@ Proof.
   pose proof (prime_ge_2 _ isprime).
   unfold totient.
   rewrite prime_rel_primes by auto.
-  rewrite map_length, seq_length.
+  rewrite length_map, length_seq.
   rewrite Nat2Z.inj_sub; cycle 1.
   { apply Nat2Z.inj_le; rewrite Z2Nat.id; lia. }
   rewrite Z2Nat.id by lia.

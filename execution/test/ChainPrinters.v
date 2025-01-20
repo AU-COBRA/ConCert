@@ -6,7 +6,9 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Execution.Test Require Import TestUtils.
 
-From QuickChick Require Import QuickChick. Import QcNotation.
+From QuickChick Require Import QuickChick.
+#[warnings="-notation-incompatible-prefix"]
+Import QcNotation.
 
 From Coq Require Import ZArith.
 From Coq Require Import List. Import ListNotations.

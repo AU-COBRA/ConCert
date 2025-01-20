@@ -95,7 +95,7 @@ Proof.
       assert (ty_expr_env_ok (exprs ρ # [e ~> of_val_i v0]) 0 e1_2).
       { change (exprs ρ # [e ~> of_val_i v0]) with (exprs (ρ # [e ~> v0])).
         eapply eval_ty_expr_env_ok; eauto with hints. simpl.
-        replace #|ρ| with (#|exprs ρ|) by apply map_length.
+        replace #|ρ| with (#|exprs ρ|) by apply length_map.
         eapply subst_env_iclosed_n_inv with (n := 1); eauto with hints. }
 
       assert (val_ok Σ1 v0) by (eapply eval_val_ok; eauto with hints).
@@ -135,7 +135,7 @@ Proof.
           now rewrite Hres. }
         rewrite Hc.
         eapply IHn; eauto with hints.
-        repeat rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
+        repeat rewrite length_map. unfold PcbvCurr.cstr_arity. propify. lia.
       * destruct c.
         ** (* the closure corresponds to lambda *)
           simpl in *. rename e0 into n0.
@@ -300,7 +300,7 @@ Proof.
       destruct (resolve_inductive _ _) eqn:HresI; tryfalse.
       destruct (lookup_with_ind _ _) eqn:Hfind_i; tryfalse.
       destruct p as [nparams cs]. destruct p0 as [i ci]. simpl in *.
-      rewrite map_length.
+      rewrite length_map.
       destruct_match eqn:Hnparams; tryfalse.
       assert (HresC: resolve_constr Σ1 i0 e = Some (nparams,i, ci)).
       { unfold resolve_constr. rewrite HresI. rewrite Hfind_i. reflexivity. }
@@ -330,7 +330,7 @@ Proof.
       destruct H2 as [Hdctor?].
       eapply PcbvCurr.eval_iota; eauto.
       * now eapply map_nth_error.
-      * cbn. rewrite map_length. unfold PcbvCurr.cstr_arity. propify. lia.
+      * cbn. rewrite length_map. unfold PcbvCurr.cstr_arity. propify. lia.
       * cbn.
         unfold etrans_branch.
         unfold fun_prod,id; cbn.
@@ -343,8 +343,8 @@ Proof.
         rewrite Heq; cbn.
         assert (Hvass : forall xs, context_assumptions (map (fun '(nm, ty) => vass (aRelevant (nNamed (TCString.of_string nm))) ty) xs) = #|xs|).
         { intros; rewrite PCUICSigmaCalculus.context_assumptions_context by auto with hints.
-          now rewrite map_length. }
-        rewrite Hvass. rewrite combine_length, map_length.
+          now rewrite length_map. }
+        rewrite Hvass. rewrite length_combine, length_map.
         lia.
       * unfold iota_red in *. simpl in *.
         unfold expand_lets,expand_lets_k,inst_case_branch_context,inst_case_context; cbn.
@@ -358,7 +358,7 @@ Proof.
         inversion Hnth_eq; subst; clear Hnth_eq.
         assert (Heq : (#|pVars v2.1| =? #|remove_proj c|)%nat) by (propify; lia).
         rewrite Heq; cbn.
-        repeat rewrite map_length. rewrite combine_length,map_length.
+        repeat rewrite length_map. rewrite length_combine,length_map.
         replace (min #|pVars v2.1| #|remove_proj c|) with (#|pVars v2.1|) by lia.
         rewrite <- map_skipn.
         rewrite <- map_rev.
@@ -401,12 +401,12 @@ Proof.
         specialize (find_forallb_map _ Hfnd HH) as Hclosed_t2; cbn in Hclosed_t2.
 
         erewrite PCUICInstConv.subst_id with (s := rev (_)); eauto.
-        2: { rewrite rev_length. rewrite to_extended_list_k_length. rewrite Hvass_eq.
-             subst g. repeat rewrite map_length. rewrite combine_length.
+        2: { rewrite length_rev. rewrite to_extended_list_k_length. rewrite Hvass_eq.
+             subst g. repeat rewrite length_map. rewrite length_combine.
              replace (min #|pVars v2.1| #|remove_proj c|) with (#|pVars v2.1|) by lia.
              rewrite PCUICSigmaCalculus.context_assumptions_context.
              * rewrite subst_context_length.
-               repeat rewrite map_length. rewrite combine_length,map_length.
+               repeat rewrite length_map. rewrite length_combine,length_map.
                replace (min #|pVars v2.1| #|remove_proj c|) with (#|pVars v2.1|) by lia.
                replace (#|pVars v2.1| + 0) with #|pVars v2.1| in * by lia.
                rewrite <- Hf.
@@ -419,11 +419,11 @@ Proof.
                    (subst_context (rev (map (fun x : type => T⟦ subst_env_i_ty 0 (exprs ρ) x ⟧) l0)) 0 g)) = #|pVars v2.1|).
         { rewrite PCUICSigmaCalculus.context_assumptions_context by auto with hints.
           rewrite subst_context_length. subst g.
-          repeat rewrite map_length. rewrite combine_length.
+          repeat rewrite length_map. rewrite length_combine.
           replace #|remove_proj c| with #|pVars v2.1| by (propify; lia).
           now replace (min #|pVars v2.1| #|pVars v2.1|) with #|pVars v2.1| by lia.
         }
-        assert (#|pVars v2.1| = #|skipn (ind_npars mib) l2|) by (rewrite skipn_length; lia).
+        assert (#|pVars v2.1| = #|skipn (ind_npars mib) l2|) by (rewrite length_skipn; lia).
 
         rewrite Hvass_eq1.
 
@@ -445,7 +445,7 @@ Proof.
                  rewrite <- map_map with (g := (expr_to_term Σ1) ∘ of_val_i)
                                         (f := snd).
                  rewrite map_combine_snd. now subst.
-                 now repeat rewrite rev_length. }
+                 now repeat rewrite length_rev. }
         rewrite Hmap. subst h te3.
         replace (#|pVars v2.1| + 0) with #|pVars v2.1| in * by lia.
         apply Nat.eqb_eq in Hnparams.
@@ -458,9 +458,9 @@ Proof.
            rewrite map_app.
            remember (rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))) as l_rev.
            assert (Hlrev : #|pVars v2.1| = #|exprs l_rev|).
-           { subst. rewrite map_length.
-             rewrite rev_length. rewrite combine_length.
-             rewrite skipn_length; lia. }
+           { subst. rewrite length_map.
+             rewrite length_rev. rewrite length_combine.
+             rewrite length_skipn; lia. }
            rewrite Hlrev.
            symmetry. eapply subst_env_swap_app with (n := 0);
              eauto with hints.
@@ -474,20 +474,20 @@ Proof.
            eapply subst_env_iclosed_0; eauto with hints.
            remember ((combine (rev (pVars v2.1)) (map of_val_i (rev (skipn _ l2))))) as l_comb.
            assert (Hlen : #|l_comb| = #|pVars v2.1|).
-           { subst. rewrite combine_length. rewrite map_length.
-             repeat rewrite rev_length. rewrite skipn_length; lia. }
+           { subst. rewrite length_combine. rewrite length_map.
+             repeat rewrite length_rev. rewrite length_skipn; lia. }
            rewrite <- Hlen.
            eapply ty_expr_env_ok_subst_env with (k := 0).
            assert (Hcomb : exprs (rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))) = l_comb).
            { subst. repeat rewrite map_rev. rewrite combine_rev.
              apply f_equal. now rewrite map_combine_snd_funprod.
-             rewrite map_length. rewrite skipn_length; lia. }
+             rewrite length_map. rewrite length_skipn; lia. }
            rewrite <- Hcomb. rewrite <- map_app.
            eapply eval_ty_expr_env_ok; eauto with hints.
-           rewrite app_length.
+           rewrite length_app.
            replace (#|rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))|) with #|pVars v2.1| by
-             (rewrite rev_length, combine_length, skipn_length; lia).
-           replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
+             (rewrite length_rev, length_combine, length_skipn; lia).
+           replace #|ρ| with #|exprs ρ| by apply length_map. eauto with hints.
 
            eapply closed_exprs; eauto.
 
@@ -495,8 +495,8 @@ Proof.
            apply All_map. apply All_rev.
            eapply All_expr_iclosed_of_val; eauto using All_skipn.
 
-           rewrite combine_length. rewrite map_length.
-           repeat rewrite rev_length. rewrite skipn_length by lia.
+           rewrite length_combine. rewrite length_map.
+           repeat rewrite length_rev. rewrite length_skipn by lia.
            replace (min #|pVars v2.1| (#|l2| - ind_npars mib)) with #|pVars v2.1| by lia.
            eauto with hints.
 
@@ -504,25 +504,25 @@ Proof.
            rewrite map_combine_snd_funprod.
            remember ((combine (rev (pVars v2.1)) (map of_val_i (rev (skipn _ l2))))) as l_comb.
            assert (Hlen : #|l_comb| = #|pVars v2.1|).
-           { subst. rewrite combine_length. rewrite map_length.
-             repeat rewrite rev_length. rewrite skipn_length; lia. }
+           { subst. rewrite length_combine. rewrite length_map.
+             repeat rewrite length_rev. rewrite length_skipn; lia. }
            rewrite <- Hlen.
            eapply ty_expr_env_ok_subst_env with (k := 0).
            remember (ind_npars mib) as nparams.
            assert (Hcomb : exprs (rev (combine (pVars v2.1) (skipn nparams l2))) = l_comb).
            { subst. repeat rewrite map_rev. rewrite combine_rev.
              apply f_equal. now rewrite map_combine_snd_funprod.
-             rewrite map_length. rewrite skipn_length; lia. }
+             rewrite length_map. rewrite length_skipn; lia. }
            rewrite <- Hcomb. rewrite <- map_app.
            subst nparams. eapply eval_ty_expr_env_ok; eauto with hints.
-           rewrite app_length.
+           rewrite length_app.
            replace (#|rev (combine (pVars v2.1) (skipn _ l2))|) with #|pVars v2.1| by
-             (rewrite rev_length, combine_length, skipn_length; lia).
-           replace #|ρ| with #|exprs ρ| by apply map_length. eauto with hints.
+             (rewrite length_rev, length_combine, length_skipn; lia).
+           replace #|ρ| with #|exprs ρ| by apply length_map. eauto with hints.
            eapply closed_exprs; eauto.
-        ** rewrite map_length.
+        ** rewrite length_map.
            replace (#|rev (combine (pVars v2.1) (skipn _ l2))|) with #|pVars v2.1| by
-             (rewrite rev_length, combine_length, skipn_length; lia).
+             (rewrite length_rev, length_combine, length_skipn; lia).
            eauto with hints.
         ** apply All_map. subst.
            apply All_rev. unfold compose. simpl.

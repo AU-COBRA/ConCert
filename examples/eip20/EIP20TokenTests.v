@@ -2,6 +2,7 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 From ConCert.Examples.EIP20 Require Export EIP20TokenPrinters.
@@ -276,13 +277,13 @@ Definition sum_allowances_le_init_supply_P :=
   {{checker_get_state sum_allowances_le_init_supply}}.
 
 (* QuickChick (expectFailure sum_allowances_le_init_supply_P). *)
-(* Chain{| 
+(* Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; 
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}];
 Block 5 [
-Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 10%256 32)}]; 
+Action{act_from: 11%256, act_body: (act_call 128%256, 0, approve 10%256 32)}];
 Block 6 [
-Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 11%256 33)}]; 
+Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 11%256 33)}];
 Block 7 [
 Action{act_from: 10%256, act_body: (act_call 128%256, 0, approve 13%256 41)}]; |}
 
@@ -298,7 +299,7 @@ Definition person_has_tokens person (n : N) :=
     end.
 
 (* QuickChick (token_cb ~~> (person_has_tokens person_3 12)). *)
-(* Chain{| 
+(* Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};
@@ -310,7 +311,7 @@ Success - found witness satisfying the predicate!
 *)
 
 (* QuickChick (token_cb ~~> person_has_tokens creator 0). *)
-(* Chain{| 
+(* Chain{|
 Block 1 [
 Action{act_from: 10%256, act_body: (act_transfer 11%256, 0)};
 Action{act_from: 10%256, act_body: (act_transfer 12%256, 0)};
@@ -330,9 +331,9 @@ Success - found witness satisfying the predicate!
     ~~~> (fun cs => if person_has_tokens creator 5 cs.(chain_state_env) then Some tt else None)
     ===> (fun _ _ post_trace => person_has_tokens creator 10 (last post_trace empty_state))
 ). *)
-(* Chain{| 
+(* Chain{|
 Block 1 [
-Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}]; 
+Action{act_from: 10%256, act_body: (act_deploy 0, transfer 10%256 100)}];
 Block 7 [
 Action{act_from: 12%256, act_body: (act_call 128%256, 0, approve 11%256 32)}]; |}
 

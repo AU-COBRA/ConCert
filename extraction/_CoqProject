@@ -15,6 +15,7 @@ theories/PrettyPrinterMonad.v
 theories/SpecializeChainBase.v
 
 -Q tests ConCert.Extraction.Tests
+-arg "-output-dir tests/extracted-code/"
 tests/CameLIGOExtractionTests.v
 tests/RecordExtractionLiquidityTests.v
 tests/NumLiteralTests.v

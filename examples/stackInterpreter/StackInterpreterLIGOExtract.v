@@ -92,7 +92,7 @@ Module CameLIGOInterp.
   Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/StackInterpreter.mligo"
+  Redirect "cameligo-extract/StackInterpreter.mligo"
     MetaCoq Run (tmMsg (String.of_string cameligo_interp)).
 
 End CameLIGOInterp.

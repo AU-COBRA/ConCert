@@ -132,7 +132,7 @@ Module Dexter2Extraction.
     Time Definition cameLIGO_dexter2 := Eval vm_compute in cameLIGO_dexter2_prepared.
 
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
-    Redirect "../extraction/tests/extracted-code/cameligo-extract/dexter2CertifiedExtraction.mligo"
+    Redirect "cameligo-extract/dexter2CertifiedExtraction.mligo"
       MetaCoq Run (tmMsg (s_to_bs cameLIGO_dexter2)).
 
   End D2E.

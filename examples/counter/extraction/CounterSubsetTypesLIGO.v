@@ -148,7 +148,7 @@ Module CameLIGOExtractionSetup.
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/CounterSubsetTypes.mligo"
+  Redirect "cameligo-extract/CounterSubsetTypes.mligo"
     MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
 
 End CameLIGOExtractionSetup.

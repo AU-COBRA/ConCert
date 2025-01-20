@@ -94,7 +94,7 @@ Section CombineProp.
     + simpl. intros l1 Heq. destruct l1; eauto.
       simpl; destruct (rev l1 ++ [a]); reflexivity.
     + simpl. intros l1 Heq. destruct l1 using rev_ind; auto.
-      repeat rewrite app_length in Heq; simpl in *.
+      repeat rewrite length_app in Heq; simpl in *.
       assert (#|l1| = #|l2|) by lia.
       repeat rewrite rev_unit. simpl.
       rewrite IHl2 by auto.

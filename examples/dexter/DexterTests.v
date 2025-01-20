@@ -5,6 +5,7 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Monad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Export DexterPrinters.
