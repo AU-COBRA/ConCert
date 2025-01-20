@@ -483,6 +483,13 @@ on:
   pull_request_target:
     paths-ignore:
     - .github/workflows/nix-action-8.19.yml
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - 'LICENSE'
+    - '**.editorconfig'
+    - 'papers/**'
+    - 'extra/docker/**'
     types:
     - opened
     - synchronize
