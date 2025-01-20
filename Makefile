@@ -1,4 +1,4 @@
-all: utils execution embedding extraction examples
+all: core examples
 .PHONY: all
 
 core: utils execution embedding extraction
