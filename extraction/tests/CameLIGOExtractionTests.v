@@ -12,7 +12,10 @@ From Coq Require Import String.
 
 Import MCMonadNotation.
 
-Context `{Blockchain.ChainBase}.
+#[local]
+Parameter (cb : Blockchain.ChainBase).
+#[local]
+Existing Instance cb.
 
 Local Close Scope bs_scope.
 Local Open Scope string_scope.

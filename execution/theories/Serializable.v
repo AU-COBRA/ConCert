@@ -232,6 +232,18 @@ Section Product.
   Proof.
     unfold serialize_product, deserialize_product.
     destruct p.
+
+    replace ({|
+      ser_value_type := ser_value_type (serialize a);
+      ser_value := ser_value (serialize a)
+    |}) with (serialize a).
+    2: reflexivity.
+    replace ({|
+      ser_value_type := ser_value_type (serialize b);
+      ser_value := ser_value (serialize b)
+    |}) with (serialize b).
+    2: reflexivity.
+
     repeat rewrite deserialize_serialize.
     reflexivity.
   Qed.
@@ -273,6 +285,11 @@ Section List.
     - reflexivity.
     - cbn in *.
       rewrite IHl; clear IHl.
+      replace ({|
+        ser_value_type := ser_value_type (serialize hd);
+        ser_value := ser_value (serialize hd)
+      |}) with (serialize hd).
+      2: reflexivity.
       rewrite deserialize_serialize.
       reflexivity.
   Qed.

@@ -48,6 +48,9 @@ Local Set Keyed Unification.
 (* [Bool.trans_eq_bool] kills performance, so we remove it *)
 #[global] Remove Hints Bool.trans_eq_bool : core.
 
+#[local]
+Arguments monad_utils.bind /.
+
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
 

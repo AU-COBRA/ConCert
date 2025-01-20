@@ -35,6 +35,9 @@ Hint Resolve assumption_context_subst
              assumption_context_map_vass
              PCUICSigmaCalculus.context_assumptions_context : hints.
 
+#[local]
+Arguments monad_utils.bind /.
+
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2
         (e1 e2 : expr) (v : val) :
