@@ -45,10 +45,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (ConCert)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"ConCert\" \\\n   --dry-run 2> err > out || (touch
+        \"8.19\" --argstr job \"ConCert\" \\\n   --dry-run &> out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -128,10 +128,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (ElmExtraction)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"ElmExtraction\" \\\n   --dry-run 2> err > out || (touch
+        \"8.19\" --argstr job \"ElmExtraction\" \\\n   --dry-run &> out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -190,10 +190,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (QuickChick)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"QuickChick\" \\\n   --dry-run 2> err > out || (touch
+        \"8.19\" --argstr job \"QuickChick\" \\\n   --dry-run &> out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -261,10 +261,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (RustExtraction)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"RustExtraction\" \\\n   --dry-run 2> err > out ||
+        \"8.19\" --argstr job \"RustExtraction\" \\\n   --dry-run &> out ||
         (touch fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -322,10 +322,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (coq)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"coq\" \\\n   --dry-run 2> err > out || (touch fail;
+        \"8.19\" --argstr job \"coq\" \\\n   --dry-run &> out || (touch fail;
         true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -376,10 +376,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (metacoq)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"metacoq\" \\\n   --dry-run 2> err > out || (touch
+        \"8.19\" --argstr job \"metacoq\" \\\n   --dry-run &> out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
@@ -454,10 +454,10 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (stdpp)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.19\" --argstr job \"stdpp\" \\\n   --dry-run 2> err > out || (touch fail;
+        \"8.19\" --argstr job \"stdpp\" \\\n   --dry-run &> out || (touch fail;
         true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+      run: "echo \"out=\"; cat out\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
