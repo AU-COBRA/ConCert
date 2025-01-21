@@ -13,6 +13,7 @@ From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.Dexter2 Require Dexter2CPMM.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import StringExtra.
 

@@ -3,6 +3,7 @@ From ConCert.Embedding Require Utils.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Utils Require Import Env.
+#[warnings="-notation-incompatible-prefix"]
 From MetaCoq.Template Require Import All.
 
 From Coq Require Import String.

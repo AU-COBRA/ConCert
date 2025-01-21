@@ -4,6 +4,7 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Execution.Test Require TestUtils.
 From ConCert.Examples.FA2 Require Import FA2Token.

@@ -12,7 +12,10 @@ From Coq Require Import String.
 
 Import MCMonadNotation.
 
-Context `{Blockchain.ChainBase}.
+#[local]
+Parameter (cb : Blockchain.ChainBase).
+#[local]
+Existing Instance cb.
 
 Local Close Scope bs_scope.
 Local Open Scope string_scope.
@@ -60,7 +63,7 @@ Module BoolRect.
         tmDefinition "cameligo_max"%bs t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    Redirect "tests/extracted-code/cameligo-extract/max.mligo"
+    Redirect "cameligo-extract/max.mligo"
     MetaCoq Run (tmMsg (s_to_bs cameligo_max)).
 End BoolRect.
 
@@ -94,7 +97,7 @@ Module FoldLeft.
         tmDefinition (s_to_bs "cameligo_sum") t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    Redirect "tests/extracted-code/cameligo-extract/FoldL.mligo"
+    Redirect "cameligo-extract/FoldL.mligo"
       MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
@@ -120,7 +123,7 @@ Module FoldLeft.
         tmDefinition (s_to_bs "cameligo_sumAlt") t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    Redirect "tests/extracted-code/cameligo-extract/FoldLAlt.mligo"
+    Redirect "cameligo-extract/FoldLAlt.mligo"
       MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
 
 End FoldLeft.
@@ -176,7 +179,7 @@ Module SafeHead.
     tmDefinition (s_to_bs "cameligo_safe_head") t).
 
     (** Extraction results in fully functional CameLIGO code *)
-    Redirect "tests/extracted-code/cameligo-extract/SafeHead.mligo"
+    Redirect "cameligo-extract/SafeHead.mligo"
       MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
 
 End SafeHead.

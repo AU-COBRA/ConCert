@@ -8,6 +8,7 @@ From ConCert.Utils Require Import Env.
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
 (* We need some definitions like [All] from utils *)
+#[warnings="-notation-incompatible-prefix"]
 From MetaCoq.Utils Require Import utils.
 
 From Coq Require Import String.

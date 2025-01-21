@@ -90,7 +90,7 @@ Module LiquidityInterp.
   (* MetaCoq Run (tmMsg liquidity_interp). *)
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/StackInterpreter.liq"
+  Redirect "liquidity-extract/StackInterpreter.liq"
     MetaCoq Run (tmMsg (String.of_string liquidity_interp)).
 
 End LiquidityInterp.

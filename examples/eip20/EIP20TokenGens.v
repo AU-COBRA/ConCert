@@ -1,6 +1,7 @@
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 Import MonadNotation.

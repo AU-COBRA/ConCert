@@ -120,7 +120,7 @@ Module EscrowCameLIGOExtraction.
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
-  Redirect "../extraction/tests/extracted-code/cameligo-extract/EscrowExtract.mligo"
+  Redirect "cameligo-extract/EscrowExtract.mligo"
     MetaCoq Run (tmMsg (String.of_string cameLIGO_escrow)).
 
 End EscrowCameLIGOExtraction.

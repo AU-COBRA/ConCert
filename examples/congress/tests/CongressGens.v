@@ -2,6 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
 From Coq Require Import ZArith.

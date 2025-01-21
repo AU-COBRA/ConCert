@@ -213,7 +213,7 @@ Section Theories.
       | [H: (if ?a then _ else _) = Ok _ |- _] => destruct a
       end; cbn in *; try congruence.
       inversion receive.
-      rewrite <- (remove_proposal_cacts _ _ _ found), map_length.
+      rewrite <- (remove_proposal_cacts _ _ _ found), length_map.
       destruct (proposal_passed _ _); cbn.
       + (* I wonder why these asserts are necessary... *)
         assert (forall a b, a + b <= a + b + 0) by (intros; lia); auto.
@@ -236,11 +236,11 @@ Section Theories.
       lia.
     - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
       fold (num_acts_created_in_proposals prev_inc_calls).
-      rewrite app_length.
+      rewrite length_app.
       lia.
     - pose proof (receive_state_well_behaved _ _ _ _ _ _ receive_some) as fcorrect.
       fold (num_acts_created_in_proposals prev_inc_calls).
-      rewrite app_length.
+      rewrite length_app.
       lia.
     - intros.
       now rewrite <- perm.

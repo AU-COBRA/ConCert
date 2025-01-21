@@ -135,5 +135,5 @@ Time MetaCoq Run
      ).
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "../extraction/tests/extracted-code/liquidity-extract/CrowdfundingCertifiedExtraction.liq"
+Redirect "liquidity-extract/CrowdfundingCertifiedExtraction.liq"
   Compute liquidity_crowdfunding.

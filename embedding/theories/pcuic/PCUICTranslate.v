@@ -27,7 +27,7 @@ Import ListNotations.
 
 (** ** Translation of types *)
 
-Reserved Notation "T⟦ ty ⟧ " (at level 5).
+Reserved Notation "T⟦ ty ⟧ " (at level 0).
 
 (** Translation of types to PCUIC terms. Universal types become Pi-types with the
     first argument being of type [Set]. Keeping them in [Set] is crucial,

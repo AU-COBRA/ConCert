@@ -250,4 +250,4 @@ Time MetaCoq Run
 (* Print liquidity_counter_partially_applied_expanded. *)
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "../extraction/tests/extracted-code/liquidity-extract/CounterDepCertifiedLiquidity.liq" Compute liquidity_counter.
+Redirect "liquidity-extract/CounterDepCertifiedLiquidity.liq" Compute liquidity_counter.

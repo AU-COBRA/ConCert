@@ -22,7 +22,7 @@ Definition should_inline kn :=
 #[local]
 Existing Instance DefaultPrintConfig.RustConfig.
 
-Redirect "../extraction/tests/extracted-code/concordium-extract/escrow.rs"
+Redirect "concordium-extract/escrow.rs"
 MetaCoq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps

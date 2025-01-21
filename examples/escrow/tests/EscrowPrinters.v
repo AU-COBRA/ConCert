@@ -2,6 +2,7 @@
 
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 

@@ -189,7 +189,7 @@ Section EIP20TokenExtraction.
   Time Definition liquidity_eip20token := Eval vm_compute in liquidity_eip20token_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-  Redirect "../extraction/tests/extracted-code/liquidity-extract/liquidity_eip20token.liq"
+  Redirect "liquidity-extract/liquidity_eip20token.liq"
     MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).
 
 End EIP20TokenExtraction.

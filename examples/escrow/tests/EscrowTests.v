@@ -7,6 +7,7 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import ResultMonad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Examples.Escrow Require Import EscrowCorrect.

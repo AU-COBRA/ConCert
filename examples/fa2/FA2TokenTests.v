@@ -2,6 +2,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.

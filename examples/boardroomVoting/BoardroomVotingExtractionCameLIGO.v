@@ -310,5 +310,5 @@ Time MetaCoq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "c
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
-Redirect "../extraction/tests/extracted-code/cameligo-extract/BoardroomVoting.mligo"
+Redirect "cameligo-extract/BoardroomVoting.mligo"
 MetaCoq Run (tmMsg (String.of_string cameLIGO_boardroomvoting)).

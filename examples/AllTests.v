@@ -2,6 +2,7 @@ Set Warnings "-extraction-inside-module".
 
 From Coq Require Import BinNat.
 From ConCert.Execution Require Import Blockchain.
+#[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require CongressTests.
 From ConCert.Examples.Congress Require Congress_BuggyTests.
@@ -174,7 +175,7 @@ Module EIP20Token.
   Time QuickChick (token_cb ~~> person_has_tokens creator 0).
   (* Success - found witness satisfying the predicate!
   +++ Failed (as expected) after 1 tests and 0 shrinks. (0 discards)*)
-  
+
   Time QuickChick (expectFailure (
     token_cb
     ~~~> (fun cs => if person_has_tokens creator 5 cs.(chain_state_env) then Some tt else None)

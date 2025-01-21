@@ -6,14 +6,14 @@
 
   attribute = "ConCert";
 
-  default-bundle = "8.19";
+  default-bundle = "8.20";
 
-  bundles."8.19" = {
-    coqPackages.coq.override.version = "8.19";
-    coqPackages.metacoq.override.version = "coq-8.19";
-    coqPackages.stdpp.override.version = "1.10.0";
+  bundles."8.20" = {
+    coqPackages.coq.override.version = "8.20";
+    coqPackages.metacoq.override.version = "coq-8.20";
+    coqPackages.stdpp.override.version = "1.11.0";
     coqPackages.QuickChick.override.version = "2.0.4";
-    coqPackages.RustExtraction.override.version = "0.1.0";
+    coqPackages.RustExtraction.override.version = "coq-8.20";
     coqPackages.ElmExtraction.override.version = "0.1.0";
   };
 

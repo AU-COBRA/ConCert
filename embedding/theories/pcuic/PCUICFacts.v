@@ -383,7 +383,7 @@ Section Values.
               unfold AllEnv,compose,fun_prod in *.
               eapply All_impl_inner. apply X0.
               now eapply (All_impl X).
-          ** now rewrite map_length.
+          ** now rewrite length_map.
       * unfold subst_env_i. simpl in *.
         inversion Hv. subst.
         propify. destruct_and_split.
@@ -404,7 +404,7 @@ Section Values.
                unfold AllEnv,compose,fun_prod in *.
                eapply All_impl_inner. apply X0.
                now eapply (All_impl X).
-           *** now rewrite map_length.
+           *** now rewrite length_map.
     + simpl in *.
       inversion Hv. subst. clear Hv.
       eapply iclosed_m_n with (n := 1).
@@ -414,7 +414,7 @@ Section Values.
           unfold AllEnv,compose,fun_prod in *.
           eapply All_impl_inner. apply X0. simpl.
           now eapply (All_impl X).
-      ** now rewrite map_length.
+      ** now rewrite length_map.
     + simpl.
       inversion Hv. subst.
       eauto with facts.

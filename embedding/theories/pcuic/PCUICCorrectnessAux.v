@@ -48,6 +48,9 @@ Local Set Keyed Unification.
 (* [Bool.trans_eq_bool] kills performance, so we remove it *)
 #[global] Remove Hints Bool.trans_eq_bool : core.
 
+#[local]
+Arguments monad_utils.bind /.
+
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.
 
@@ -174,7 +177,7 @@ Proof.
   destruct (syncEnv _ _ _ _ _ Hres) as [[[??]?][?[??]]].
   erewrite <- mkApps_vars_to_apps_constr; eauto.
   eapply PcbvCurr.value_app.
-  + rewrite map_length. cbn in *.
+  + rewrite length_map. cbn in *.
     subst. rewrite H1 in *.
     econstructor; eauto.
   + now apply All_map.
@@ -417,7 +420,7 @@ Proof.
       assert (closed T⟦ t ⟧).
       { eapply nth_error_all in Hn; eauto; auto with hints. }
       now rewrite lift_closed by auto with hints.
-    * rewrite map_length. apply f_equal.
+    * rewrite length_map. apply f_equal.
       apply nth_error_None in Hn; lia.
   + f_equal; auto.
     rewrite <- IHty2 by auto.
@@ -629,7 +632,7 @@ Proof.
     inversion Hlen as [Hlen0]; subst; clear Hlen.
     propify; split.
     * inversion Htys; subst; apply IHtys; eauto.
-    * rewrite map_length, combine_length, map_length.
+    * rewrite length_map, length_combine, length_map.
       rewrite Hlen0. replace (Init.Nat.min #|tys| #|tys|) with #|tys| by lia.
       inversion Htys; subst; clear Htys.
       replace (#|tys| + n) with (n + #|tys|) by lia.
@@ -669,7 +672,7 @@ Proof.
       ** cbn. rewrite closedn_mkApps; eauto. cbn.
          replace (#|map type_to_term l0|) with
            (#|map (fun x : type => vass (aRelevant nAnon) T⟦ x ⟧) l0|)
-           by now repeat rewrite map_length.
+           by now repeat rewrite length_map.
          apply closedn_to_extended_list.
     * destruct p as [np cs]. cbn in *.
       rewrite forallb_map.
@@ -680,7 +683,7 @@ Proof.
       unfold etrans_branch in Heqtb.
       destruct (find (fun x => _)) as [ p0 | ] eqn:Hnm.
       2: subst; simpl; auto.
-      destruct p0 as [pt e1]. cbn in *. rewrite map_length in *.
+      destruct p0 as [pt e1]. cbn in *. rewrite length_map in *.
       destruct (#|pVars pt| =? #|tys|)%nat eqn:Hlen; auto.
       2: subst; simpl; auto.
       apply find_some in Hnm. destruct Hnm as [Hin' Heqs]; cbn in *.
@@ -695,7 +698,7 @@ Proof.
       propify; split.
       ** rewrite map_map.
          now apply closedn_ctx_branches.
-      ** rewrite map_length,combine_length. rewrite_all map_length.
+      ** rewrite length_map,length_combine. rewrite_all length_map.
          rewrite Hlen. replace (min #|tys| #|tys|) with (#|tys|) by lia.
          apply forallb_Forall in H3.
          eapply Forall_In in H; eauto; cbn in *.
@@ -715,8 +718,8 @@ Lemma closed_exprs_len_iff e n (ρ : env val) :
   iclosed_n (n + #|ρ|) e = true.
 Proof.
   split.
-  intros H. rewrite map_length in H. assumption.
-  intros H. rewrite map_length. assumption.
+  intros H. rewrite length_map in H. assumption.
+  intros H. rewrite length_map. assumption.
 Qed.
 
 
@@ -873,7 +876,7 @@ Proof.
     cbn in *. destruct p as [ind tys]. unfold is_true in *; simpl in *.
     propify. destruct Hc as [Hce1 Hce2].
     destruct (resolve_inductive Σ ind) eqn:Hres; auto.
-    rewrite map_length. destruct (_ =? _)%nat eqn:Hnparams; auto.
+    rewrite length_map. destruct (_ =? _)%nat eqn:Hnparams; auto.
     cbn.
     repeat f_equal.
     * unfold map_predicate_k; cbn.
@@ -891,7 +894,7 @@ Proof.
                       reln xs n (map (vass (aRelevant nAnon)) ys2)).
          { induction ys1; intros ys2 xs n Heq; destruct ys2; cbn in *; inversion Heq; cbn; auto. }
          rewrite <- map_map. rewrite <- map_map with (f := fun x => T⟦ x ⟧ {n1 := t⟦ e0 ⟧ Σ}).
-         apply Hreln. now repeat rewrite map_length.
+         apply Hreln. now repeat rewrite length_map.
       ** rewrite commut_lift_subst. auto with all hints solve_subterm.
     * apply IHe; auto with solve_subterm.
     * rewrite_all map_map. simpl.
@@ -917,10 +920,10 @@ Proof.
                (#|pVars (fst a)| + S n1) by lia.
            assumption. }
          rewrite <- Hmap. unfold id in *. rewrite Hfnd. simpl.
-         rewrite map_length.
+         rewrite length_map.
          destruct (Nat.eqb #|pVars (fst p0)| #|l0|) eqn:Hlen; simpl; auto.
-         unfold map_branch_k; cbn. rewrite_all map_length. rewrite combine_length.
-         rewrite_all map_length. rewrite PeanoNat.Nat.eqb_eq in Hlen.
+         unfold map_branch_k; cbn. rewrite_all length_map. rewrite length_combine.
+         rewrite_all length_map. rewrite PeanoNat.Nat.eqb_eq in Hlen.
          rewrite Hlen. replace (min _ _) with #|l0| by lia.
          f_equal.
       ** change (fun x : pat * term => pName (fst x) =? s)%string with
@@ -1321,8 +1324,8 @@ Proof.
   + unfold subst_env_i. destruct x as [nm e0]. simpl in *.
     apply All_app in Hall as [Hl He0]. inversion He0; subst; clear He0. simpl in *.
     unfold subst_env_i. rewrite map_app. simpl.
-    rewrite subst_app_simpl. rewrite map_length. simpl.
-    rewrite app_length in *. simpl in *.
+    rewrite subst_app_simpl. rewrite length_map. simpl.
+    rewrite length_app in *. simpl in *.
     replace (#|l| + 1) with (1 + #|l|) in Hc by lia.
     replace (k + (1 + #|l|)) with (1+ k + #|l|) in Hc by lia.
     rewrite subst_term_subst_env_rec with (e := e)(nm := nm) by eauto with hints.
@@ -1674,7 +1677,7 @@ Proof.
       simpl in Hge_ok. rewrite Hres in *.
       inversion Hok_constr. subst. clear Hok_constr.
       apply All_app_inv; eauto with hints.
-      rewrite app_length; cbn.
+      rewrite length_app; cbn.
       now propify; cbn in *.
     * simpl in *. unfold is_true in *; repeat rewrite Bool.andb_true_iff in *.
       assert (Hok_v0 : val_ok Σ v0) by now eapply IHn.
@@ -1722,7 +1725,7 @@ Proof.
     { apply rev_env_ok; apply All_env_ok; eauto; eapply All_skipn; eauto. }
 
     assert (iclosed_n #|rev (combine (pVars pt) (skipn n1 l1)) ++ ρ| e2 = true).
-    { rewrite app_length. rewrite rev_length,combine_length,skipn_length.
+    { rewrite length_app. rewrite length_rev,length_combine,length_skipn.
       replace (min #|pVars pt| (#|l1| - n1)) with #|pVars pt| by lia.
       now specialize (find_forallb _ H H4) as Hc. }
     eapply IHn with (ρ := (rev (combine (pVars pt) (skipn n1 l1)) ++ ρ)); eauto.
@@ -1877,11 +1880,11 @@ Lemma of_val_closed_0 e ρ :
   iclosed_n 0 (e.[exprs ρ]) = true -> iclosed_n #|ρ| e.
 Proof.
   intros H ?.
-  replace #|ρ| with (#|exprs ρ|) by now apply map_length.
+  replace #|ρ| with (#|exprs ρ|) by now apply length_map.
   eauto with hints.
 Qed.
 
-#[export] Hint Resolve map_length of_val_closed_0 val_ok_ge_val_ok rev_length
+#[export] Hint Resolve length_map of_val_closed_0 val_ok_ge_val_ok length_rev
   subst_env_compose_1 subst_env_compose_2 : hints.
 
 #[export] Hint Constructors PcbvCurr.value : hints.
