@@ -45,15 +45,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (ConCert)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"ConCert\" \\\n   --dry-run &> out || (touch
+        \"8.20\" --argstr job \"ConCert\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -128,15 +128,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (ElmExtraction)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"ElmExtraction\" \\\n   --dry-run &> out || (touch
+        \"8.20\" --argstr job \"ElmExtraction\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -190,15 +190,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (QuickChick)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"QuickChick\" \\\n   --dry-run &> out || (touch
+        \"8.20\" --argstr job \"QuickChick\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -261,15 +261,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (RustExtraction)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"RustExtraction\" \\\n   --dry-run &> out ||
+        \"8.20\" --argstr job \"RustExtraction\" \\\n   --dry-run 2> err > out ||
         (touch fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -322,15 +322,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (coq)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"coq\" \\\n   --dry-run &> out || (touch fail;
+        \"8.20\" --argstr job \"coq\" \\\n   --dry-run 2> err > out || (touch fail;
         true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -376,15 +376,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (metacoq)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"metacoq\" \\\n   --dry-run &> out || (touch
+        \"8.20\" --argstr job \"metacoq\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -454,15 +454,15 @@ jobs:
     - id: stepGetDerivation
       name: Getting derivation for current job (stdpp)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"8.20\" --argstr job \"stdpp\" \\\n   --dry-run &> out || (touch fail;
+        \"8.20\" --argstr job \"stdpp\" \\\n   --dry-run 2> err > out || (touch fail;
         true)\n"
     - name: Error reporting
-      run: "echo \"out=\"; cat out\n"
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
     - name: Failure check
       run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
       name: Checking presence of CI target for current job
-      run: (echo -n status=; cat out | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.20" --argstr
@@ -497,6 +497,3 @@ on:
   push:
     branches:
     - master
-concurrency:
-  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}"
-  cancel-in-progress: true
