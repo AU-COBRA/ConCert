@@ -10,7 +10,7 @@
 
   bundles."8.20" = {
     coqPackages.coq.override.version = "8.20";
-    coqPackages.metacoq.override.version = "coq-8.20";
+    coqPackages.metacoq.override.version = "1.3.4-8.20";
     coqPackages.stdpp.override.version = "1.11.0";
     coqPackages.QuickChick.override.version = "2.0.4";
     coqPackages.RustExtraction.override.version = "coq-8.20";
