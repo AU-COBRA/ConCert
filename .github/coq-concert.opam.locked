@@ -12,26 +12,17 @@ bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
   "coq" {= "8.19.0"}
   "coq-bignums" {= "9.0.0+coq8.19"}
-  "coq-metacoq-common" {= "1.3.2+8.19"}
-  "coq-metacoq-erasure" {= "1.3.2+8.19"}
-  "coq-metacoq-pcuic" {= "1.3.2+8.19"}
-  "coq-metacoq-safechecker" {= "1.3.2+8.19"}
-  "coq-metacoq-template" {= "1.3.2+8.19"}
-  "coq-metacoq-template-pcuic" {= "1.3.2+8.19"}
-  "coq-metacoq-utils" {= "1.3.2+8.19"}
+  "coq-metacoq-common" {= "1.3.3+8.19"}
+  "coq-metacoq-erasure" {= "1.3.3+8.19"}
+  "coq-metacoq-pcuic" {= "1.3.3+8.19"}
+  "coq-metacoq-safechecker" {= "1.3.3+8.19"}
+  "coq-metacoq-template" {= "1.3.3+8.19"}
+  "coq-metacoq-template-pcuic" {= "1.3.3+8.19"}
+  "coq-metacoq-utils" {= "1.3.3+8.19"}
   "coq-rust-extraction" {= "0.1.0"}
   "coq-elm-extraction" {= "0.1.0"}
   "coq-quickchick" {= "2.0.4"}
   "coq-stdpp" {= "1.10.0"}
-]
-pin-depends: [
-  ["coq-metacoq-utils.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-common.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-template.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-template-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-pcuic.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-safechecker.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
-  ["coq-metacoq-erasure.1.3.2+8.19" "git+https://github.com/MetaCoq/metacoq.git#a9f5da7534b62cda3c870e64f00998e7ee5485f5"]
 ]
 build: [
   [make "core"]

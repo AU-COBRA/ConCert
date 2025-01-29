@@ -42,12 +42,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (ConCert)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"ConCert\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target ConCert
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"ConCert\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -119,12 +125,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (ElmExtraction)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"ElmExtraction\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target ElmExtraction
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"ElmExtraction\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -175,12 +187,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (QuickChick)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"QuickChick\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target QuickChick
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"QuickChick\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -240,12 +258,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (RustExtraction)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"RustExtraction\" \\\n   --dry-run 2> err > out ||
+        (touch fail; true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target RustExtraction
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"RustExtraction\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -295,12 +319,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (coq)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"coq\" \\\n   --dry-run 2> err > out || (touch fail;
+        true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target coq
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"coq\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -343,12 +373,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (metacoq)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"metacoq\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target metacoq
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"metacoq\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -415,12 +451,18 @@ jobs:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
         name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (stdpp)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"8.19\" --argstr job \"stdpp\" \\\n   --dry-run 2> err > out || (touch fail;
+        true)\n"
+    - name: Error reporting
+      run: "echo \"out=\"; cat out\necho \"err=\"; cat err\n"
+    - name: Failure check
+      run: if [ -e fail ]; then exit 1; else exit 0; fi;
     - id: stepCheck
-      name: Checking presence of CI target stdpp
-      run: "nb_dry_run=$(NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr
-        bundle \"8.19\" --argstr job \"stdpp\" \\\n   --dry-run 2>&1 > /dev/null)\n
-        echo $nb_dry_run\necho status=$(echo $nb_dry_run | grep \"built:\" | sed \"\
-        s/.*/built/\") >> $GITHUB_OUTPUT\n"
+      name: Checking presence of CI target for current job
+      run: (echo -n status=; cat out err | grep "built:" | sed "s/.*/built/") >> $GITHUB_OUTPUT
     - if: steps.stepCheck.outputs.status == 'built'
       name: 'Building/fetching previous CI target: coq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "8.19" --argstr
@@ -441,6 +483,13 @@ on:
   pull_request_target:
     paths-ignore:
     - .github/workflows/nix-action-8.19.yml
+    - '**.md'
+    - '**.gitignore'
+    - '**.opam'
+    - 'LICENSE'
+    - '**.editorconfig'
+    - 'papers/**'
+    - 'extra/docker/**'
     types:
     - opened
     - synchronize
