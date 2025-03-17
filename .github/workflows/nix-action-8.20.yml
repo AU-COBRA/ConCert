@@ -37,7 +37,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -120,7 +120,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -182,7 +182,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -253,7 +253,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -314,7 +314,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -368,7 +368,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
@@ -446,7 +446,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v15
+      uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
         extraPullNames: coq, coq-community, metacoq
