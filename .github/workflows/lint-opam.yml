@@ -9,6 +9,9 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+env:
+  OCAML_COMILER_VERSION: "4.14.2"
+  JOBS: 4
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -18,10 +21,11 @@ jobs:
       - name: Set up opam
         uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: 4.14.x
+          ocaml-compiler: ${{env.OCAML_COMILER_VERSION}}
           opam-repositories: |
             coq-released: https://coq.inria.fr/opam/released
             default: https://opam.ocaml.org
+          opam-pin: false
       - name: Set up problem matcher
         run: echo "::add-matcher::./.github/opam-errors.json"
       - name: Lint opam file
