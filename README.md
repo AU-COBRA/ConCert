@@ -13,7 +13,7 @@ ConCert can find real-world attacks as explained
 
 ## How to build
 
-Our development works with Coq 8.19 and depends on MetaCoq, and std++.
+Our development works with Coq 8.20 and depends on MetaCoq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
