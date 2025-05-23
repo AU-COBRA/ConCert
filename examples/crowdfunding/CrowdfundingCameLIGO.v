@@ -2,7 +2,6 @@
 
 From Coq Require Import ZArith.
 From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
@@ -17,8 +16,8 @@ From ConCert.Execution Require Import ResultMonad.
 
 Import MCMonadNotation.
 
-Local Open Scope string_scope.
 Open Scope Z.
+
 
 #[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
@@ -83,13 +82,13 @@ Module Crowdfunding.
 
       (* definitions of operations on pairs and ints *)
       lmd_prelude :=
-        CameLIGOPrelude
+        (CameLIGOPrelude
           ++ nl
           ++ nl
           ++ "let test_account : address = (""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"" : address)"
           ++ nl
           ++ "let init_storage : (timestamp * (tez * address)) =
-          (Tezos.get_now (), (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))";
+          (Tezos.get_now (), (42tez,(""tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"": address)))")%bs;
 
       (* initial storage *)
       lmd_init := init ;
@@ -104,10 +103,10 @@ Module Crowdfunding.
 
       (* code for the entry point *)
       lmd_entry_point :=
-      "type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ nl
+      ("type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ nl
        ++ CameLIGOPretty.printMain "crowdfunding_receive"
                                     "msg_coq"
-                                    "storage"
+                                    "storage")%bs
     |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
@@ -122,7 +121,7 @@ Section CrowdfundingExtraction.
   Import CrowdfundingDataExt.
   Import CrowdfundingContract.Receive.
 
-  Definition TT_remap_crowdfunding : list (kername * String.string) :=
+  Definition TT_remap_crowdfunding : list (kername * string) :=
 
   [ (* types *)
     remap <%% address_coq %%> "address"
@@ -150,6 +149,6 @@ Section CrowdfundingExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
-  MetaCoq Run (tmMsg (String.of_string cameLIGO_crowdfunding)).
+  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.

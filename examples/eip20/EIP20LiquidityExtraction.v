@@ -17,13 +17,11 @@ From Coq Require Import ZArith.
 
 Import MCMonadNotation.
 
-Local Coercion bytestring.String.of_string : string >-> bytestring.string.
 
-Local Open Scope string_scope.
 
 Definition PREFIX := "".
 
-Definition TT_remap_default : list (kername * string) :=
+Definition TT_remap_default : list (kername * bytestring.string) :=
   [ (* types *)
     remap <%% Z %%> "tez"
   ; remap <%% N %%> "int"
@@ -113,7 +111,7 @@ Section EIP20TokenExtraction.
             allowances := AddressMap.empty |}.
   Open Scope Z_scope.
 
-  Definition printERC20Wrapper (contract : string) : string :=
+  Definition printERC20Wrapper (contract : bytestring.string) : bytestring.string :=
   "let wrapper param (st : storage)"
         ++ " = "
         ++ "match " ++ contract ++ " (" ++ liquidity_call_ctx ++ ", param) st" ++ " with"
@@ -144,7 +142,7 @@ Section EIP20TokenExtraction.
   |}.
 
 
-  Definition TT_remap_eip20token : list (kername * string) :=
+  Definition TT_remap_eip20token : list (kername * bytestring.string) :=
     TT_remap_default ++ [
       remap <%% @ContractCallContext %%> "(timestamp * (address * (tez * tez)))"
       (* small hack, but valid since ContractCallContext is mapped to a tuple *)
@@ -190,6 +188,6 @@ Section EIP20TokenExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/liquidity_eip20token.liq"
-    MetaCoq Run (tmMsg (bytestring.String.of_string liquidity_eip20token)).
+    MetaCoq Run (tmMsg liquidity_eip20token).
 
 End EIP20TokenExtraction.

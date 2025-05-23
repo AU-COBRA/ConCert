@@ -6,8 +6,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
-From ConCert.Utils Require Import Env.
-From Coq Require Import String.
+From ConCert.Utils Require Import BSEnv.
 From Coq Require Import ZArith_base.
 Local Open Scope string_scope.
 Import MCMonadNotation.
@@ -83,7 +82,7 @@ Module LiquidityInterp.
 
   Time MetaCoq Run
        (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
-        tmDefinition (String.of_string INTERP_MODULE.(lmd_module_name)) t
+        tmDefinition INTERP_MODULE.(lmd_module_name) t
        ).
 
   (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
@@ -91,6 +90,6 @@ Module LiquidityInterp.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/StackInterpreter.liq"
-    MetaCoq Run (tmMsg (String.of_string liquidity_interp)).
+    MetaCoq Run (tmMsg liquidity_interp).
 
 End LiquidityInterp.

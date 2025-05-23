@@ -7,7 +7,6 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
-From Coq Require Import String.
 From Coq Require Import ZArith_base.
 Local Open Scope string_scope.
 Import MCMonadNotation.
@@ -93,6 +92,6 @@ Module CameLIGOInterp.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/StackInterpreter.mligo"
-    MetaCoq Run (tmMsg (String.of_string cameligo_interp)).
+    MetaCoq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.

@@ -3,10 +3,9 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From RustExtraction Require Import RustExtract.
 From Coq Require Import Bool.
-From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 
-Open Scope string.
+
 
 Definition COUNTER_MODULE : ConcordiumMod _ _ :=
   {| concmd_contract_name := "counter"%bs;
