@@ -19,13 +19,10 @@ depends: [
   "coq-metacoq-template" {= "1.3.4+8.20"}
   "coq-metacoq-template-pcuic" {= "1.3.4+8.20"}
   "coq-metacoq-utils" {= "1.3.4+8.20"}
-  "coq-rust-extraction" {= "dev"}
-  "coq-elm-extraction" {= "0.1.0"}
+  "coq-rust-extraction" {= "0.1.1"}
+  "coq-elm-extraction" {= "0.1.1"}
   "coq-quickchick" {= "2.0.4"}
   "coq-stdpp" {= "1.11.0"}
-]
-pin-depends: [
-  ["coq-rust-extraction.dev" "git+https://github.com/AU-COBRA/coq-rust-extraction.git#c5d9cbae417213fe25b42f08678f28507cc6b99e"]
 ]
 build: [
   [make "core"]
@@ -34,6 +31,5 @@ build: [
 ]
 install: [
   [make "install"]
-  [make "-C" "examples" "install"] {with-test}
 ]
 dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"
