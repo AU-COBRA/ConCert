@@ -10,7 +10,6 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import String.
 From Coq Require Import Lia.
 From Coq Require Import ZArith.
 
@@ -180,7 +179,7 @@ Definition TT_rename :=
 
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
-      tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t).
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t).
 
 (* Print liquidity_counter. *)
 

@@ -1,7 +1,6 @@
 (** * Extraction of various contracts to CameLIGO *)
 
 From Coq Require Import ZArith.
-From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
@@ -14,8 +13,8 @@ From ConCert.Execution Require Import ResultMonad.
 
 Import MCMonadNotation.
 
-Local Open Scope string_scope.
 Open Scope Z.
+
 
 #[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
@@ -100,7 +99,7 @@ End Counter.
 Section CounterExtraction.
   Import Counter.
   (** A translation table for definitions we want to remap. The corresponding top-level definitions will be *ignored* *)
-  Definition TT_remap_counter : list (kername * String.string) :=
+  Definition TT_remap_counter : list (kername * string) :=
     [ remap <%% Z %%> "int"
     ; remap <%% Z.add %%> "addInt"
     ; remap <%% Z.sub %%> "subInt"
@@ -140,6 +139,6 @@ Section CounterExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/CounterCertified.mligo"
-  MetaCoq Run (tmMsg (String.of_string cameLIGO_counter_1)).
+  MetaCoq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.

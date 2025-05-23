@@ -16,7 +16,6 @@ From ConCert.Extraction Require Import Common.
 From MetaCoq.Erasure.Typed Require Import CertifyingEta.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
-From Coq Require Import String.
 
 Import MCMonadNotation.
 
@@ -124,7 +123,7 @@ Definition TT_rename : list (string * string) :=
   ; ("Z0" ,"0")
   ; ("nil", "[]")
   ; ("true", "true")
-  ; (String.to_string (string_of_kername <%% storage %%>), "storage") (* we add [storage] so it is printed without the prefix *) ].
+  ; ((string_of_kername <%% storage %%>), "storage") (* we add [storage] so it is printed without the prefix *) ].
 
 Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation Error :=
   {| (* a name for the definition with the extracted code *)
@@ -153,7 +152,7 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
 
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
-      tmDefinition (String.of_string COUNTER_MODULE.(lmd_module_name)) t
+      tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
 (* Print liquidity_counter. *)
@@ -244,7 +243,7 @@ Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) s
 
 Time MetaCoq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_PARTIAL_EXPANDED_MODULE ;;
-      tmDefinition (String.of_string COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name)) t
+      tmDefinition COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name) t
      ).
 
 (* Print liquidity_counter_partially_applied_expanded. *)

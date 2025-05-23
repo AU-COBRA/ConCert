@@ -13,12 +13,9 @@ From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Examples.EIP20 Require EIP20Token.
 
-Local Open Scope string_scope.
 
 Local Existing Instance PrintConfShortNames.PrintWithShortNames.
 
-(* Notation bs_to_s := bytestring.String.to_string. *)
-(* Notation s_to_bs := bytestring.String.of_string. *)
 
 
 Section EIP20TokenExtraction.
@@ -71,7 +68,7 @@ Section EIP20TokenExtraction.
         CameLIGOPretty.printMain "receive_" "msg" "state"
   |}.
 
-  Definition TT_remap_eip20token : list (kername * String.string) :=
+  Definition TT_remap_eip20token : list (kername * bytestring.string) :=
     TT_remap_default ++ [
       remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
     ; remap <%% @ctx_from %%> "ctx_from"
@@ -106,6 +103,6 @@ Section EIP20TokenExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/eip20tokenCertifiedExtraction.mligo"
-    MetaCoq Run (tmMsg (bytestring.String.of_string cameLIGO_eip20token)).
+    MetaCoq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.

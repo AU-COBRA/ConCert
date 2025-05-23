@@ -10,7 +10,7 @@ From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
-From Coq Require Import String.
+From Coq Require String.
 From Coq Require Import ZArith_base.
 
 Local Open Scope string_scope.
@@ -54,7 +54,7 @@ Module EscrowLiquidityExtraction.
       lmd_module_name := "liquidity_escrow" ;
 
       (* definitions of operations on pairs and ints *)
-      lmd_prelude := concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
+      lmd_prelude := String.concat nl ([LiquidityPrelude; contractcallcontextDef; chainDef]);
 
       (* initial storage *)
       lmd_init := escrow_init_wrapper;
@@ -166,11 +166,11 @@ Module EscrowLiquidityExtraction.
 
   Time MetaCoq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
-        tmDefinition (String.of_string ESCROW_MODULE_LIQUIDITY.(lmd_module_name)) t
+        tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/escrow.liq"
-  MetaCoq Run (tmMsg (String.of_string liquidity_escrow)).
+  MetaCoq Run (tmMsg liquidity_escrow).
 
 End EscrowLiquidityExtraction.

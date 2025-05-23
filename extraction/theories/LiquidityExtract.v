@@ -11,11 +11,12 @@ From MetaCoq.Erasure.Typed Require Import Extraction.
 From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Import BSEnv.
+From ConCert.Utils Require Import BytestringExtra.
 From Coq Require Import List.
-From Coq Require Import String.
 From Coq Require Import ZArith_base.
 From MetaCoq.Template Require Import All.
+From MetaCoq.Utils Require Import bytestring.
 
 Import ListNotations.
 Import MCMonadNotation.
@@ -29,12 +30,12 @@ Definition to_constant_decl (gd : option global_decl) :=
   end.
 
 Record LiquidityMod (msg init_ctx params storage operation error : Type) :=
-  { lmd_module_name : String.string ;
-    lmd_prelude : String.string ;
+  { lmd_module_name : string ;
+    lmd_prelude : string ;
     lmd_init : init_ctx -> params -> ConCert.Execution.ResultMonad.result storage error;
-    lmd_init_prelude : String.string ;
+    lmd_init_prelude : string ;
     lmd_receive : msg -> storage -> ConCert.Execution.ResultMonad.result (list operation * storage) error;
-    lmd_entry_point : String.string }.
+    lmd_entry_point : string }.
 
 Arguments lmd_module_name {_ _ _ _ _ _}.
 Arguments lmd_prelude {_ _ _ _ _ _}.
@@ -103,15 +104,15 @@ Definition extract_specialize (to_inline : kername -> bool)
 
 Definition printLiquidityDefs_
            (extract_env : (kername -> bool) -> KernameSet.t -> (kername -> bool) -> global_env -> TemplateMonad ExAst.global_env)
-           (prefix : String.string) (Σ : global_env)
-           (TT : env String.string)
+           (prefix : string) (Σ : global_env)
+           (TT : env string)
            (inline : list kername)
            (ignore : list kername)
-           (build_call_ctx : String.string)
-           (init_prelude : String.string)
+           (build_call_ctx : string)
+           (init_prelude : string)
            (init : kername)
            (receive : kername)
-  : TemplateMonad String.string :=
+  : TemplateMonad string :=
   let seeds := KernameSet.union (KernameSet.singleton init) (KernameSet.singleton receive) in
   let should_inline kn := existsb (eq_kername kn) inline in
   let ignore_extract kn := List.existsb (eq_kername kn) ignore in
@@ -120,7 +121,7 @@ Definition printLiquidityDefs_
   let projs := get_projections eΣ in
   let ldef_list := List.rev (print_global_env prefix TT eΣ projs) in
   (* filtering empty strings corresponding to the ignored definitions *)
-  let ldef_list := filter (negb ∘ (Strings.String.eqb "") ∘ snd) ldef_list in
+  let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
   match ExAst.lookup_env eΣ init with
     | Some (ExAst.ConstantDecl init_cst) =>
       match print_init prefix TT projs build_call_ctx init_prelude eΣ init_cst with
@@ -129,7 +130,7 @@ Definition printLiquidityDefs_
         let defs :=
             map snd (filter (negb ∘ (eq_kername init) ∘ fst) ldef_list) in
         let res :=
-            concat (Common.nl ++ Common.nl) (defs ++[ init_code ])%list in
+            String.concat (Common.nl ++ Common.nl) (defs ++[ init_code ])%list in
         ret res
       | None => tmFail "Error: Empty body for init"
       end
@@ -162,7 +163,7 @@ Definition liquidity_ignore_default :=
 ].
 
 
-Definition TT_remap_default : list (kername * String.string) :=
+Definition TT_remap_default : list (kername * string) :=
   [
     (* types *)
     (* remap <%% Z %%> "tez" *)
@@ -214,7 +215,7 @@ Definition TT_remap_default : list (kername * String.string) :=
 
 (* We assume the structure of the context from the [PreludeExt]:
   current_time, sender_addr, sent_amount, acc_balance *)
-Definition liquidity_call_ctx : String.string :=
+Definition liquidity_call_ctx : string :=
   "(Current.time (),
    (Current.sender (),
    (Current.amount (),
@@ -239,17 +240,17 @@ Definition liquidity_extract_args :=
     The harness is just a piece of code with definitions
     of [storage], [main], etc.*)
 Definition liquidity_extract_single
-           (TT_defs : list (kername * String.string))
-           (TT_ctors : env String.string)
+           (TT_defs : list (kername * string))
+           (TT_ctors : env string)
            (extract_deps : bool)
-           (prelude : String.string)
-           (harness : String.string)
-           (p : program) : String.string + String.string :=
+           (prelude : string)
+           (harness : string)
+           (p : program) : string + string :=
   match p.2 with
   | tConst kn _ =>
     let seeds := KernameSet.singleton kn in
     let TT :=
-        (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
+        (TT_ctors ++ map (fun '(kn,d) => ((string_of_kername kn), d)) TT_defs)%list in
     let ignore := if extract_deps then fun kn => existsb (eq_kername kn) (map fst TT_defs) else fun kn' => negb (eq_kername kn' kn) in
     match extract_template_env liquidity_extract_args p.1 seeds ignore with
     | Ok eΣ =>
@@ -261,40 +262,40 @@ Definition liquidity_extract_single
       (* dependencies should be printed before the dependent definitions *)
       let ldef_list := List.rev (print_global_env "" TT eΣ projs) in
       (* filtering empty strings corresponding to the ignored definitions *)
-      let ldef_list := filter (negb ∘ (Strings.String.eqb "") ∘ snd) ldef_list in
+      let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in
-      inl (concat (Common.nl ^ Common.nl) (prelude :: defs ++ [harness]))
-    | Err e => inr (bs_to_s e)
+      inl (String.concat (Common.nl ^ Common.nl) (prelude :: defs ++ [harness]))
+    | Err e => inr e
     end
-  | _ => inr (bs_to_s "Constant expected")
+  | _ => inr "Constant expected"
   end.
 
-Definition wrap_in_delimiters (s : String.string) : String.string :=
-  Strings.String.concat Common.nl [bs_to_s ""; bs_to_s "(*START*)"; s; bs_to_s"(*END*)"].
+Definition wrap_in_delimiters (s : string) : string :=
+  String.concat Common.nl [""; "(*START*)"; s; "(*END*)"].
 
 (** A flag that controls whether info about universes is preserved after quoting *)
 Definition WITH_UNIVERSES := false.
 
 
 Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
-           (printLiquidityDefs_ : String.string ->
+           (printLiquidityDefs_ : string ->
                                  global_env ->
-                                 env String.string ->
+                                 env string ->
                                  list kername ->
                                  list kername ->
-                                 String.string -> String.string -> kername -> kername -> TemplateMonad String.string)
-           (prefix : String.string)
-           (TT_defs : list (kername * String.string))
-           (TT_ctors : env String.string)
+                                 string -> string -> kername -> kername -> TemplateMonad string)
+           (prefix : string)
+           (TT_defs : list (kername * string))
+           (TT_ctors : env string)
            (inline : list kername)
-           (m : LiquidityMod msg ctx params storage operation error) : TemplateMonad String.string :=
+           (m : LiquidityMod msg ctx params storage operation error) : TemplateMonad string :=
   '(Σ,_) <- tmQuoteRecTransp m false ;;
   init_nm <- extract_def_name m.(lmd_init);;
   receive_nm <- extract_def_name m.(lmd_receive);;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
   let TT :=
-    (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
+    (TT_ctors ++ map (fun '(kn,d) => ((string_of_kername kn), d)) TT_defs)%list in
   Σ <- tmEval lazy (if WITH_UNIVERSES then
                      Ast.Env.mk_global_env (Ast.Env.universes Σ) (Ast.Env.declarations Σ) (Ast.Env.retroknowledge Σ)
                    else
@@ -304,7 +305,7 @@ Definition liquidity_extraction_ {msg ctx params storage operation error : Type}
                          m.(lmd_init_prelude)
                              init_nm receive_nm ;;
     tmEval lazy
-           (wrap_in_delimiters (concat (Common.nl ^ Common.nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
+           (wrap_in_delimiters (String.concat (Common.nl ^ Common.nl) [m.(lmd_prelude); s; m.(lmd_entry_point)])).
 
 Definition unwrap_string_sum (s : string + string) : string :=
   match s with
@@ -350,23 +351,23 @@ Definition quote_and_preprocess {Base : ChainBase}
     evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
     which is much faster than running the computations inside [TemplateMonad]. *)
 Definition liquidity_prepare_extraction {Base : ChainBase} {msg ctx params storage operation error : Type}
-           (prefix : String.string)
-           (TT_defs : list (kername * String.string))
-           (TT_ctors : env String.string)
+           (prefix : string)
+           (TT_defs : list (kername * string))
+           (TT_ctors : env string)
            (inline : list kername)
            (m : LiquidityMod msg ctx params storage operation error) :=
   '(Σ, init_nm, receive_nm) <- quote_and_preprocess inline m;;
   let TT_defs := (TT_defs ++ TT_remap_default)%list in
   let ignore := (map fst TT_defs ++ liquidity_ignore_default)%list in
   let TT :=
-      (TT_ctors ++ map (fun '(kn,d) => (bs_to_s (string_of_kername kn), d)) TT_defs)%list in
+      (TT_ctors ++ map (fun '(kn,d) => ((string_of_kername kn), d)) TT_defs)%list in
   s <- printLiquidityDefs_specialize prefix Σ TT inline ignore
                          liquidity_call_ctx
                          m.(lmd_init_prelude)
                              init_nm receive_nm ;;
-  let res := wrap_in_delimiters (concat (Common.nl ++ Common.nl)
+  let res := wrap_in_delimiters (String.concat (Common.nl ++ Common.nl)
                                     [m.(lmd_prelude); s; m.(lmd_entry_point)]) in
-  tmDefinition (bytestring.String.of_string (m.(lmd_module_name) ++ "_prepared")) res.
+  tmDefinition (m.(lmd_module_name) ++ "_prepared")%bs res.
 
 (* Liquidity extraction *without* ChainBase specialization *)
 Definition liquidity_extraction {msg ctx params storage operation error : Type} :=

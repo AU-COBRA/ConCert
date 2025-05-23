@@ -1,7 +1,6 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
 From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
@@ -11,7 +10,7 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.Dexter2 Require Dexter2FA12.
 From ConCert.Examples.Dexter2 Require Import Dexter2CommonExtract.
-From ConCert.Utils Require Import StringExtra.
+From ConCert.Utils Require Import BytestringExtra.
 
 Local Open Scope string_scope.
 
@@ -121,7 +120,7 @@ Module Dexter2LqtExtraction.
 
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
     Redirect "cameligo-extract/dexter2fa12.mligo"
-      MetaCoq Run (tmMsg (s_to_bs cameLIGO_dexter2lqt)).
+      MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
 
   End D2LqtE.
 End Dexter2LqtExtraction.

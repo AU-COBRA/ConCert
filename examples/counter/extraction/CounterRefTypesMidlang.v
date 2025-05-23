@@ -12,11 +12,10 @@ From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
 From Coq Require Import Lia.
-From Coq Require Import String.
 From Coq Require Import ZArith.
 
 Import MCMonadNotation.
-Open Scope string.
+
 
 #[local]
 Instance MidlangBoxes : ElmPrintConfig :=
@@ -154,7 +153,7 @@ Definition counter_result :=
     ret lines).
 
 Definition wrap_in_delimiters s :=
-  concat Common.nl [""; "{-START-} "; s; "{-END-}"].
+  String.concat Common.nl [""; "{-START-} "; s; "{-END-}"].
 
 Definition midlang_prelude :=
    ["import Basics exposing (..)";
@@ -168,13 +167,13 @@ Definition midlang_prelude :=
 
 MetaCoq Run (match counter_result with
              | Ok s => tmMsg "Extraction of counter succeeded"%bs
-             | Err err => tmFail (String.of_string err)
+             | Err err => tmFail err
              end).
 
 Definition midlang_counter :=
   match counter_result with
-  | Ok s => monad_map tmMsg (map String.of_string (midlang_prelude ++ s))
-  | Err s => tmFail (String.of_string s)
+  | Ok s => monad_map tmMsg (midlang_prelude ++ s)
+  | Err s => tmFail s
   end.
 
 Redirect "midlang-extract/CounterRefTypesMidlang.midlang"

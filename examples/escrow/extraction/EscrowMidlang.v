@@ -13,10 +13,10 @@ From ConCert.Examples.Escrow Require Import Escrow.
 From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
 From Coq Require Import List.
-From Coq Require Import String.
 
 Import MCMonadNotation.
-Open Scope string.
+
+
 
 #[local]
 Instance EscrowMidlangBoxes : ElmPrintConfig :=
@@ -73,7 +73,7 @@ MetaCoq Run (p <- tmQuoteRecTransp Escrow.receive false ;;
              Σ <- run_transforms p.1 extract_params;;
              mpath <- tmCurrentModPath tt;;
              Certifying.gen_defs_and_proofs (Ast.Env.declarations p.1) (Ast.Env.declarations Σ) mpath "_cert_pass"%bs (KernameSet.singleton <%% @Escrow.receive %%>);;
-             tmDefinition (String.of_string "escrow_env") Σ).
+             tmDefinition "escrow_env" Σ).
 
 Definition ignored_concert_types :=
   Eval compute in
@@ -141,8 +141,8 @@ Definition escrow_result :=
 
 Definition result :=
   match escrow_result with
-  | Ok l => monad_map tmMsg (map String.of_string (midlang_prelude ++ l))
-  | Err err => tmFail (String.of_string err)
+  | Ok l => monad_map tmMsg (midlang_prelude ++ l)
+  | Err err => tmFail err
   end.
 
 Redirect "midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.

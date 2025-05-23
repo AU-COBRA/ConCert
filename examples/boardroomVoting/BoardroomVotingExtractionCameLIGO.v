@@ -15,11 +15,9 @@ From ConCert.Execution Require OptionMonad.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import List.
-From Coq Require Import String.
 From Coq Require Import ZArith.
 
 
-Local Open Scope string_scope.
 Open Scope Z.
 
 #[local]
@@ -47,7 +45,7 @@ End Params.
 Module BV := BoardroomVoting Params. Import BV.
 
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
-Definition modulus_ := StringExtra.string_of_Z modulus.
+Definition modulus_ := BytestringExtra.string_of_Z modulus.
 
 Definition setupWchain := (BV.Setup × Chain).
 
@@ -147,7 +145,7 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) 
     lmd_module_name := "cameligo_boardroomvoting" ;
 
     (* definitions of operations on pairs and ints *)
-    lmd_prelude := concat nl [CameLIGOPretty.CameLIGOPrelude; extra_ops; hash_func_def];
+    lmd_prelude := String.concat nl [CameLIGOPretty.CameLIGOPrelude; extra_ops; hash_func_def];
 
     (* initial storage *)
     lmd_init := init;
@@ -160,7 +158,7 @@ Definition BV_MODULE : CameLIGOMod BV.Msg ContractCallContext (Address * Setup) 
     lmd_receive := receive_wrapper;
 
     (* code for the entry point *)
-    lmd_entry_point := CameLIGOPretty.printMain (PREFIX ++ "receive_wrapper")
+    lmd_entry_point := CameLIGOPretty.printMain (PREFIX ++ "receive_wrapper")%bs
                         "msg"
                         "state"
   |}.
@@ -302,7 +300,7 @@ Definition TT_rename : list (string * string) :=
   ; ("true", "true")
   ; ("false", "false")
   ; ("hash", "hash_")
-  ; (String.to_string (string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
+  ; ((string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 
@@ -311,4 +309,4 @@ Time MetaCoq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "c
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
 Redirect "cameligo-extract/BoardroomVoting.mligo"
-MetaCoq Run (tmMsg (String.of_string cameLIGO_boardroomvoting)).
+MetaCoq Run (tmMsg cameLIGO_boardroomvoting).

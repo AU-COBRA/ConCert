@@ -16,7 +16,6 @@ From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Coq Require Import ZArith.
 From Coq Require Import List.
-From Coq Require Import String.
 
 Import MCMonadNotation.
 
@@ -77,7 +76,7 @@ Definition svs : list bool :=
                          (seq 0 (num_parties - votes_for)).
 
 (* Get string representation of modulus, and remap it. This way we avoid having the extraction compute the number. *)
-Definition modulus_ := StringExtra.string_of_Z modulus.
+Definition modulus_ := BytestringExtra.string_of_Z modulus.
 
 Definition init_ctx := (Chain × ContractCallContext).
 
@@ -161,7 +160,7 @@ Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody Er
     lmd_module_name := "liquidity_boardroomvoting" ;
 
     (* definitions of operations on pairs and ints *)
-    lmd_prelude := concat nl [LiquidityPrelude; extra_ops; hash_func_def];
+    lmd_prelude := String.concat nl [LiquidityPrelude; extra_ops; hash_func_def];
 
     (* initial storage *)
     lmd_init := dummy_init;
@@ -173,9 +172,9 @@ Definition BV_MODULE : LiquidityMod msg init_ctx BV.Setup BV.State ActionBody Er
     lmd_receive := dummy_receive;
 
     (* code for the entry point *)
-    lmd_entry_point := storage_alias ++ nl
+    lmd_entry_point := (storage_alias ++ nl
                       ++ printWrapper (PREFIX ++ "receive_wrapper") ++ nl
-                      ++ printMain |}.
+                      ++ printMain)%bs |}.
 
 Definition inline_boardroom_params : list kername :=
   [  <%% Params.H %%>
@@ -345,7 +344,7 @@ Definition TT_rename : list (string * string) :=
   ; ("nil", "[]")
   ; ("true", "true")
   ; ("false", "false")
-  ; (String.to_string (string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
+  ; ((string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
 

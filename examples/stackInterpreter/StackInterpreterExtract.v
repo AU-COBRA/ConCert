@@ -287,5 +287,5 @@ Module TestInterpreter.
 
 End TestInterpreter.
 
-Definition print_finmap_type (ty_key ty_val : String.string) :=
-  parens false (ty_key ++ "," ++ ty_val) ++ " map".
+Definition print_finmap_type (ty_key ty_val : bytestring.string) :=
+  (parens false (ty_key ++ "," ++ ty_val) ++ " map")%bs.

@@ -1,7 +1,6 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
 From Coq Require Import List.
-From Coq Require Import String.
 From Coq Require Import ZArith_base.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
@@ -15,11 +14,11 @@ From ConCert.Execution Require ContractCommon.
 From ConCert.Examples.Dexter2 Require Dexter2CPMM.
 #[warnings="-notation-incompatible-prefix"]
 From ConCert.Utils Require Import RecordUpdate.
-From ConCert.Utils Require Import StringExtra.
+From ConCert.Utils Require Import BytestringExtra.
 
-Local Open Scope string_scope.
+Local Open Scope bs_scope.
 
-Notation s_to_bs := bytestring.String.of_string.
+
 
 (** Printing configuration *)
 
@@ -27,11 +26,11 @@ Notation s_to_bs := bytestring.String.of_string.
 Global Instance dexter2_print_config : CameLIGOPrintConfig :=
   {| print_ctor_name := PrintConfAddModuleNames.print_ctor_name_;
      print_type_name := PrintConfAddModuleNames.print_ind_type_name_;
-     print_const_name := (fun x => bs_to_s (snd x)) |}.
+     print_const_name := (fun x => snd x) |}.
 
 (** * Common extraction setup *)
 
-Definition call_to_token_ligo : String.string :=
+Definition call_to_token_ligo : string :=
   <$ "let call_to_token (type msg) (addr : address) (amt : nat) (msg : msg) : operation =" ;
      "  let token_ : msg contract =";
      "  match (Tezos.get_contract_opt (addr) : msg contract option) with";
@@ -39,35 +38,35 @@ Definition call_to_token_ligo : String.string :=
      "  | None -> (failwith ""Contract not found."" : msg contract) in";
      "  Tezos.transaction msg (natural_to_mutez amt) token_" $>.
 
-Definition mk_callback_ligo : String.string :=
+Definition mk_callback_ligo : string :=
   "[@inline] let mk_callback (type msg)(addr : address) (msg : msg) : operation = call_to_token addr 0n msg".
 
 (** Next two definition are borrowed from the actual Dexter 2 implementation
      https://gitlab.com/dexter2tz/dexter2tz/-/blob/1cec9d9333eba756603d6cd90ea9c70d482a5d3d/dexter.mligo *)
-Definition natural_to_mutez_ligo : String.string :=
+Definition natural_to_mutez_ligo : string :=
   "[@inline] let natural_to_mutez (a: nat) : tez = a * 1mutez".
 
-Definition mutez_to_natural_ligo : String.string :=
+Definition mutez_to_natural_ligo : string :=
   "[@inline] let mutez_to_natural (a: tez) : nat = a / 1mutez".
 
 (** We change the signature of the original definition slightly, so it takes a [nat] and converts
     in to [tez]. We also return [operation option] instead of failing *)
-Definition xtz_transfer_ligo : String.string :=
+Definition xtz_transfer_ligo : string :=
   <$ "let xtz_transfer (to_ : address) (amount_ : nat) : (operation, nat) result =";
      "  match (Tezos.get_contract_opt to_ : unit contract option) with";
      "    | None -> Err 0n";
      "    | Some c -> Ok (Tezos.transaction () (natural_to_mutez amount_) c)" $>.
 
-Definition subNatTruncated_ligo : String.string :=
+Definition subNatTruncated_ligo : string :=
   "let subNTruncated (n : nat) (m : nat) : nat = if n < m then 0n else abs (n-m)".
 
-Definition divN_res_ligo : String.string :=
+Definition divN_res_ligo : string :=
   "let divN_res (n : nat) (m : nat) : (nat, nat) result = match ediv n m with | Some (q,_) -> Ok q | None -> Err 0n".
 
 (** Remapping arithmetic operations. *)
 (** We override the default remappings of arithmetic operations since it remaps [Z] to
     [tez], and [N] to [int], which is not suitable for our purposes. *)
-Definition TT_remap_dexter2_arith : list (kername * String.string) :=
+Definition TT_remap_dexter2_arith : list (kername * string) :=
   [ remap <%% Z %%> "int"
   ; remap <%% N %%> "nat"
 
@@ -94,7 +93,7 @@ Definition TT_remap_dexter2_arith : list (kername * String.string) :=
 ].
 
 (** Remapping key-value maps *)
-Definition TT_remap_dexter2 : list (kername * String.string) :=
+Definition TT_remap_dexter2 : list (kername * string) :=
    [remap <%% @ContractCallContext %%> CameLIGO_call_ctx_type_name
   ; remap <%% @FMap %%> "map"
   ; remap <%% @ContractCommon.AddressMap.add %%> "Map.add"

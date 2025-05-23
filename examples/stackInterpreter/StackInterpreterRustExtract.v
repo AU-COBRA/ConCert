@@ -6,12 +6,12 @@ From ConCert.Extraction Require Import ConcordiumExtract.
 From RustExtraction Require Import StringExtra.
 From MetaCoq.Template Require Import All.
 From MetaCoq.TemplatePCUIC Require Import PCUICToTemplate.
-From Coq Require Import String.
+From MetaCoq.Utils Require Import bytestring.
 From Coq Require Import List.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
 
-Open Scope string.
+
 
 Module SI := StackInterpreter.
 
@@ -48,7 +48,7 @@ MetaCoq Run (concordium_extraction
                (ConcordiumRemap.build_remaps
                   (ConcordiumRemap.remap_Z_arith
                      ++ ConcordiumRemap.remap_blockchain_consts
-                     ++ map (on_snd String.of_string) remap_extra_consts)
+                     ++ remap_extra_consts)
                   ConcordiumRemap.remap_inline_bool_ops
                   (ConcordiumRemap.remap_std_types
                      ++ ConcordiumRemap.remap_blockchain_inductives))

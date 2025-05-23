@@ -7,7 +7,6 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 
 From Coq Require Import Lia.
 From Coq Require Import List.
-From Coq Require Import String.
 
 
 Import MCMonadNotation.
@@ -17,10 +16,7 @@ Parameter (cb : Blockchain.ChainBase).
 #[local]
 Existing Instance cb.
 
-Local Close Scope bs_scope.
-Local Open Scope string_scope.
-
-Notation s_to_bs := bytestring.String.of_string.
+Local Open Scope bs_scope.
 
 #[local]
 Existing Instance PrintConfShortNames.PrintWithShortNames.
@@ -64,7 +60,7 @@ Module BoolRect.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/max.mligo"
-    MetaCoq Run (tmMsg (s_to_bs cameligo_max)).
+    MetaCoq Run (tmMsg cameligo_max).
 End BoolRect.
 
 Module FoldLeft.
@@ -94,11 +90,11 @@ Module FoldLeft.
               "let addN (n : nat) (m : nat) = n + m"
               (harness "sum")
               sum ;;
-        tmDefinition (s_to_bs "cameligo_sum") t).
+        tmDefinition "cameligo_sum" t).
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/FoldL.mligo"
-      MetaCoq Run (tmMsg (bytestring.String.of_string cameligo_sum)).
+      MetaCoq Run (tmMsg cameligo_sum).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
       fixpoint, and not bound by lambdas. Therefore, the type parameters are not
@@ -120,11 +116,11 @@ Module FoldLeft.
               "let addN (n : nat) (m : nat) = n + m"
               (harness "sumAlt")
               sumAlt ;;
-        tmDefinition (s_to_bs "cameligo_sumAlt") t).
+        tmDefinition "cameligo_sumAlt" t).
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/FoldLAlt.mligo"
-      MetaCoq Run (tmMsg (s_to_bs cameligo_sumAlt)).
+      MetaCoq Run (tmMsg cameligo_sumAlt).
 
 End FoldLeft.
 
@@ -176,10 +172,10 @@ Module SafeHead.
                 ""
                 harness
                 head_of_list_2 ;;
-    tmDefinition (s_to_bs "cameligo_safe_head") t).
+    tmDefinition "cameligo_safe_head" t).
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/SafeHead.mligo"
-      MetaCoq Run (tmMsg (s_to_bs cameligo_safe_head)).
+      MetaCoq Run (tmMsg cameligo_safe_head).
 
 End SafeHead.

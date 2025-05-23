@@ -13,7 +13,6 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From Coq Require Import ZArith.
 From Coq Require Import Bool.
-From Coq Require Import String.
 From Coq Require Import Lia.
 
 Import MCMonadNotation.
@@ -149,6 +148,6 @@ Module CameLIGOExtractionSetup.
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
   Redirect "cameligo-extract/CounterSubsetTypes.mligo"
-    MetaCoq Run (tmMsg (String.of_string cameLIGO_counter)).
+    MetaCoq Run (tmMsg cameLIGO_counter).
 
 End CameLIGOExtractionSetup.
