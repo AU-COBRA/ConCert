@@ -1,13 +1,13 @@
 From Coq Require Import List.
-From Coq Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
-From ConCert.Utils Require Import StringExtra.
+From ConCert.Utils Require Import BytestringExtra.
 From ConCert.Extraction Require Import LiquidityExtract.
 
 Import ListNotations.
 
-Local Open Scope string_scope.
+Local Open Scope bs_scope.
+
 
 Definition PREFIX := "".
 Definition TT_defs :=

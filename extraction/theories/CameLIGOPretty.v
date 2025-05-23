@@ -21,21 +21,22 @@ From MetaCoq.Erasure Require Import EAst.
 From MetaCoq.Erasure Require Import EAstUtils.
 From MetaCoq.Utils Require Import MCList.
 From MetaCoq.Utils Require Import MCPrelude.
-From ConCert.Utils Require Import Env.
+From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import Extras.
-From ConCert.Utils Require Import StringExtra.
+From ConCert.Utils Require Import BytestringExtra.
+From MetaCoq.Utils Require Import bytestring.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import Common.
 
-From Coq Require Import String.
 From Coq Require Import Nat.
 From Coq Require Import ZArith.
 From Coq Require Import List.
 From Coq Require Import Basics.
 
-Local Open Scope string_scope.
+Local Open Scope bs_scope.
 
 Import Kernames ListNotations.
+
 
 (* F# style piping notation *)
 Notation "f <| x" := (f x) (at level 32, left associativity, only parsing).
@@ -43,7 +44,6 @@ Notation "f <| x" := (f x) (at level 32, left associativity, only parsing).
 Notation "x |> f" := (f x) (at level 31, left associativity, only parsing).
 (* i.e. x |> f |> g = (x |> f) |> g, and means g (f x) *)
 
-Notation "s1 ^ s2" := (String.append s1 s2).
 
 Class CameLIGOPrintConfig :=
   { (* cosnstructors start with an uppercase letter *)
@@ -54,10 +54,6 @@ Class CameLIGOPrintConfig :=
 
     (* constants start with a lowercase letter *)
     print_const_name : kername -> string }.
-
-Notation "'bs_to_s' s" := (bytestring.String.to_string s) (at level 200).
-
-Local Coercion bytestring.String.to_string : bytestring.String.t >-> string.
 
 (** Prepend the last module name all global declaration names to avoid name clashes. Due
     to limitations for constructors, use only part of the module name and cut the first
@@ -77,19 +73,19 @@ Module PrintConfAddModuleNames.
     let nm := (snd kn) in
     (* NOTE: CameLIGO has a limitation for the constructor name length,
        so we try our best to fit and don't get clashes *)
-    let ctor_name := if lmn =? "" then bs_to_s nm else substring 0 4 lmn ^ "_" ^ nm in
-    capitalize (substring 0 31 ctor_name).
+    let ctor_name := if lmn =? "" then nm else String.substring 0 4 lmn ^ "_" ^ nm in
+    capitalize (String.substring 0 31 ctor_name).
 
   Definition print_ind_type_name_ (ind_kn : kername) :=
     let lmn := last_module_name (fst ind_kn) in
     let nm := snd ind_kn in
-    let ty_name := if lmn =? "" then bs_to_s nm else lmn ^ "_" ^ nm in
+    let ty_name := if lmn =? "" then nm else lmn ^ "_" ^ nm in
     uncapitalize ty_name.
 
   Definition print_const_name_ (ind_kn : kername) :=
     let lmn := last_module_name (fst ind_kn) in
     let nm := (snd ind_kn) in
-    let ty_name := if lmn =? "" then bs_to_s nm else lmn ^ "_" ^ nm in
+    let ty_name := if lmn =? "" then nm else lmn ^ "_" ^ nm in
     uncapitalize ty_name.
 
   Local Instance PrintWithModuleNames : CameLIGOPrintConfig :=
@@ -124,7 +120,7 @@ Section PPTerm.
   end.
 
   (* Use string_of_nat from StringExtra instead of MetaCoq's string_of_nat *)
-  Definition string_of_nat := StringExtra.string_of_nat.
+  Definition string_of_nat := BytestringExtra.string_of_nat.
   Definition tokenize := str_split.
 
 (** Takes a fully qualified name and returns the last part, e.g.
@@ -246,7 +242,7 @@ Section PPTerm.
     | v :: vs0 =>
       let nm := fresh_string_name Γ v in
       (* add name to the context to avoid shadowing due to name clashes *)
-      let Γ1 := vass (nNamed (bytestring.String.of_string nm)) :: Γ in
+      let Γ1 := vass (nNamed nm) :: Γ in
       let '(Γ2, vs1) := go Γ1 vs0 in
       (Γ2, nm :: vs1)
     end in
@@ -387,7 +383,7 @@ Section PPTerm.
     match lookup_ind_decl ind.(inductive_mind) ind.(inductive_ind) with
     | Some oib =>
       match nth_error oib.(ExAst.ind_ctors) i with
-      | Some (na, _,_) => bs_to_s na
+      | Some (na, _,_) => na
       | None =>
         "UnboundConstruct(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ ")"
       end
@@ -450,7 +446,7 @@ Section PPTerm.
       match branch with
       | tLambda na B =>
         let na' := fresh_string_name ctx na in
-        go (vass (nNamed (bytestring.String.of_string na')) :: ctx) n B
+        go (vass (nNamed na') :: ctx) n B
       | _ => []
       end
     end
@@ -463,7 +459,7 @@ Section PPTerm.
     if infix then
       String.concat (" " ++ ctor ++ " ") vars ++ " -> " ++ (snd pt)
     else
-      let ctor_nm := with_default (print_ctor_name (fst ind_kn, bytestring.String.of_string ctor)) (look TT ctor) in
+      let ctor_nm := with_default (print_ctor_name (fst ind_kn, ctor)) (look TT ctor) in
       let ctor_nm := if ctor_nm =? "Pair" then "" else ctor_nm in
       let print_parens := (Nat.ltb 1 (List.length (fst pt))) in
       print_uncurried_app ctor_nm vars ++ " -> " ++ (snd pt).
@@ -552,12 +548,12 @@ Section PPTerm.
                     end in
       parens top ("fun (" ++ na' ++ " : "
                           ++ dom_ty ++ ")"
-                          ++ " -> " ++ print_term TT (vass (nNamed (bytestring.String.of_string na')) :: ctx) ty_ctx true false body a)
+                          ++ " -> " ++ print_term TT (vass (nNamed na') :: ctx) ty_ctx true false body a)
     | tLetIn na def body => fun '(bt, (vala, bodya)) =>
       let na' := fresh_string_name ctx na in
       parens top ("let " ++ na' ++
                         " = " ++ print_term TT ctx ty_ctx true false def vala ++ " in " ++ nl ++
-                        print_term TT (vdef (nNamed (bytestring.String.of_string na')) def :: ctx) ty_ctx true false body bodya)
+                        print_term TT (vdef (nNamed na') def :: ctx) ty_ctx true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
       let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx ty_ctx false false t a) t (bt, (fa, la))) in
       let '((b; ba),argas) := Edecompose_app_annot f fa in
@@ -599,12 +595,12 @@ Section PPTerm.
               | None =>
                 match is_name_remapped nm TT, is_record_constr b with
                 | false, Some oib =>
-                  let projs_and_apps := combine (map (bytestring.String.to_string ∘ fst) oib.(ExAst.ind_projs)) apps in
+                  let projs_and_apps := combine (map fst oib.(ExAst.ind_projs)) apps in
                   let field_decls_printed := projs_and_apps |> map (fun '(proj, e) => proj ++ " = " ++ e)
                                                           |> String.concat "; " in
                   "({" ++ field_decls_printed ++ "}: " ++ print_box_type ty_ctx TT bt ++ ")"
                 | _,_ =>
-                  let nm' := with_default (print_ctor_name (fst mind, bytestring.String.of_string nm)) (look TT nm) in
+                  let nm' := with_default (print_ctor_name (fst mind, nm)) (look TT nm) in
                   (* constructors take a single argument (uncurried),
                      so we wrap the args into a tuple *)
                   parens top (print_uncurried_app nm' apps)
@@ -627,7 +623,7 @@ Section PPTerm.
       match print_num_literal TT t with
       | Some lit => lit
       | None =>
-        let nm_tt := with_default (print_ctor_name (fst ind.(inductive_mind), bytestring.String.of_string nm)) (look TT nm) in
+        let nm_tt := with_default (print_ctor_name (fst ind.(inductive_mind), nm)) (look TT nm) in
         (* NOTE: print annotations for 0-ary constructors of polymorphic types (like [], None, and Map.empty) *)
         (* TODO: this looks ad-hoc and should be controlled in remapping instead *)
         if (uncapitalize nm =? "nil") && (eq_kername ind.(inductive_mind) <%% list %%>) then
@@ -669,7 +665,7 @@ Section PPTerm.
           let brs_printed : string :=
               Common.print_list (fun '(b, (na, _,_)) =>
                             (* [list] is a special case *)
-                            let na := bs_to_s na in
+                            let na := na in
                             if (eq_kername mind <%% list %%>) && (na =? "cons") then
                               print_pat TT mind "::" true b
                             (* else if (eq_kername mind <%% list %%>) && (na =? "nil") then *)
@@ -706,7 +702,7 @@ Section PPTerm.
         let body := fix_decl.(dbody) in
         let '(args, _) := Edecompose_lam_annot body fixa in
         (* NOTE: adding the fix variable to the context *)
-        let ctx := vass (nNamed (bytestring.String.of_string fix_name)) :: ctx in
+        let ctx := vass (nNamed fix_name) :: ctx in
         let sret_ty := print_box_type ty_ctx TT ret_ty in
         let (ctx, sargs) := fresh_string_names ctx args in
         let targs := combine sargs (map (print_box_type ty_ctx TT) tys) in
@@ -749,7 +745,7 @@ Section PPLigo.
 
   Example print_forall_ex :
     let (_, tys) := fresh_string_names []
-      [BasicAst.nNamed (bytestring.String.of_string "a"); BasicAst.nNamed (bytestring.String.of_string "b"); BasicAst.nAnon] in
+      [BasicAst.nNamed "a"; BasicAst.nNamed "b"; BasicAst.nAnon] in
     print_forall tys = "(type a b a0)".
   Proof. reflexivity. Qed.
 
@@ -759,8 +755,8 @@ Section PPLigo.
 
   Import bytestring.String.
   Example print_ex1 :
-    (let (args,_) := Edecompose_lam (tLambda (BasicAst.nNamed (bytestring.String.of_string "a"))
-                                  (tLambda (BasicAst.nNamed (bytestring.String.of_string "b")) (tRel 0))) in
+    (let (args,_) := Edecompose_lam (tLambda (BasicAst.nNamed "a")
+                                  (tLambda (BasicAst.nNamed "b") (tRel 0))) in
     fresh_string_names [{|
       Extract.E.decl_name := BasicAst.nNamed (String "b" EmptyString);
       Extract.E.decl_body := None
