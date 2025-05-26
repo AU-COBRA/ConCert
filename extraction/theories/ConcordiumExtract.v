@@ -19,11 +19,6 @@ From RustExtraction Require Import Printing.
 
 Import MCMonadNotation.
 
-Local Open Scope string_scope.
-Local Notation bs_to_s := bytestring.String.to_string.
-Local Notation s_to_bs := bytestring.String.of_string.
-
-Local Coercion bytestring.String.of_string : String.string >-> bytestring.string.
 
 
 Module ConcordiumRemap.
@@ -494,15 +489,15 @@ Section ConcordiumPrinting.
              (seeds : KernameSet.t)
              (Σ : global_env)
              (remaps : remaps)
-             (params : extract_template_env_params) : result_string_err (list String.string) :=
+             (params : extract_template_env_params) : result_string_err (list string) :=
     let should_ignore kn :=
         if remap_inductive remaps (mkInd kn 0) then true else
         if remap_constant remaps kn then true else
           if remap_inline_constant remaps kn then true else false in
     Σ <- specialize_extract_template_env params Σ seeds should_ignore;;
-    let attrs _ := bs_to_s "#[derive(Clone, ConCertSerial, ConCertDeserial, PartialEq)]" in
+    let attrs _ := "#[derive(Clone, ConCertSerial, ConCertDeserial, PartialEq)]" in
     let p := print_program Σ remaps attrs in
-    '(_, s) <- timed (bs_to_s "Printing") (fun _ => map_error s_to_bs (finish_print_lines p));;
+    '(_, s) <- timed "Printing" (fun _ => finish_print_lines p);;
     ret s.
 
   Definition print_init_attrs (contract_name : string) : string :=
@@ -667,7 +662,7 @@ Section ConcordiumPrinting.
   | Ok lines =>
     let init_wrapper := init_wrapper m.(concmd_contract_name) init_nm in
     let receive_wrapper := receive_wrapper m.(concmd_contract_name) receive_nm in
-    print_lines (map s_to_bs lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
+    print_lines (lines ++ [""; init_wrapper; ""; convert_actions; ""; receive_wrapper])
   | Err e => tmFail e
   end.
 

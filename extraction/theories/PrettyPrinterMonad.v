@@ -1,14 +1,14 @@
 From Coq Require Import List.
-From Coq Require Import Ascii.
-From Coq Require Import String.
 From MetaCoq.Utils Require Import monad_utils.
+From MetaCoq.Utils Require Import bytestring.
 From MetaCoq.SafeChecker Require Import PCUICErrors.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import Common.
 
+Import String.
 Import monad_utils.MCMonadNotation.
 Import ListNotations.
-Local Open Scope string.
+Local Open Scope bs_scope.
 
 Import Kernames.
 
@@ -19,11 +19,6 @@ Record PrettyPrinterState :=
     output_lines : list (nat * string);
     cur_output_line : nat * string;
   }.
-
-Notation bs_to_s := bytestring.String.to_string.
-Notation s_to_bs := bytestring.String.of_string.
-
-Local Coercion bs_to_s : bytestring.string >-> string.
 
 Definition PrettyPrinter A :=
   PrettyPrinterState -> result (A * PrettyPrinterState) string.
@@ -50,7 +45,7 @@ Definition map_pps
 Fixpoint prefix_spaces n s :=
   match n with
   | 0 => s
-  | S n => prefix_spaces n (String " "%char s)
+  | S n => prefix_spaces n (String " " s)
   end.
 
 Definition collect_output_lines pps :=
@@ -138,7 +133,7 @@ Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter i
   if existsb (bytestring.String.eqb name) used then
     (fix f n i :=
        match n with
-       | 0 => ret (s_to_bs "unreachable")
+       | 0 => ret "unreachable"
        | S n =>
          let numbered_name := bytestring.String.append name (MCString.string_of_nat i) in
          if existsb (bytestring.String.eqb numbered_name) used then
@@ -152,9 +147,9 @@ Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter i
 Definition string_of_env_error Σ e :=
   match e with
   | IllFormedDecl s e =>
-    ("IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e)%string
+    "IllFormedDecl " ++ s ++ "\nType error: " ++ string_of_type_error Σ e
   | AlreadyDeclared s => "Alreadydeclared " ++ s
-  end%string.
+  end.
 
 Definition wrap_EnvCheck {astr A} f (ec : EnvCheck astr A) : PrettyPrinter A :=
   match ec with
