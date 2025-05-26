@@ -49,7 +49,7 @@ Module CameLIGOInterp.
       ; remap <%% address_coq %%> "address"
       ; remap <%% time_coq %%> "timestamp"
       ; remap <%% list %%> "list"
-      ; remap <%% string %%> "string"
+      ; remap <%% String.string %%> "string"
       ; remap <%% ext_map %%> (print_finmap_type "string * int" "value")
       ; remap <%% action %%> "operation"
       (* remapping operations *)
