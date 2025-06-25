@@ -6,16 +6,8 @@
 
   attribute = "ConCert";
 
-  default-bundle = "8.20";
+  default-bundle = "9.00";
 
-  bundles."8.20" = {
-    coqPackages.coq.override.version = "8.20";
-    coqPackages.metacoq.override.version = "1.3.4-8.20";
-    coqPackages.stdpp.override.version = "1.11.0";
-    coqPackages.QuickChick.override.version = "2.0.4";
-    coqPackages.RustExtraction.override.version = "0.1.1";
-    coqPackages.ElmExtraction.override.version = "0.1.1";
-  };
   bundles."9.0" = {
     coqPackages.coq.override.version = "9.0";
     coqPackages.metacoq.override.version = "1.3.4-9.0";
