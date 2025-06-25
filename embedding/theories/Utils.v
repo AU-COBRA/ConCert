@@ -90,5 +90,5 @@ Definition to_string_name (t : Ast.term) : string :=
   | None => "Not a constant or inductive"
   end.
 
-Example qualified_bool : to_string_name (<% bool %>) = "Coq/Init/Datatypes@bool".
+Example qualified_bool : to_string_name (<% bool %>) = "Corelib/Init/Datatypes@bool".
 Proof. reflexivity. Qed.

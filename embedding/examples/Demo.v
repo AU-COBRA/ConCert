@@ -42,9 +42,9 @@ Section MCDemo.
   (* Unquote *)
   MetaCoq Unquote Definition plus_one :=
     (MC.tLambda (aRelevant (nNamed "x"))
-                (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) nil)
+                (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Corelib"], "nat") 0) nil)
                 (MC.tApp (MC.tConstruct
-                            (mkInd (MPfile ["Datatypes"; "Init"; "Coq"], "nat") 0) 1 nil)
+                            (mkInd (MPfile ["Datatypes"; "Init"; "Corelib"], "nat") 0) 1 nil)
                          (MC.tRel 0 :: nil))).
 
   (* fun x : nat => S x : nat -> nat *)
@@ -378,7 +378,7 @@ Example eval_fun_app :
   expr_eval_n Σ' 10 [] fun_app =
   Ok (vClos [("x", vConstr Nat "Z" [])] "y" cmLam
       [!Nat!] [!Nat!]
-      (eApp (eApp (eConst "Coq/Init/Nat@add") [|"y"|]) [|"x"|])).
+      (eApp (eApp (eConst "Corelib/Init/Nat@add") [|"y"|]) [|"x"|])).
 Proof. reflexivity. Qed.
 
 

@@ -1,5 +1,8 @@
 -arg -w -arg -notation-overridden
 -arg -w -arg -non-reversible-notation
+# TODO: remove once 8.20 support is removed.
+-arg -w -arg -deprecated-from-Coq
+-arg -w -arg -deprecated-dirpath-Coq
 
 -R ../execution/theories ConCert.Execution
 -R ../utils/theories ConCert.Utils

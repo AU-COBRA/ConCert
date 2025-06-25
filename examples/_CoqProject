@@ -1,6 +1,9 @@
 -arg -w -arg -notation-overridden
 -arg -w -arg -non-reversible-notation
 -arg "-output-dir ../extraction/tests/extracted-code/"
+# TODO: remove once 8.20 support is removed.
+-arg -w -arg -deprecated-from-Coq
+-arg -w -arg -deprecated-dirpath-Coq
 
 -R ../utils/theories ConCert.Utils
 -R ../execution/theories ConCert.Execution
