@@ -216,7 +216,6 @@ Section Theories.
         rewrite Zeven_mod in amount_even.
         unfold Zeq_bool in *.
         destruct_match eqn:amount_mod_2 in amount_even; try congruence; auto.
-        destruct (Z.compare_spec (ctx_amount ctx mod 2) 0); auto; try congruence.
       }
       rewrite <- (Z_div_exact_2 (ctx_amount ctx) 2) by (auto; lia).
       split; auto.

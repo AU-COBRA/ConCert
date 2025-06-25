@@ -1,3 +1,7 @@
+# TODO: remove once 8.20 support is removed.
+-arg -w -arg -deprecated-from-Coq
+-arg -w -arg -deprecated-dirpath-Coq
+
 -R theories ConCert.Utils
 theories/Automation.v
 theories/BSEnv.v
