@@ -9,9 +9,9 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.
@@ -24,13 +24,13 @@ Module AcornBlockchain.
   Definition Address := address.
   Definition Money := money.
 
-  MetaCoq Run
+  MetaRocq Run
          (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
                   ["SimpleChain" ; "Build_chain";
                   "SimpleContractCallContext" ; "Build_ctx" ;
-                  "SimpleActionBody"] "_coq").
+                  "SimpleActionBody"] "_rocq").
 
 
   Definition SimpleChainAcorn : global_dec :=
@@ -39,7 +39,7 @@ Module AcornBlockchain.
                      "Current_slot" : BaseTypes.Nat;
                      "Finalized_height" : BaseTypes.Nat } \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn).
+  MetaRocq Unquote Inductive (global_to_tc SimpleChainAcorn).
 
   Notation "'cur_time' a" := [| {eConst (to_string_name <% Current_slot %>)} {a} |]
                                (in custom expr at level 0).
@@ -56,14 +56,14 @@ Module AcornBlockchain.
            (* Amount of currency passed in call *)
            "Ctx_amount" : Money} \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn).
+  MetaRocq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn).
 
   Definition SimpleActionBodyAcorn : global_dec :=
     [\ data SimpleActionBody =
           "Act_transfer" [Address, Money,_] \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleActionBodyAcorn).
+  MetaRocq Unquote Inductive (global_to_tc SimpleActionBodyAcorn).
 
-  Definition SActionBody := (to_string_name <% SimpleActionBody_coq %>).
+  Definition SActionBody := (to_string_name <% SimpleActionBody_rocq %>).
 
 End AcornBlockchain.

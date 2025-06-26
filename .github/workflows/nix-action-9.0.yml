@@ -2,7 +2,7 @@ jobs:
   ConCert:
     needs:
     - coq
-    - metacoq
+    - metarocq
     - QuickChick
     - stdpp
     - RustExtraction
@@ -40,7 +40,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (ConCert)
@@ -60,9 +60,9 @@ jobs:
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
         job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq'
+      name: 'Building/fetching previous CI target: metarocq'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
+        job "metarocq"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: bignums'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
@@ -90,7 +90,6 @@ jobs:
   ElmExtraction:
     needs:
     - coq
-    - metacoq
     runs-on: ubuntu-latest
     steps:
     - name: Determine which commit to initially checkout
@@ -124,7 +123,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (ElmExtraction)
@@ -187,7 +186,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (QuickChick)
@@ -225,7 +224,6 @@ jobs:
   RustExtraction:
     needs:
     - coq
-    - metacoq
     runs-on: ubuntu-latest
     steps:
     - name: Determine which commit to initially checkout
@@ -259,7 +257,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (RustExtraction)
@@ -321,7 +319,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (coq)
@@ -340,7 +338,7 @@ jobs:
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
         job "coq"
-  metacoq:
+  metarocq:
     needs:
     - coq
     runs-on: ubuntu-latest
@@ -376,13 +374,13 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
-      name: Getting derivation for current job (metacoq)
+      name: Getting derivation for current job (metarocq)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"metacoq\" \\\n   --dry-run 2> err > out || (touch fail;
-        true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
+        \"9.0\" --argstr job \"metarocq\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
       name: Checking presence of CI target for current job
@@ -400,25 +398,25 @@ jobs:
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
         job "equations"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-safechecker-plugin'
+      name: 'Building/fetching previous CI target: metarocq-safechecker-plugin'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-safechecker-plugin"
+        job "metarocq-safechecker-plugin"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-erasure-plugin'
+      name: 'Building/fetching previous CI target: metarocq-erasure-plugin'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-erasure-plugin"
+        job "metarocq-erasure-plugin"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-translations'
+      name: 'Building/fetching previous CI target: metarocq-translations'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-translations"
+        job "metarocq-translations"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-quotation'
+      name: 'Building/fetching previous CI target: metarocq-quotation'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-quotation"
+        job "metarocq-quotation"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
+        job "metarocq"
   stdpp:
     needs:
     - coq
@@ -455,7 +453,7 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (stdpp)

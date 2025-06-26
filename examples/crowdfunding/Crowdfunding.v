@@ -8,9 +8,9 @@ From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
 From Stdlib Require Import String.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
@@ -33,7 +33,7 @@ Module CrowdfundingContract.
     Definition crowdfunding_init : expr :=
       [| \c : SCtx => \dl : Nat => \g : Money => mkState 0z MNil dl (ctx_from c) False g |].
 
-    MetaCoq Unquote Definition init :=
+    MetaRocq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
     (* Check init. *)
@@ -59,8 +59,8 @@ Module CrowdfundingContract.
    Notation "'#Nothing'" := (eApp (eConstr (Utils.to_string_name <% option %>) "None") (eTy [!Result!]))
                              (in custom expr at level 0).
 
-   Definition SCtx := Utils.to_string_name <% SimpleContractCallContext_coq %>.
-   Definition SChain := Utils.to_string_name <% SimpleChain_coq %>.
+   Definition SCtx := Utils.to_string_name <% SimpleContractCallContext_rocq %>.
+   Definition SChain := Utils.to_string_name <% SimpleChain_rocq %>.
 
    Definition crowdfunding : expr :=
     [| \chain : SChain => \c : SCtx => \m : Msg => \s : State =>
@@ -97,7 +97,7 @@ Module CrowdfundingContract.
               else #Nothing : Maybe Result
     |].
 
-  MetaCoq Unquote Definition receive :=
+  MetaRocq Unquote Definition receive :=
     (expr_to_tc Σ' (indexify nil crowdfunding)).
 
   End Receive.

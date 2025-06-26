@@ -1,7 +1,7 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
 From Stdlib Require Import List.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
@@ -112,7 +112,7 @@ Module Dexter2LqtExtraction.
                                                    <%% @Msg %%>
     |}.
 
-    Time MetaCoq Run
+    Time MetaRocq Run
       (CameLIGO_prepare_extraction TT_inlines_dexter2 TT_remap_all
         TT_rename_ctors_default extra_ignore "cctx_instance" LIGO_DEXTER2LQT_MODULE).
 
@@ -120,7 +120,7 @@ Module Dexter2LqtExtraction.
 
     (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
     Redirect "cameligo-extract/dexter2fa12.mligo"
-      MetaCoq Run (tmMsg cameLIGO_dexter2lqt).
+      MetaRocq Run (tmMsg cameLIGO_dexter2lqt).
 
   End D2LqtE.
 End Dexter2LqtExtraction.

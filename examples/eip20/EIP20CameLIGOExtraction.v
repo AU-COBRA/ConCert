@@ -1,7 +1,7 @@
 (** * Extraction of various contracts to CameLIGO *)
 
 From Stdlib Require Import String.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
@@ -95,7 +95,7 @@ Section EIP20TokenExtraction.
     ; <%% @setter_from_getter_State_allowances %%>
     ].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
     (CameLIGO_prepare_extraction TT_inlines_eip20token TT_remap_eip20token
       TT_rename_ctors_default [] "cctx_instance" LIGO_EIP20Token_MODULE).
 
@@ -103,6 +103,6 @@ Section EIP20TokenExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/eip20tokenCertifiedExtraction.mligo"
-    MetaCoq Run (tmMsg cameLIGO_eip20token).
+    MetaRocq Run (tmMsg cameLIGO_eip20token).
 
 End EIP20TokenExtraction.

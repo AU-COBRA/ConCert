@@ -64,7 +64,7 @@ Section Escrow.
   | withdraw.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
+  MetaRocq Run (make_setters State).
   (* end hide *)
 
   Section Serialization.

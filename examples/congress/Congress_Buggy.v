@@ -3,7 +3,7 @@ contract described in Congress.v. We then use one of our blockchain
 implementations (the depth first local blockchain) to prove that this
 version can send out too many transactions. This is done by
 constructing a contract that actually exploits this version of the
-Congress and then just asking Coq to compute. *)
+Congress and then just asking Rocq to compute. *)
 
 From Stdlib Require Import ZArith.
 From Stdlib Require Import Psatz.
@@ -43,7 +43,7 @@ Section CongressBuggy.
       proposed_in : nat;
     }.
 
-  MetaCoq Run (make_setters Proposal).
+  MetaRocq Run (make_setters Proposal).
 
   Record Rules :=
     build_rules {
@@ -82,7 +82,7 @@ Section CongressBuggy.
     }.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
+  MetaRocq Run (make_setters State).
   (* end hide *)
 
   Section Serialization.

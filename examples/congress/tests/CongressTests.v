@@ -118,7 +118,7 @@ Definition receive_state_well_behaved_P (chain : Chain)
   congress_caddr
   {{receive_state_well_behaved_P}}
 ). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* rocqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Open Scope nat.
 
@@ -137,7 +137,7 @@ Definition state_proposals_proposed_in_valid (cs : ChainState) :=
   end.
 
 (* QuickChick (forAllBlocks state_proposals_proposed_in_valid). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* rocqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition congress_has_votes_on_some_proposal (cs : ChainState) :=
   let state_opt := get_contract_state Congress.State cs congress_caddr in

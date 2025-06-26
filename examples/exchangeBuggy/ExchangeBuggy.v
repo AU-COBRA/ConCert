@@ -52,8 +52,8 @@ Section ExchangeBuggyContract.
   Definition default_error : Error := 1%nat.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
-  MetaCoq Run (make_setters Setup).
+  MetaRocq Run (make_setters State).
+  MetaRocq Run (make_setters Setup).
   (* end hide *)
 
   Section Serialization.

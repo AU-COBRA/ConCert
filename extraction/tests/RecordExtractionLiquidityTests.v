@@ -1,5 +1,5 @@
 From Stdlib Require Import List.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import BytestringExtra.
 From ConCert.Extraction Require Import LiquidityExtract.
@@ -28,7 +28,7 @@ Module RecordsWithoutPrimitiveProjections.
 
   Definition proj_A (a : A) : nat := a.(x).
 
-  MetaCoq Quote Recursively Definition proj_A_quoted := proj_A.
+  MetaRocq Quote Recursively Definition proj_A_quoted := proj_A.
   (* Print proj_A_quoted. *)
 
   Definition proj_A_printed :=
@@ -50,7 +50,7 @@ Module RecordsWithoutPrimitiveProjections.
     let a2 := build_A 0 in
     a1.
 
-  MetaCoq Quote Recursively Definition constructA_quoted := constructA.
+  MetaRocq Quote Recursively Definition constructA_quoted := constructA.
 
   Definition constructA_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructA_quoted).
@@ -76,7 +76,7 @@ Module RecordsWithoutPrimitiveProjections.
 
   Definition proj_B (b : B) := b.(z).
 
-  MetaCoq Quote Recursively Definition proj_B_quoted := proj_B.
+  MetaRocq Quote Recursively Definition proj_B_quoted := proj_B.
   (* Print proj_B_quoted. *)
 
   Definition proj_B_printed :=
@@ -101,7 +101,7 @@ Module RecordsWithoutPrimitiveProjections.
     let B2 := build_B 0 0 in
     B1.
 
-  MetaCoq Quote Recursively Definition constructB_quoted := constructB.
+  MetaRocq Quote Recursively Definition constructB_quoted := constructB.
 
   Definition constructB_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructB_quoted).
@@ -133,7 +133,7 @@ Module RecordWithPrimitiveProjections.
 
   Definition proj_A (a : A) : nat := a.(x).
 
-  MetaCoq Quote Recursively Definition proj_A_quoted := proj_A.
+  MetaRocq Quote Recursively Definition proj_A_quoted := proj_A.
   (* Print proj_A_quoted. *)
 
   Definition proj_A_printed :=
@@ -155,7 +155,7 @@ Module RecordWithPrimitiveProjections.
     let a2 := build_A 0 in
     a1.
 
-  MetaCoq Quote Recursively Definition constructA_quoted := constructA.
+  MetaRocq Quote Recursively Definition constructA_quoted := constructA.
 
   Definition constructA_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructA_quoted).
@@ -180,7 +180,7 @@ Module RecordWithPrimitiveProjections.
 
   Definition proj_B (b : B) := b.(z).
 
-  MetaCoq Quote Recursively Definition proj_B_quoted := proj_B.
+  MetaRocq Quote Recursively Definition proj_B_quoted := proj_B.
 
   Definition proj_B_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" proj_B_quoted).
@@ -205,7 +205,7 @@ Module RecordWithPrimitiveProjections.
     let B2 := build_B 0 0 in
     B1.
 
-  MetaCoq Quote Recursively Definition constructB_quoted := constructB.
+  MetaRocq Quote Recursively Definition constructB_quoted := constructB.
 
   Definition constructB_printed :=
     Eval vm_compute in unwrap_sum (liquidity_extract_single TT_defs [] true "" "" constructB_quoted).

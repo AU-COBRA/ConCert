@@ -1,6 +1,6 @@
 (** * Some facts not found in the standard library *)
 From ConCert.Utils Require Import Automation.
-From MetaCoq.Utils Require Import utils.
+From MetaRocq.Utils Require Import utils.
 From Stdlib Require Import List.
 From Stdlib Require Import Lia.
 

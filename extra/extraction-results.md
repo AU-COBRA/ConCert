@@ -1,8 +1,8 @@
 # ConCert Extraction Results
-This repository contains source code of programs extracted from Coq using
+This repository contains source code of programs extracted from Rocq using
 the [ConCert](https://github.com/AU-COBRA/ConCert) framework.
 
-The programs were written in Coq, verified and extracted to several languages using verified code extraction.
+The programs were written in Rocq, verified and extracted to several languages using verified code extraction.
 The original programs can be found [here](https://github.com/AU-COBRA/ConCert/tree/master/examples).
 
 ## Structure of the project

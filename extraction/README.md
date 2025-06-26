@@ -1,6 +1,6 @@
 # Extraction
 
-Contains an implementation of extraction based on the certified erasure provided by MetaCoq.
+Contains an implementation of extraction based on the certified erasure provided by MetaRocq.
 The `theories` folder contains the implementation and correctness theorems.
 The [examples](../examples/) folder, as the name suggests, contains examples of smart contracts
 and programs extracted using our development. The [tests](tests/) folder contains tests for
@@ -93,36 +93,36 @@ Some highlights of extracted examples:
 
 ## Project structure
 
-Part of the extraction pipeline have been moved to the MetaCoq project.
+Part of the extraction pipeline have been moved to the MetaRocq project.
 The moved files are described here:
 
-* [ExAst.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/ExAst.v)
-  -- An extension of the MetaCoq's certified erasure EAst data-structures with additional
+* [ExAst.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/ExAst.v)
+  -- An extension of the MetaRocq's certified erasure EAst data-structures with additional
   information about erased types.
-* [Erasure.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/Erasure.v)
-  -- An extension of the MetaCoq's certified erasure with erasure for types and erasing only
+* [Erasure.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/Erasure.v)
+  -- An extension of the MetaRocq's certified erasure with erasure for types and erasing only
   required dependencies. Also implements erasure for global environments with extra typing
   information for global definitions.
-* [ErasureCorrectness.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/ErasureCorrectness.v)
+* [ErasureCorrectness.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/ErasureCorrectness.v)
   -- Correctness lemmas for definitions from
-  [Erasure.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/Erasure.v),
+  [Erasure.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/Erasure.v),
   proving that our erasure produces a well-formed erased environment.
-* [Extraction.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/Extraction.v)
+* [Extraction.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/Extraction.v)
   -- High-level interface to extraction. Provides different pipelines for doing extraction
   with different trusted computing bases.
-* [ExtractionCorrectness.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/ExtractionCorrectness.v)
+* [ExtractionCorrectness.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/ExtractionCorrectness.v)
   -- Top-level correctness theorem relating the stages.
-* [Optimize.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/Optimize.v)
+* [Optimize.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/Optimize.v)
   -- Optimizations (dead argument elimination, logical parameter elimination) on `λ□` terms.
-* [OptimizeCorrectness.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/OptimizeCorrectness.v)
+* [OptimizeCorrectness.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/OptimizeCorrectness.v)
   -- Correctness of optimization (dead argument elimination).
-* [CertifyingEta.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/CertifyingEta.v)
+* [CertifyingEta.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/CertifyingEta.v)
   -- An eta-expansion procedure.
-* [CertifyingInlinig.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/CertifyingInlining.v)
+* [CertifyingInlinig.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/CertifyingInlining.v)
   -- An inlining procedure.
-* [CertifyingBeta.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/CertifyingBeta.v)
+* [CertifyingBeta.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/CertifyingBeta.v)
   -- A procedure that finds an evaluates redexes (if the reduction leads to new redexes, these are not reduced further)
-* [Certifying.v](https://github.com/MetaCoq/metacoq/tree/coq-8.16/erasure/theories/Typed/Certifying.v)
+* [Certifying.v](https://github.com/MetaRocq/metarocq/tree/coq-8.16/erasure/theories/Typed/Certifying.v)
   -- proof-generating procedure; it is used to generate proofs after running inlining/eta-expansion/etc.
 
 The remaining of the project consists of
@@ -132,4 +132,4 @@ The remaining of the project consists of
 * [CameLIGOPretty.v](theories/CameLIGOPretty.v) -- Pretty-printer for CameLIGO from `λ□`.
 * [CameLIGOExtract.v](theories/CameLIGOExtract.v) -- A high-level interface to CameLIGO extraction.
 * [ConcordiumExtract.v](theories/ConcordiumExtract.v) -- A high-level interface to Concordium extraction.
-* [PrettyPrinterMonad.v](theories/PrettyPrinterMonad.v) -- A monad for implementing pretty-printing in Coq.
+* [PrettyPrinterMonad.v](theories/PrettyPrinterMonad.v) -- A monad for implementing pretty-printing in Rocq.

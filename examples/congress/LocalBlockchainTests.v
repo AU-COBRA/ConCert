@@ -1,5 +1,5 @@
 (* This file computes with the Congress and an actual blockchain
-implementation, showing that everything computes from within Coq. It
+implementation, showing that everything computes from within Rocq. It
 also contains specializations of the results proven in Congress.v to
 our particular implementations of blockchains. *)
 

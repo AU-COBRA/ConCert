@@ -7,7 +7,7 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import PCUICTranslate.
-From MetaCoq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import monad_utils.
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
@@ -16,39 +16,39 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 Module TC := Common.BasicAst.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Import StdLib.
 
-Module MC := MetaCoq.Template.Ast.
+Module MR := MetaRocq.Template.Ast.
 Import BasicAst.
 
 
-(** MetaCoq demo *)
+(** MetaRocq demo *)
 
-Section MCDemo.
+Section MRDemo.
 
   Import bytestring.
 
   Local Open Scope bs.
 
   (* Quote *)
-  MetaCoq Quote Definition id_nat_syn := (fun x : nat => x).
+  MetaRocq Quote Definition id_nat_syn := (fun x : nat => x).
   (* Print id_nat_syn. *)
   (* Ast.tLambda (nNamed "x")
      (Ast.tInd {| TC.inductive_mind := "nat"; TC.inductive_ind := 0 |}
         []) (Ast.tRel 0) : Ast.term *)
 
   (* Unquote *)
-  MetaCoq Unquote Definition plus_one :=
-    (MC.tLambda (aRelevant (nNamed "x"))
-                (MC.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Corelib"], "nat") 0) nil)
-                (MC.tApp (MC.tConstruct
+  MetaRocq Unquote Definition plus_one :=
+    (MR.tLambda (aRelevant (nNamed "x"))
+                (MR.tInd (mkInd (MPfile ["Datatypes"; "Init"; "Corelib"], "nat") 0) nil)
+                (MR.tApp (MR.tConstruct
                             (mkInd (MPfile ["Datatypes"; "Init"; "Corelib"], "nat") 0) 1 nil)
-                         (MC.tRel 0 :: nil))).
+                         (MR.tRel 0 :: nil))).
 
   (* fun x : nat => S x : nat -> nat *)
-End MCDemo.
+End MRDemo.
 
 Definition x := "x".
 Definition y := "y".
@@ -73,8 +73,8 @@ Example eval_negb_app_true' :
   expr_eval_i Σ 3 nil (indexify nil negb_app_true) = Ok (vConstr Bool "false" nil).
 Proof. reflexivity. Qed.
 
-(* Make a Coq function from the AST of the program *)
-MetaCoq Unquote Definition coq_negb_app_true :=
+(* Make a Rocq function from the AST of the program *)
+MetaRocq Unquote Definition rocq_negb_app_true :=
   (expr_to_tc Σ (indexify nil negb_app_true)).
 
 
@@ -83,10 +83,10 @@ Definition my_negb_syn :=
                    | True -> False
                    | False -> True |].
 
-MetaCoq Unquote Definition my_negb :=
+MetaRocq Unquote Definition my_negb :=
   (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-Lemma my_negb_coq_negb b :
+Lemma my_negb_rocq_negb b :
   my_negb b = negb b.
 Proof. reflexivity. Qed.
 
@@ -107,9 +107,9 @@ Example eval_my_negb_true :
   Ok (vConstr Bool "false" nil).
 Proof. reflexivity. Qed.
 
-MetaCoq Unquote Definition coq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
+MetaRocq Unquote Definition rocq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Definition is_zero_syn :=
   [|
@@ -121,7 +121,7 @@ Definition is_zero_syn :=
 
   |].
 
-MetaCoq Unquote Definition is_zero' := (expr_to_tc Σ (indexify nil is_zero_syn)).
+MetaRocq Unquote Definition is_zero' := (expr_to_tc Σ (indexify nil is_zero_syn)).
 
 Definition pred_syn :=
   [|
@@ -133,7 +133,7 @@ Definition pred_syn :=
 
   |].
 
-MetaCoq Unquote Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
+MetaRocq Unquote Definition pred' := (expr_to_tc Σ (indexify nil pred_syn)).
 
 Definition prog2 := [| Suc (Suc Zero) |].
 
@@ -187,7 +187,7 @@ Definition factorial_syn :=
        | Suc y -> x * (fact y)
   |].
 
-MetaCoq Unquote Definition factorial :=
+MetaRocq Unquote Definition factorial :=
   (expr_to_tc Σ (indexify [] factorial_syn)).
 
 Definition plus_syn : expr :=
@@ -197,7 +197,7 @@ Definition plus_syn : expr :=
            | Zero -> y
            | Suc z -> Suc ("plus" z y) |].
 
-MetaCoq Unquote Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
+MetaRocq Unquote Definition my_plus := (expr_to_tc Σ (indexify [] plus_syn)).
 
 Lemma my_plus_correct n m :
   my_plus n m = n + m.
@@ -218,12 +218,12 @@ Proof. reflexivity. Qed.
 
 Definition two_arg_fun_syn := [| \x : Nat => \y : Bool => x |].
 
-MetaCoq Unquote Definition two_arg_fun_app :=
+MetaRocq Unquote Definition two_arg_fun_app :=
   (expr_to_tc Σ (indexify [] [| {two_arg_fun_syn} 1 True |])).
 
 Parameter bbb: bool.
 
-MetaCoq Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
+MetaRocq Quote Definition two_arg_fun_app_syn' := ((fun (x : nat) (_ : bool) => x) 1 bbb).
 
 Example one_plus_one_two :
   expr_eval_n Σ 10 [] one_plus_one = Ok two.
@@ -242,7 +242,7 @@ Definition plus_syn' :=
            | Suc z -> Suc ("plus" z))
   |].
 
-MetaCoq Unquote Definition my_plus' :=
+MetaRocq Unquote Definition my_plus' :=
   (expr_to_tc Σ (indexify [] plus_syn')).
 
 Lemma my_plus'_0 : forall n, my_plus' 0 n = n.
@@ -405,9 +405,9 @@ Definition is_zero (n : nat) :=
   | O => mtrue
   end.
 
-MetaCoq Quote Definition q_stupid_case := Eval compute in stupid_case.
+MetaRocq Quote Definition q_stupid_case := Eval compute in stupid_case.
 (* Nested patters are transformed into the nested "case" expressions *)
-MetaCoq Quote Definition q_stupid_case' := Eval compute in stupid_case'.
+MetaRocq Quote Definition q_stupid_case' := Eval compute in stupid_case'.
 
 Inductive Bazz :=
   cBazz : nat -> nat -> nat -> Bazz.
@@ -417,7 +417,7 @@ Definition Bazz_match b :=
     cBazz n m k => n
   end.
 
-MetaCoq Quote Definition q_Bazz_match := Eval compute in Bazz_match.
+MetaRocq Quote Definition q_Bazz_match := Eval compute in Bazz_match.
 
 (** Inductives *)
 Definition Nat_syn :=
@@ -425,7 +425,7 @@ Definition Nat_syn :=
        "Z" [_]
      | "Suc" ["MyNat", _] \].
 
-MetaCoq Unquote Inductive (global_to_tc Nat_syn).
+MetaRocq Unquote Inductive (global_to_tc Nat_syn).
 
 
 (** Records *)
@@ -437,6 +437,6 @@ Unset Primitive Projections.
 Definition State_syn :=
   [\ record "State" := "mkState" { "balance" : Nat ; "day" : Nat } \].
 
-MetaCoq Unquote Inductive (global_to_tc State_syn).
+MetaRocq Unquote Inductive (global_to_tc State_syn).
 
 (* Print State. *)

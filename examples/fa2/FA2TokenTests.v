@@ -326,7 +326,7 @@ Definition transfer_satisfies_policy_P (old_cs new_cs : ChainState) : Checker :=
   end.
 
 (* QuickChick (forAllChainStatePairs transfer_satisfies_policy_P). *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* rocqtop-stdout:+++ Passed 10000 tests (0 discards) *)
 
 Definition single_update_op_correct (new_state : FA2Token.State) (op : update_operator) :=
   let (param, is_remove) := match op with
@@ -387,4 +387,4 @@ Definition post_last_update_operator_occurrence_takes_effect (chain : Chain)
   chain_without_transfer_hook
 ). *)
 (* 40 secs, max length 7: *)
-(* coqtop-stdout:+++ Passed 10000 tests (0 discards) *)
+(* rocqtop-stdout:+++ Passed 10000 tests (0 discards) *)

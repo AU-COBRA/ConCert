@@ -3,7 +3,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From RustExtraction Require Import RustExtract.
 From Stdlib Require Import Bool.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 
 
@@ -13,7 +13,7 @@ Definition COUNTER_MODULE : ConcordiumMod _ _ :=
      concmd_receive := @ConCert.Examples.Counter.Counter.counter_receive;
      concmd_extra := []; |}.
 
-(* NOTE: it is important to declare a printing config, otherwise MetaCoq evaluation tries to normalize a term with an unresolved instance and runs out of memory. *)
+(* NOTE: it is important to declare a printing config, otherwise MetaRocq evaluation tries to normalize a term with an unresolved instance and runs out of memory. *)
 #[local]
 Instance RustConfig : RustPrintConfig :=
     {| term_box_symbol := "()";
@@ -22,7 +22,7 @@ Instance RustConfig : RustPrintConfig :=
        print_full_names := false |}.
 
 Redirect "concordium-extract/counter.rs"
-MetaCoq Run (concordium_extraction
+MetaRocq Run (concordium_extraction
                COUNTER_MODULE
                (ConcordiumRemap.build_remaps
                   (ConcordiumRemap.remap_Z_arith ++ ConcordiumRemap.remap_blockchain_consts)

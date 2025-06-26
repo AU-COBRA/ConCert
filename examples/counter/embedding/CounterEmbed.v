@@ -11,9 +11,9 @@ From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding.Extraction Require Import Liquidity.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Utils Require Import Env.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Module Counter.
   Import AcornBlockchain.
@@ -21,13 +21,13 @@ Module Counter.
   Open Scope list.
 
   (** Generating names for the data structures *)
-  MetaCoq Run
+  MetaRocq Run
           (mp_ <- tmCurrentModPath tt ;;
            let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["state"; "MkState"; "owner"; "msg"] "_coq").
+            mkNames mp ["state"; "MkState"; "owner"; "msg"] "_rocq").
 
   (** Variable names and constructor names *)
-  MetaCoq Run (mkNames "" ["m"; "n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_coq").
+  MetaRocq Run (mkNames "" ["m"; "n"; "own"; "st" ; "new_st" ; "addr" ; "new_balance"; "Inc" ; "Dec"] "_rocq").
 
   (** ** Definitions of data structures for the contract *)
 
@@ -56,7 +56,7 @@ Module Counter.
     [| \st : money × address => \new_balance : money =>
        Pair money address (balance st + new_balance) (owner st) |].
 
-  MetaCoq Unquote Definition _update_balance :=
+  MetaRocq Unquote Definition _update_balance :=
     (expr_to_tc Σ' (indexify nil update_balance_syn)).
 
 
@@ -88,17 +88,17 @@ Module Counter.
        main := "counter";
        main_extra_args := []|}.
 
-  MetaCoq Unquote Inductive (global_to_tc msg_syn).
+  MetaRocq Unquote Inductive (global_to_tc msg_syn).
 
-  MetaCoq Unquote Definition counter :=
+  MetaRocq Unquote Definition counter :=
     (expr_to_tc Σ' (indexify nil counter_syn)).
 
 End Counter.
 
 (** A translation table for types*)
 Definition TTty :=
-  [(to_string_name <% address_coq %>, "address");
-   (to_string_name <% time_coq %>, "timestamp");
+  [(to_string_name <% address_rocq %>, "address");
+   (to_string_name <% time_rocq %>, "timestamp");
    (to_string_name <% Z %>, "tez");
    (to_string_name <% nat %>, "nat")].
 
@@ -109,7 +109,7 @@ Definition TT :=
 (** The output has been tested in the online Liquidity editor: https://www.liquidity-lang.org/edit/ *)
 (* Compute liquidifyModule TT TTty Counter.CounterModule. *)
 
-(** An attempt of extraction from the shallow embedding using the "native" Coq extraction mechanism *)
+(** An attempt of extraction from the shallow embedding using the "native" Rocq extraction mechanism *)
 
 Extraction Language OCaml.
 

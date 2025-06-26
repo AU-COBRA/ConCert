@@ -45,7 +45,7 @@ jobs:
         with:
           ocaml-compiler: ${{env.OCAML_COMILER_VERSION}}
           opam-repositories: |
-            coq-released: https://coq.inria.fr/opam/released
+            rocq-released: https://rocq-prover.org/opam/released
             default: https://opam.ocaml.org
           opam-pin: false
 
@@ -55,20 +55,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/_opam
-          key: opam-${{env.OCAML_COMILER_VERSION}}-${{hashFiles('.github/coq-concert.opam.locked')}}
+          key: opam-${{env.OCAML_COMILER_VERSION}}-${{hashFiles('.github/rocq-concert.opam.locked')}}
           restore-keys: |
             opam-${{env.OCAML_COMILER_VERSION}}-
 
       - name: Build dependencies
         run: |
-          opam install --deps-only -j${{ env.JOBS }} .github/coq-concert.opam.locked
+          opam install --deps-only -j${{ env.JOBS }} .github/rocq-concert.opam.locked
           opam install -y -j${{ env.JOBS }} coq-dpdgraph
           opam clean -a -c -s --logs
 
       - name: Set up environment
         run: |
           echo "::group::Setting up problem matcher"
-          echo "::add-matcher::./.github/coq-errors.json"
+          echo "::add-matcher::./.github/rocq-errors.json"
           echo "::endgroup::"
 
       - name: Build core
@@ -105,7 +105,7 @@ jobs:
       - name: Build documentation
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
-          echo "::group::Running coqdoc"
+          echo "::group::Running rocqdoc"
           opam exec -- make -j${{ env.JOBS }} html
           echo "::endgroup::"
 

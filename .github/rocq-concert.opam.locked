@@ -1,8 +1,8 @@
 opam-version: "2.0"
-name: "coq-concert"
+name: "rocq-concert"
 version: "dev"
-synopsis: "A framework for smart contract verification in Coq"
-description: "A framework for smart contract verification in Coq"
+synopsis: "A framework for smart contract verification in Rocq"
+description: "A framework for smart contract verification in Rocq"
 maintainer: "Danil Annenkov <danil.v.annenkov@gmail.com>"
 authors: "The COBRA team"
 license: "MIT"
@@ -10,15 +10,16 @@ homepage: "https://github.com/AU-COBRA/ConCert"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 depends: [
-  "coq" {= "9.0.0"}
+  "rocq-core" {= "9.0.0"}
+  "rocq-stdlib" {= "9.0.0"}
   "coq-bignums" {= "9.0.0+rocq9.0"}
-  "coq-metacoq-common" {= "1.3.4+9.0"}
-  "coq-metacoq-erasure" {= "1.3.4+9.0"}
-  "coq-metacoq-pcuic" {= "1.3.4+9.0"}
-  "coq-metacoq-safechecker" {= "1.3.4+9.0"}
-  "coq-metacoq-template" {= "1.3.4+9.0"}
-  "coq-metacoq-template-pcuic" {= "1.3.4+9.0"}
-  "coq-metacoq-utils" {= "1.3.4+9.0"}
+  "rocq-metarocq-common" {= "1.4+9.0"}
+  "rocq-metarocq-erasure" {= "1.4+9.0"}
+  "rocq-metarocq-pcuic" {= "1.4+9.0"}
+  "rocq-metarocq-safechecker" {= "1.4+9.0"}
+  "rocq-metarocq-template" {= "1.4+9.0"}
+  "rocq-metarocq-template-pcuic" {= "1.4+9.0"}
+  "rocq-metarocq-utils" {= "1.4+9.0"}
   "coq-rust-extraction" {= "0.1.1"}
   "coq-elm-extraction" {= "0.1.1"}
   "coq-quickchick" {= "2.1.0"}

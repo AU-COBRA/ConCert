@@ -2,7 +2,7 @@
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require CameLIGOExtract.
@@ -15,7 +15,7 @@ From Stdlib Require Import ZArith.
 From Stdlib Require Import Bool.
 From Stdlib Require Import Lia.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -137,17 +137,17 @@ Module CameLIGOExtractionSetup.
     |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
   Definition to_inline_ligo := [<%% bool_rect %%>; <%% bool_rec %%>; <%% @proj1_sig %%>].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
   (CameLIGO_prepare_extraction to_inline_ligo TT_remap_ligo TT_rename_ctors_default [] "cctx_instance" COUNTER_MODULE_LIGO).
 
   Time Definition cameLIGO_counter := Eval vm_compute in cameligo_counter_prepared.
 
   Redirect "cameligo-extract/CounterSubsetTypes.mligo"
-    MetaCoq Run (tmMsg cameLIGO_counter).
+    MetaRocq Run (tmMsg cameLIGO_counter).
 
 End CameLIGOExtractionSetup.

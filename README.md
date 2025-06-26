@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/github/license/AU-COBRA/ConCert)](https://github.com/AU-COBRA/ConCert/blob/master/LICENSE)
 [![Documentation](https://img.shields.io/github/deployments/au-cobra/ConCert/github-pages?label=docs)](https://au-cobra.github.io/ConCert/)
 
-A framework for smart contract verification in Coq.
+A framework for smart contract verification in Rocq.
 
 See the [Papers](#papers) for details on the development.
 ConCert can find real-world attacks as explained
@@ -13,19 +13,19 @@ ConCert can find real-world attacks as explained
 
 ## How to build
 
-Our development works with Coq 8.20 and depends on MetaCoq, and std++.
+Our development works with Rocq 9.0 and depends on MetaRocq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
-Branches compatible with older versions of Coq can be found [here](https://github.com/AU-COBRA/ConCert/branches/all?query=coq-).
+Branches compatible with older versions of Rocq/Coq can be found [here](https://github.com/AU-COBRA/ConCert/branches/all?query=coq-).
 
 ### Install dependencies and build ConCert locally
 
-Installing the necessary dependencies requires the opam package manager and a switch with Coq 8.19 installed.
+Installing the necessary dependencies requires the opam package manager and a switch with Rocq 9.0 installed.
 If you don't already have a switch set up run the following commands
 
 ```bash
-opam switch create . 4.14.2 --repositories default,coq-released=https://coq.inria.fr/opam/released
+opam switch create . 4.14.2 --repositories default,rocq-released=https://rocq-prover.org/opam/released
 eval $(opam env)
 ```
 
@@ -33,7 +33,7 @@ To install the dependencies run
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-opam install ./coq-concert.opam --deps-only
+opam install ./rocq-concert.opam --deps-only
 ```
 
 After completing the procedures above, run `make` to build the development, and `make html` to build the documentation.
@@ -46,7 +46,7 @@ To install ConCert in your switch run
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-opam install ./coq-concert.opam
+opam install ./rocq-concert.opam
 ```
 
 Examples can be installed by running
@@ -54,14 +54,14 @@ Examples can be installed by running
 ```bash
 git clone https://github.com/AU-COBRA/ConCert.git
 cd ConCert
-opam install ./coq-concert.opam --with-test
+opam install ./rocq-concert.opam --with-test
 ```
 
 ## Structure of the project
 
 Each folder contains a separate README file with more details.
 
-The [embedding](embedding/) folder contains the development of the verified embedding of ``λsmart`` to Coq.
+The [embedding](embedding/) folder contains the development of the verified embedding of ``λsmart`` to Rocq.
 
 The [execution](execution/) folder contains the formalization of the smart
 contract execution layer, which allows reasoning about interacting contracts, and perform property-based testing.
@@ -74,9 +74,9 @@ and the thesis detailing (an earlier state of) the development can be found
 
 The [extraction](extraction/) folder contains an extraction pipeline for smart contract languages.
 Currently, we support smart contract languages Liquidity and CameLIGO, and general-purpose
-languages Elm and Rust as targets. Pretty-printers to these languages are implemented directly in Coq.
-One can also obtain an OCaml plugin for Coq by extracting our pipeline using the standard
-extraction of Coq (currently, it is possible for extraction to Rust).
+languages Elm and Rust as targets. Pretty-printers to these languages are implemented directly in Rocq.
+One can also obtain an OCaml plugin for Rocq by extracting our pipeline using the standard
+extraction of Rocq (currently, it is possible for extraction to Rust).
 
 The [examples](examples/) folder contains examples of smart contract implementations,
 embedding, extraction, and tests. Extracted smart contracts can be found
@@ -92,7 +92,7 @@ The `Makefile` in the root folder dispatches the calls to the corresponding subp
 ## Documentation
 
 The [project documentation in HTML format](https://au-cobra.github.io/ConCert/toc.html)
-is generated for each build. We use the standard Coqdoc with improved styles and scripts of
+is generated for each build. We use the standard Rocqdoc with improved styles and scripts of
 [CoqdocJS](https://github.com/tebbi/coqdocjs) ([license](extra/resources/coqdocjs/LICENSE))
 and local table of contents by
 [TOC](https://github.com/jgallen23/toc)([license](extra/resources/toc/LICENSE)).

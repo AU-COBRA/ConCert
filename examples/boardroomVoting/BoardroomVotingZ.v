@@ -123,8 +123,8 @@ Module BoardroomVoting (Params : BoardroomParams).
   | tally_votes.
 
   (* begin hide *)
-  MetaCoq Run (make_setters VoterInfo).
-  MetaCoq Run (make_setters State).
+  MetaRocq Run (make_setters VoterInfo).
+  MetaRocq Run (make_setters State).
   (* end hide *)
 
   Section Serialization.
@@ -349,7 +349,7 @@ Module BoardroomVoting (Params : BoardroomParams).
       }.
 
     (* begin hide *)
-    MetaCoq Run (make_setters SecretVoterInfo).
+    MetaRocq Run (make_setters SecretVoterInfo).
     (* end hide *)
 
     (* For correctness we assume that all signups and vote messages were

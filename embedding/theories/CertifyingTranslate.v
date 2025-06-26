@@ -45,7 +45,7 @@ Definition my_negb_syn :=
 (* Compute expr_to_tc Σ (indexify nil my_negb_syn). *)
 
 (** We translate and unquote using the ConCert embedding feature *)
-MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
+MetaRocq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 (** We prove that the running the interpreter with [my_negb_syn] applied
     to an expression originating From Stdlib' boolean value computes the same

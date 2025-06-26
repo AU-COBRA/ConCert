@@ -1,6 +1,6 @@
 # ConCert embedding
 This subfolder contains the development of an embedding of the functional
-programming language ``λsmart`` into Coq.
+programming language ``λsmart`` into Rocq.
 
 ## Some highlights
 * [theories/Ast.v](theories/Ast.v) contains the definition of the ``λsmart``
@@ -18,7 +18,7 @@ functions, and integration with the blockchain execution framework.
 
 * [examples/Demo.v](examples/Demo.v) contains a demonstration
 using our framework to write definitions using the deep embedding, convert them
-to Coq functions, compute with the interpreter and prove simple properties using
+to Rocq functions, compute with the interpreter and prove simple properties using
 the shallow embedding.
 
 * [examples/ExecFrameworkIntegration.v](../examples/crowdfunding/ExecFrameworkIntegration.v)

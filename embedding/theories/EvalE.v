@@ -4,18 +4,18 @@
 From ConCert.Embedding Require Import Ast.
 From ConCert.Utils Require Import Env.
 
-(* TODO: we use definition of monads from Template Coq,
+(* TODO: we use definition of monads from Template Rocq,
    but (as actually comment in the [monad_utils] says, we
    should use a real monad library) *)
 (* We need some definitions like [All] from utils *)
 #[warnings="-notation-incompatible-prefix"]
-From MetaCoq.Utils Require Import utils.
+From MetaRocq.Utils Require Import utils.
 
 From Stdlib Require Import String.
 From Stdlib Require Import List.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 (* Common definitions *)
 
@@ -291,7 +291,7 @@ Definition validate_branches (enamed : bool) (ρ : env val) (es : list (pat * ex
     interpreter using a fuel idiom: by structural recursion on an additional
     argument (a natural number). We keep types in during evaluation, because
     for the soundness theorem we would have to translate values back to expression
-    and then further to MetaCoq terms. This requires us to keep all types in place.
+    and then further to MetaRocq terms. This requires us to keep all types in place.
     In addition to this interpreter, we plan to implement another one which computes
     on terms after erasure of typing information. *)
 

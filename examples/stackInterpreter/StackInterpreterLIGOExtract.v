@@ -1,5 +1,5 @@
 (** * Extraction of an interpreter for a stack based DSL *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
@@ -9,7 +9,7 @@ From ConCert.Extraction Require CameLIGOExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
 From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import Interpreter.
 
 
@@ -46,8 +46,8 @@ Module CameLIGOInterp.
       ; remap <%% unit %%> "unit"
       ; remap <%% option %%> "option"
       ; remap <%% Amount %%> "tez"
-      ; remap <%% address_coq %%> "address"
-      ; remap <%% time_coq %%> "timestamp"
+      ; remap <%% address_rocq %%> "address"
+      ; remap <%% time_rocq %%> "timestamp"
       ; remap <%% list %%> "list"
       ; remap <%% String.string %%> "string"
       ; remap <%% ext_map %%> (print_finmap_type "string * int" "value")
@@ -85,13 +85,13 @@ Module CameLIGOInterp.
          CameLIGOPretty.printMain "receive_" "params" "value list"
     |}.
 
-  Time MetaCoq Run
+  Time MetaRocq Run
     (CameLIGO_prepare_extraction [] TT_remap_ligo TT_rename_ctors_default [] "cctx_instance" LIGO_INTERP_MODULE).
 
   Time Definition cameligo_interp := Eval vm_compute in cameligo_interp_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/StackInterpreter.mligo"
-    MetaCoq Run (tmMsg cameligo_interp).
+    MetaRocq Run (tmMsg cameligo_interp).
 
 End CameLIGOInterp.

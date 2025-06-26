@@ -46,7 +46,7 @@ Section LocalBlockchain.
       lc_contracts : FMap Address WeakContract;
     }.
 
-  MetaCoq Run (make_setters LocalChain).
+  MetaRocq Run (make_setters LocalChain).
 
   Definition lc_to_env (lc : LocalChain) : Environment :=
     {| env_chain :=

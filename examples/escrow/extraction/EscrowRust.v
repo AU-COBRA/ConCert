@@ -3,7 +3,7 @@ From ConCert.Extraction Require Import ConcordiumExtract.
 From ConCert.Examples.Escrow Require Import Escrow.
 From Stdlib Require Import Bool.
 From Stdlib Require Import String.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 
 Definition ESCROW_MODULE : ConcordiumMod _ _ :=
@@ -18,12 +18,12 @@ Definition should_inline kn :=
   || eq_kername kn <%% @ConCert.Execution.ResultMonad.Monad_result %%>
   || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
-(* NOTE: it is important to declare a printing config, otherwise MetaCoq evaluation tries to normalize a term with an unresolved instance and runs out of memory. *)
+(* NOTE: it is important to declare a printing config, otherwise MetaRocq evaluation tries to normalize a term with an unresolved instance and runs out of memory. *)
 #[local]
 Existing Instance DefaultPrintConfig.RustConfig.
 
 Redirect "concordium-extract/escrow.rs"
-MetaCoq Run (concordium_extraction
+MetaRocq Run (concordium_extraction
                ESCROW_MODULE
                (ConcordiumRemap.build_remaps
                   (ConcordiumRemap.remap_Z_arith

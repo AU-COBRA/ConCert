@@ -2,7 +2,7 @@
 
 (** Definitions of basic of data types required for the crowdfunding
     contract along with notations for developing contract using the deep embedding *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -14,7 +14,7 @@ From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Import ListNotations.
 Import BaseTypes.
@@ -27,21 +27,21 @@ Module Maps.
   Open Scope nat.
   Open Scope string.
 
-  MetaCoq Run
+  MetaRocq Run
            (mp_ <- tmCurrentModPath tt ;;
             let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["addr_map"] "_coq").
+            mkNames mp ["addr_map"] "_rocq").
 
   Definition addr_map_acorn :=
     [\ data addr_map =
           "mnil" [_]
         | "mcons" [Nat, Int, addr_map,_] \].
 
-  MetaCoq Unquote Inductive (global_to_tc addr_map_acorn).
+  MetaRocq Unquote Inductive (global_to_tc addr_map_acorn).
 
-  Definition Map := to_string_name <% addr_map_coq %>.
+  Definition Map := to_string_name <% addr_map_rocq %>.
 
-  Fixpoint lookup_map (m : addr_map_coq) (key : nat) : option Z :=
+  Fixpoint lookup_map (m : addr_map_rocq) (key : nat) : option Z :=
     match m with
     | mnil => None
     | mcons k v m' =>
@@ -49,7 +49,7 @@ Module Maps.
     end.
 
   (* Ported from FMapWeaklist of StdLib *)
-  Fixpoint add_map (k : nat) (x : Z) (s : addr_map_coq) : addr_map_coq :=
+  Fixpoint add_map (k : nat) (x : Z) (s : addr_map_rocq) : addr_map_rocq :=
   match s with
    | mnil => mcons k x mnil
    | mcons k' y l => if Nat.eqb k k' then mcons k x l else mcons k' y (add_map k x l)
@@ -69,13 +69,13 @@ Module Maps.
       * simpl. now rewrite Heq.
   Qed.
 
-  Fixpoint to_list (m : addr_map_coq) : list (nat * Z)%type :=
+  Fixpoint to_list (m : addr_map_rocq) : list (nat * Z)%type :=
     match m with
     | mnil => nil
     | mcons k v tl => cons (k,v) (to_list tl)
     end.
 
-  Fixpoint of_list (l : list (nat * Z)) : addr_map_coq :=
+  Fixpoint of_list (l : list (nat * Z)) : addr_map_rocq :=
     match l with
     | nil => mnil
     | cons (k,v) tl => mcons k v (of_list tl)
@@ -88,7 +88,7 @@ Module Maps.
   Proof. induction l as [ | x l']; simpl; auto.
          destruct x. simpl; congruence. Qed.
 
-  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool :=
+  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_rocq) : bool :=
     match m with
     | mnil => true
     | mcons k v m' => p v && map_forallb p m'

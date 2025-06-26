@@ -1,5 +1,5 @@
 (** * Extraction of an interpreter for a stack based DSL *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
@@ -9,7 +9,7 @@ From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
 From ConCert.Utils Require Import BSEnv.
 From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import Interpreter.
 
 
@@ -28,8 +28,8 @@ Module LiquidityInterp.
       ; remap <%% option %%> "option"
       ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
       ; remap <%% Amount %%> "tez"
-      ; remap <%% address_coq %%> "address"
-      ; remap <%% time_coq %%> "timestamp"
+      ; remap <%% address_rocq %%> "address"
+      ; remap <%% time_rocq %%> "timestamp"
       ; remap <%% list %%> "list"
       ; remap <%% String.string %%> "string"
       ; remap <%% ext_map %%> (print_finmap_type "string * int" "value")
@@ -77,19 +77,19 @@ Module LiquidityInterp.
     |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
-  Time MetaCoq Run
+  Time MetaRocq Run
        (t <- liquidity_extraction PREFIX TT_remap TT_rename [] INTERP_MODULE ;;
         tmDefinition INTERP_MODULE.(lmd_module_name) t
        ).
 
   (** The extracted program can be printed and copy-pasted to the online Liquidity editor *)
-  (* MetaCoq Run (tmMsg liquidity_interp). *)
+  (* MetaRocq Run (tmMsg liquidity_interp). *)
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/StackInterpreter.liq"
-    MetaCoq Run (tmMsg liquidity_interp).
+    MetaRocq Run (tmMsg liquidity_interp).
 
 End LiquidityInterp.

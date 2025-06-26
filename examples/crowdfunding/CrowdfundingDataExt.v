@@ -12,10 +12,10 @@ From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
@@ -27,15 +27,15 @@ Import PreludeExt.Maps.
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
 (** Generating names for the data structures *)
-MetaCoq Run
+MetaRocq Run
          (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
              ["State" ; "mkState"; "balance" ; "donations" ; "owner";
               "deadline"; "goal"; "done";
               "Res" ; "Error";
-             "msg"; "Action"; "Transfer"; "Empty"] "_coq").
-MetaCoq Run (mkNames "" ["Donate"; "GetFunds"; "Claim"] "_coq").
+             "msg"; "Action"; "Transfer"; "Empty"] "_rocq").
+MetaRocq Run (mkNames "" ["Donate"; "GetFunds"; "Claim"] "_rocq").
 
 Import ListNotations.
 
@@ -62,7 +62,7 @@ Definition msg_syn :=
      | GetFunds [_]
      | Claim [_] \].
 
-MetaCoq Unquote Inductive (global_to_tc msg_syn).
+MetaRocq Unquote Inductive (global_to_tc msg_syn).
 
 
 (** ** Custom notations for projections from the state type *)
@@ -125,7 +125,7 @@ Definition update_contribs_syn :=
      let "new_st" : {state_ty} := mkState "cs" (done "f_st") in
      mkFullState "ps" "new_st" |].
 
-MetaCoq Unquote Definition update_contribs :=
+MetaRocq Unquote Definition update_contribs :=
   (expr_to_tc StdLib.Σ (indexify nil update_contribs_syn)).
 
 Definition set_done_syn :=
@@ -134,7 +134,7 @@ Definition set_done_syn :=
      let "new_st" : {state_ty} := mkState (contribs "f_st") True in
      mkFullState "ps" "new_st" |].
 
-MetaCoq Unquote Definition set_done :=
+MetaRocq Unquote Definition set_done :=
   (expr_to_tc StdLib.Σ (indexify nil set_done_syn)).
 
 
@@ -166,7 +166,7 @@ End Notations.
 
 (** Generating string constants for variable names *)
 
-MetaCoq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain"; "setup" ; "ctx" ;
+MetaRocq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain"; "setup" ; "ctx" ;
                      "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                      "accs"; "now";
                      "newstate"; "newmap"; "cond"] "").
@@ -180,4 +180,4 @@ Notation "'if' cond 'then' b1 'else' b2 : ty" :=
         b1 custom expr at level 4,
         b2 custom expr at level 4).
 
-Definition SCtx := to_string_name <% SimpleContractCallContext_coq %>.
+Definition SCtx := to_string_name <% SimpleContractCallContext_rocq %>.

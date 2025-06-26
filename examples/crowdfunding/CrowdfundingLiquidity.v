@@ -9,11 +9,11 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
-From MetaCoq.Template Require Import All.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Template Require Import All.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
 
 Import AcornBlockchain.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import CrowdfundingContract.
 Import Receive.
 
@@ -27,8 +27,8 @@ Definition PREFIX := "".
 Definition TT_remap : list (kername * string) :=
   [ (* types *)
     remap <%% Z %%> "tez"
-  ; remap <%% address_coq %%> "address"
-  ; remap <%% time_coq %%> "timestamp"
+  ; remap <%% address_rocq %%> "address"
+  ; remap <%% time_rocq %%> "timestamp"
   ; remap <%% nat %%> "nat"
   ; remap <%% bool %%> "bool"
   ; remap <%% unit %%> "unit"
@@ -37,8 +37,8 @@ Definition TT_remap : list (kername * string) :=
   ; remap <%% @snd %%> "snd"
   ; remap <%% option %%> "option"
   ; remap <%% ConCert.Execution.ResultMonad.result %%> "result"
-  ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
-  ; remap <%% SimpleActionBody_coq %%> "operation"
+  ; remap <%% Maps.addr_map_rocq %%> "(address,tez) map"
+  ; remap <%% SimpleActionBody_rocq %%> "operation"
 
   (* operations *)
   ; remap <%% Z.add %%> "addTez"
@@ -66,18 +66,18 @@ Definition TT_rename :=
   ; ("false", "false")].
 
 Definition printWrapperAndMain :=
-  "let wrapper (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with
+  "let wrapper (msg : msg_rocq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = match receive msg st (Current.time (), (Current.sender (), (Current.amount (), Current.balance ()))) with
 | Some v -> v| None -> failwith 0" ++ Common.nl ++ Common.nl++
-"let%entry main (msg : msg_coq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
+"let%entry main (msg : msg_rocq)(st : ((timestamp * (tez * address)) * ((address,tez) map * bool))) = wrapper msg st".
 
 
-Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
-Notation params := ((time_coq × address_coq × Z × Z) × msg_coq).
+Notation storage := ((time_rocq × Z × address_rocq) × Maps.addr_map_rocq × bool).
+Notation params := ((time_rocq × address_rocq × Z × Z) × msg_rocq).
 Definition Error : Type := nat.
 Definition default_error : Error := 1%nat.
 
 Definition crowdfunding_init (ctx : SimpleCallCtx)
-                             (setup : (time_coq × Z × address_coq))
+                             (setup : (time_rocq × Z × address_rocq))
                              : ConCert.Execution.ResultMonad.result storage Error :=
   if ctx.2.2.1 =? 0
   then ConCert.Execution.ResultMonad.Ok (setup, (Maps.mnil, false))
@@ -87,14 +87,14 @@ Definition crowdfunding_init (ctx : SimpleCallCtx)
 Definition crowdfunding_receive
            (params : params)
            (st : storage)
-           : ConCert.Execution.ResultMonad.result (list SimpleActionBody_coq × storage) Error :=
+           : ConCert.Execution.ResultMonad.result (list SimpleActionBody_rocq × storage) Error :=
   match receive params.2 st params.1 with
   | Some v => ConCert.Execution.ResultMonad.Ok v
   | None => ConCert.Execution.ResultMonad.Err default_error
   end.
 
 Definition CROWDFUNDING_MODULE :
-  LiquidityMod params SimpleCallCtx (time_coq × Z × address_coq) storage SimpleActionBody_coq nat :=
+  LiquidityMod params SimpleCallCtx (time_rocq × Z × address_rocq) storage SimpleActionBody_rocq nat :=
   {| (* a name for the definition with the extracted code *)
      lmd_module_name := "liquidity_crowdfunding" ;
 
@@ -126,10 +126,10 @@ Definition CROWDFUNDING_MODULE :
                         ++ printMain |}.
 
 (** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
-Time MetaCoq Run
+Time MetaRocq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] CROWDFUNDING_MODULE ;;
       tmDefinition CROWDFUNDING_MODULE.(lmd_module_name) t
      ).

@@ -2,22 +2,22 @@ From Stdlib Require Import List.
 From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 
-From MetaCoq.Template Require Import All.
-From MetaCoq.Common Require Import Kernames.
+From MetaRocq.Template Require Import All.
+From MetaRocq.Common Require Import Kernames.
 From RustExtraction Require Import StringExtra.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require Import Blockchain.
 From RustExtraction Require Import Common.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import Optimize.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Erasure.Typed Require Import Utils.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import Optimize.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Erasure.Typed Require Import Utils.
 From RustExtraction Require Import RustExtract.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From RustExtraction Require Import PrettyPrinterMonad.
 From RustExtraction Require Import Printing.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 
 
@@ -503,7 +503,7 @@ Section ConcordiumPrinting.
   Definition print_init_attrs (contract_name : string) : string :=
     "#[init(contract = """ ++ contract_name ++ """" ++ ", payable, enable_logger, low_level)]".
 
-  Notation "<$ x ; y ; .. ; z $>" := (String.concat MCString.nl (cons x (cons y .. (cons z nil) ..))) : bs_scope.
+  Notation "<$ x ; y ; .. ; z $>" := (String.concat MRString.nl (cons x (cons y .. (cons z nil) ..))) : bs_scope.
 
   Definition init_wrapper (contract_name : string) (init_name : kername) :=
     <$ print_init_attrs contract_name ;
@@ -651,7 +651,7 @@ Section ConcordiumPrinting.
       else
         None in
   let seeds := KernameSetProp.of_list (init_nm :: receive_nm :: extra) in
-  let params := extract_rust_within_coq overridden_masks should_inline in
+  let params := extract_rust_within_rocq overridden_masks should_inline in
   Σ <- tmEval lazy (if WITH_UNIVERSES then
                      Ast.Env.mk_global_env (Ast.Env.universes Σ) (declarations Σ) (Ast.Env.retroknowledge Σ)
                    else

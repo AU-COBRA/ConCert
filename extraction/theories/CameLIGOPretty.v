@@ -1,5 +1,5 @@
 (** * Pretty-printing CameLIGO code *)
-(** Adapted from [EPretty] of MetaCoq.Erasure. *)
+(** Adapted from [EPretty] of MetaRocq.Erasure. *)
 
 (** ** Features/limitations *)
 
@@ -12,19 +12,19 @@
     have only one argument. So, we pack multiple arguments in a tuple.
     In order for that to be correct, we assume that all fixpoints are
     fully applied. *)
-From MetaCoq.Erasure.Typed Require Import Utils.
-From MetaCoq.Erasure.Typed Require Import ExAst.
-From MetaCoq.Erasure.Typed Require Import Annotations.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Erasure Require Import EAst.
-From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Utils Require Import MCList.
-From MetaCoq.Utils Require Import MCPrelude.
+From MetaRocq.Erasure.Typed Require Import Utils.
+From MetaRocq.Erasure.Typed Require Import ExAst.
+From MetaRocq.Erasure.Typed Require Import Annotations.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Erasure Require Import EAst.
+From MetaRocq.Erasure Require Import EAstUtils.
+From MetaRocq.Utils Require Import MRList.
+From MetaRocq.Utils Require Import MRPrelude.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import BytestringExtra.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Utils Require Import bytestring.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import Common.
 
@@ -119,12 +119,12 @@ Section PPTerm.
   | _ => false
   end.
 
-  (* Use string_of_nat from StringExtra instead of MetaCoq's string_of_nat *)
+  (* Use string_of_nat from StringExtra instead of MetaRocq's string_of_nat *)
   Definition string_of_nat := BytestringExtra.string_of_nat.
   Definition tokenize := str_split.
 
 (** Takes a fully qualified name and returns the last part, e.g.
-  for "Coq.ZArith.BinInt.Z.add" returns "add" *)
+  for "Stdlib.ZArith.BinInt.Z.add" returns "add" *)
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").
 
   Definition print_uncurried (args : list string) :=
@@ -161,8 +161,8 @@ Section PPTerm.
   (* Certain names in CameLIGO are reserved (like 'to' and others)
      so we ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.)
-     we don't need to add them since they are also reserved names in Coq, hence
-     we can't write Coq programs with these names anyway. *)
+     we don't need to add them since they are also reserved names in Rocq, hence
+     we can't write Rocq programs with these names anyway. *)
   Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (String.eqb id) reserved.
 
@@ -679,7 +679,7 @@ Section PPTerm.
                             ++ brs_printed)
         | None =>
           "Case(" ++ string_of_inductive ind ++ "," ++ string_of_nat i ++ "," ++ string_of_term t ++ ","
-                  ++ MCString.string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
+                  ++ MRString.string_of_list (fun b => string_of_term (snd b)) brs ++ ")"
         end
       end
     | tConstruct ind l (_ :: _) => fun _ => "Error(constructors_as_blocks_not_supported)"
@@ -717,7 +717,7 @@ Section PPTerm.
     | tFix [] _ => fun _ => "FixWithNoBody"
     | tFix _ _ => fun _ => "NotSupportedMutualFix"
     | tCoFix l n => fun _ => "NotSupportedCoFix"
-    | tPrim _ => fun _ => "NotSupportedCoqPrimitive"
+    | tPrim _ => fun _ => "NotSupportedRocqPrimitive"
     | tLazy _ => fun _ => "NotSupportedLazy"
     | tForce _ => fun _ => "NotSupportedForce"
   end.

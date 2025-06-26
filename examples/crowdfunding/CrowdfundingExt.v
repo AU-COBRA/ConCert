@@ -18,10 +18,10 @@ From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 From Stdlib Require Import Lia.
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
@@ -50,7 +50,7 @@ Module CrowdfundingContract.
         | Just "_" -> "b"
         | Nothing -> $Nothing$Maybe [: Result] |].
 
-    MetaCoq Unquote Definition maybe_bind_unit :=
+    MetaRocq Unquote Definition maybe_bind_unit :=
       (expr_to_tc Σ' (indexify nil maybe_bind_unit_syn)).
 
     Notation "a >> b" :=
@@ -65,7 +65,7 @@ Module CrowdfundingContract.
           if 0z == tx_amount then $Just$Maybe [: Unit] star
           else $Nothing$Maybe [: Unit] : Maybe Unit |].
 
-    MetaCoq Unquote Definition validate :=
+    MetaRocq Unquote Definition validate :=
       (expr_to_tc Σ' (indexify nil validate_syn)).
 
 
@@ -87,7 +87,7 @@ Module CrowdfundingContract.
           else $Nothing$Maybe [: {full_state_ty}] : Maybe {full_state_ty})|].
 
     (* Compute ((expr_to_tc Σ' (indexify nil crowdfunding_init))). *)
-    MetaCoq Unquote Definition init :=
+    MetaRocq Unquote Definition init :=
       (expr_to_tc Σ' (indexify nil crowdfunding_init)).
 
     (** We prove that the initialization fails if we send money on contact deployment. *)
@@ -183,13 +183,13 @@ Module CrowdfundingContract.
                 | Nothing -> #Nothing)
               else #Nothing : Maybe Result |].
 
-    MetaCoq Unquote Definition receive :=
+    MetaRocq Unquote Definition receive :=
       (expr_to_tc Σ' (indexify nil crowdfunding)).
 
     (** We prove that the call to the [receive] fails (returns [None]) if the contract was called with non-zero amount and this is not the "donate" case*)
     Lemma receive_validated message state
           (call_ctx : SimpleCallCtx) :
-      (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_coq ->
+      (sc_sent_amount call_ctx <> 0)%Z -> message <> Donate_rocq ->
       receive message state call_ctx = None.
     Proof.
       intros Hneq Hmsg.
@@ -233,12 +233,12 @@ Definition CFModule : LiquidityModule :=
 
 (** A translation table for types *)
 Definition TTty :=
-  [(to_string_name <% address_coq %>, "address");
-   (to_string_name <% PreludeExt.Maps.addr_map_coq %>, "(address,tez) map");
-   (to_string_name <% time_coq %>, "timestamp");
+  [(to_string_name <% address_rocq %>, "address");
+   (to_string_name <% PreludeExt.Maps.addr_map_rocq %>, "(address,tez) map");
+   (to_string_name <% time_rocq %>, "timestamp");
    (to_string_name <% Z %>, "tez");
    (to_string_name <% nat %>, "nat");
-   (to_string_name <% AcornBlockchain.SimpleActionBody_coq %>, "operation")].
+   (to_string_name <% AcornBlockchain.SimpleActionBody_rocq %>, "operation")].
 
 (** A translation table for primitive binary operations *)
 Definition TT :=

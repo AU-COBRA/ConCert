@@ -9,9 +9,9 @@ From Stdlib Require Import String.
 From Stdlib Require Import List.
 From Stdlib Require Import ZArith.
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Import ListNotations.
 Import BaseTypes.
@@ -25,13 +25,13 @@ Module AcornBlockchain.
   Definition Address := Nat.
   Definition Money := Int.
 
-  MetaCoq Run
+  MetaRocq Run
          (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
                   ["SimpleChain" ; "Build_chain";
                   "SimpleContractCallContext" ; "Build_ctx" ;
-                  "SimpleActionBody"] "_coq").
+                  "SimpleActionBody"] "_rocq").
 
   Definition SimpleChainAcorn : global_dec :=
     [\ record SimpleChain :=
@@ -39,16 +39,16 @@ Module AcornBlockchain.
                      "Current_slot" : BaseTypes.Nat;
                      "Finalized_height" : BaseTypes.Nat } \].
 
-    (* TODO: MetaCoq does not generate projections at the moment.
+    (* TODO: MetaRocq does not generate projections at the moment.
      (However, it worked before somehow)
-     Probably related to https://github.com/MetaCoq/metacoq/issues/369
+     Probably related to https://github.com/MetaRocq/metarocq/issues/369
 
      For now, we just define records explicitly.
    *)
 
-  (* MetaCoq Unquote Inductive (global_to_tc SimpleChainAcorn). *)
+  (* MetaRocq Unquote Inductive (global_to_tc SimpleChainAcorn). *)
 
-  Record SimpleChain_coq : Set := Build_chain_coq
+  Record SimpleChain_rocq : Set := Build_chain_rocq
   { Chain_height : nat; Current_slot : nat; Finalized_height : nat }.
 
 
@@ -69,9 +69,9 @@ Module AcornBlockchain.
            (* Amount of currency passed in call *)
            "Ctx_amount" : Money} \].
 
-  (* MetaCoq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn). *)
+  (* MetaRocq Unquote Inductive (global_to_tc SimpleContractCallContextAcorn). *)
 
-  Record SimpleContractCallContext_coq : Set := Build_ctx_coq
+  Record SimpleContractCallContext_rocq : Set := Build_ctx_rocq
   { Ctx_origin : nat;
     Ctx_from : nat;
     Ctx_contract_address : nat;
@@ -84,8 +84,8 @@ Module AcornBlockchain.
     [\ data SimpleActionBody =
           "Act_transfer" [Address, Money,_] \].
 
-  MetaCoq Unquote Inductive (global_to_tc SimpleActionBodyAcorn).
+  MetaRocq Unquote Inductive (global_to_tc SimpleActionBodyAcorn).
 
-  Notation SActionBody := (to_string_name <% SimpleActionBody_coq %>).
+  Notation SActionBody := (to_string_name <% SimpleActionBody_rocq %>).
 
 End AcornBlockchain.

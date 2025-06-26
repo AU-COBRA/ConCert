@@ -1,6 +1,6 @@
 (** * Extraction of a simple counter contract *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LiquidityPretty.
@@ -15,7 +15,7 @@ From ConCert.Execution Require Import ContractCommon.
 From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 
 
@@ -180,7 +180,7 @@ Section EIP20TokenExtraction.
     ; <%% @set_State_allowances%%>
     ].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
     (liquidity_prepare_extraction PREFIX TT_remap_eip20token
       TT_rename_eip20token TT_inlines_eip20token EIP20Token_MODULE).
 
@@ -188,6 +188,6 @@ Section EIP20TokenExtraction.
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/liquidity_eip20token.liq"
-    MetaCoq Run (tmMsg liquidity_eip20token).
+    MetaRocq Run (tmMsg liquidity_eip20token).
 
 End EIP20TokenExtraction.

@@ -1,9 +1,9 @@
 From ConCert.Extraction Require Import Common.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Template Require Import Ast.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Template Require Import Ast.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import bytestring.
 From Stdlib Require Import ZArith.
 
 
@@ -43,16 +43,16 @@ Example Z_syn_to_Z_fail :
   Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
 Proof. reflexivity. Qed.
 
-Import MCMonadNotation Core.
+Import MRMonadNotation Core.
 Open Scope monad_scope.
 
 Definition result_err_bytestring A := result A bytestring.String.t.
 
-(* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+(* TODO: tmp, revert once https://github.com/MetaRocq/metarocq/pull/1030 is resolved *)
 Import List.
 Import ListNotations.
-From MetaCoq.Erasure.Typed Require Import Optimize.
-Definition extract_within_coq : extract_template_env_params :=
+From MetaRocq.Erasure.Typed Require Import Optimize.
+Definition extract_within_rocq : extract_template_env_params :=
   {| template_transforms := [];
      check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
@@ -64,7 +64,7 @@ Definition extract_ (p : program) : result_err_bytestring _ :=
            | tConst kn _ => ret kn
            | _ => Err "Expected program to be a tConst"
            end;;
-  extract_template_env extract_within_coq
+  extract_template_env extract_within_rocq
          (fst p)
          (Kernames.KernameSet.singleton entry)
          (fun k => false).
@@ -75,7 +75,7 @@ Definition extract_body {A} (def : A) : TemplateMonad _ :=
            | tConst kn _ => ret kn
            | _ => tmFail "Expected program to be a tConst"
           end ;;
-  res <- tmEval Common.lazy (extract_template_env extract_within_coq
+  res <- tmEval Common.lazy (extract_template_env extract_within_rocq
                (fst p)
                (Kernames.KernameSet.singleton entry)
                (fun k => false));;
@@ -96,7 +96,7 @@ Open Scope N_scope.
 (* NOTE: these numbers come from the Dexter contract, where the bug was discovered *)
 Definition _997 : N := 997%N.
 
-MetaCoq Run (extract_body _997).
+MetaRocq Run (extract_body _997).
 
 Example N_syn_to_nat_997 :
   N_syn_to_nat _997_extracted = Some 997%nat.
@@ -104,7 +104,7 @@ Proof. reflexivity. Qed.
 
 Definition _1000 : N := 1000%N.
 
-MetaCoq Run (extract_body _1000).
+MetaRocq Run (extract_body _1000).
 
 Example N_syn_to_nat_1000 :
   N_syn_to_nat _1000_extracted = Some 1000%nat.

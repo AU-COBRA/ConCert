@@ -4,7 +4,7 @@ From Stdlib Require Import List.
 From Stdlib Require Import PeanoNat.
 From Stdlib Require Import Lia.
 From ConCert.Utils Require Import Automation.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Utils Require Import bytestring.
 
 Import ListNotations.
 Import String.

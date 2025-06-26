@@ -1,14 +1,14 @@
 (** * Auxiliary lemmas for the soundness proof. *)
-From MetaCoq.Utils Require Import MCList.
-From MetaCoq.Utils Require Import utils.
-From MetaCoq.Common Require Import config.
-From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.PCUIC Require Import PCUICAstUtils.
-From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.PCUIC Require Import PCUICTyping.
-From MetaCoq.PCUIC Require Import PCUICClosed.
-From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.PCUIC Require Import PCUICWcbvEval.
+From MetaRocq.Utils Require Import MRList.
+From MetaRocq.Utils Require Import utils.
+From MetaRocq.Common Require Import config.
+From MetaRocq.PCUIC Require Import PCUICAst.
+From MetaRocq.PCUIC Require Import PCUICAstUtils.
+From MetaRocq.PCUIC Require Import PCUICLiftSubst.
+From MetaRocq.PCUIC Require Import PCUICTyping.
+From MetaRocq.PCUIC Require Import PCUICClosed.
+From MetaRocq.PCUIC Require Import PCUICLiftSubst.
+From MetaRocq.PCUIC Require Import PCUICWcbvEval.
 From Stdlib Require Import PeanoNat.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
@@ -35,11 +35,11 @@ Open Scope nat.
 
 Module TCString := bytestring.String.
 
-Definition of_bs (bs : MCString.string) : string := TCString.to_string bs.
+Definition of_bs (bs : MRString.string) : string := TCString.to_string bs.
 
-Definition to_bs (s : string) : MCString.string := TCString.of_string s.
+Definition to_bs (s : string) : MRString.string := TCString.of_string s.
 
-Coercion to_bs : string >-> MCString.string.
+Coercion to_bs : string >-> MRString.string.
 
 Import NamelessSubst.
 
@@ -1317,7 +1317,7 @@ Lemma subst_term_subst_env_par_rec :
   subst (map (fun x => expr_to_term Σ (snd x)) l) k (t⟦e⟧ Σ) = (t⟦e.[l]k⟧ Σ).
 Proof.
   intros until l.
-  induction l using MCList.rev_ind; intros e k Hgeok Hok Hc Hall.
+  induction l using MRList.rev_ind; intros e k Hgeok Hok Hc Hall.
   + simpl in *. unfold subst_env_i.
     rewrite <- subst_env_i_empty. rewrite subst_empty.
     reflexivity.
@@ -1750,7 +1750,7 @@ Lemma from_vConstr_not_lambda :
     tLambda na t0 b = t⟦ of_val_i (vConstr i n0 l) ⟧ Σ -> False.
 Proof.
   intros Σ i n0 na t0 b l H.
-  induction l using MCList.rev_ind.
+  induction l using MRList.rev_ind.
   + simpl in H. destruct (resolve_constr Σ i n0); tryfalse.
   + simpl_vars_to_apps in H.
     destruct (t⟦ vars_to_apps (eConstr i n0) (map of_val_i l) ⟧ Σ); tryfalse.
@@ -1774,7 +1774,7 @@ Lemma fix_not_constr_of_val {Σ mf m i nm vs} :
 Proof.
   intros H.
   simpl in *.
-  induction vs using MCList.rev_ind.
+  induction vs using MRList.rev_ind.
   + simpl in *. destruct (resolve_constr Σ i nm); tryfalse.
   + simpl in *. simpl_vars_to_apps in H; tryfalse.
 Qed.
@@ -1846,7 +1846,7 @@ Proof.
   generalize dependent t1.
   generalize dependent t2.
   generalize dependent l2.
-  induction l1 using MCList.rev_ind; intros; destruct l2 using MCList.rev_ind.
+  induction l1 using MRList.rev_ind; intros; destruct l2 using MRList.rev_ind.
   + inversion Hmk. easy.
   + simpl in *. subst. rewrite mkApps_unfold in *; tryfalse.
   + simpl in *. subst. rewrite mkApps_unfold in *; tryfalse.
@@ -1895,7 +1895,7 @@ Lemma mkApps_nonempty_neq args t f :
   mkApps f args = t -> False.
 Proof.
   intros Hargs Hatom.
-  destruct args using MCList.rev_ind.
+  destruct args using MRList.rev_ind.
   + simpl in *; lia.
   + rewrite mkApps_unfold. now destruct t.
 Qed.
@@ -1922,7 +1922,7 @@ Definition not_stuck : term -> bool :=
 Lemma vars_to_apps_constr_not_lambda ind cn l Σ :
   ~~ isLambda (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using MCList.rev_ind.
+  destruct l using MRList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. now simpl_vars_to_apps.
 Qed.
@@ -1930,7 +1930,7 @@ Qed.
 Lemma vars_to_apps_constr_not_fix_app ind cn l Σ :
   ~~ PcbvCurr.isFixApp (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using MCList.rev_ind.
+  destruct l using MRList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. rewrite <- mkApps_vars_to_apps.
     unfold PcbvCurr.isFixApp,isFix; cbn.
@@ -1940,7 +1940,7 @@ Qed.
 Lemma vars_to_apps_constr_not_arity ind cn l Σ :
   ~~ PcbvCurr.isArityHead (t⟦vars_to_apps (eConstr ind cn) l⟧Σ).
 Proof.
-  destruct l using MCList.rev_ind.
+  destruct l using MRList.rev_ind.
   + simpl. now destruct (resolve_constr Σ ind cn).
   + simpl. now simpl_vars_to_apps.
 Qed.

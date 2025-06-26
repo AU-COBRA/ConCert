@@ -2,7 +2,7 @@
 
 (** We provide a configuration required for the contract extraction:
     additional remappings, definitions to inline, etc. *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
@@ -304,9 +304,9 @@ Definition TT_rename : list (string * string) :=
   ; ("tt", "()")
   ].
 
-Time MetaCoq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
+Time MetaRocq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
 
 Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
 
 Redirect "cameligo-extract/BoardroomVoting.mligo"
-MetaCoq Run (tmMsg cameLIGO_boardroomvoting).
+MetaRocq Run (tmMsg cameLIGO_boardroomvoting).

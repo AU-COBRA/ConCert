@@ -1,6 +1,6 @@
 (** * Extraction of a simple counter contract *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require Import LiquidityPretty.
@@ -13,7 +13,7 @@ From ConCert.Execution Require Import ResultMonad.
 From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -150,8 +150,8 @@ Definition TT_remap : list (kername * string) :=
   [ remap <%% bool %%> "bool"
   ; remap <%% list %%> "list"
   ; remap <%% Amount %%> "tez"
-  ; remap <%% address_coq %%> "address"
-  ; remap <%% time_coq %%> "timestamp"
+  ; remap <%% address_rocq %%> "address"
+  ; remap <%% time_rocq %%> "timestamp"
   ; remap <%% option %%> "option"
   ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
@@ -174,10 +174,10 @@ Definition TT_rename :=
   ; ("nil", "[]") ].
 
 (** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
-Time MetaCoq Run
+Time MetaRocq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t).
 

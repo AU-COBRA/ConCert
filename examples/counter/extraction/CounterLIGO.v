@@ -1,7 +1,7 @@
 (** * Extraction of various contracts to CameLIGO *)
 
 From Stdlib Require Import ZArith.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require SimpleBlockchainExt.
@@ -11,7 +11,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Open Scope Z.
 
@@ -110,19 +110,19 @@ Section CounterExtraction.
     ; remap <%% Z.gtb %%> "gtbInt"
     ; remap <%% Z.even %%> "evenInt"
     ; remap <%% Z.abs_N %%> "abs"
-    ; remap <%% address_coq %%> "address"
-    ; remap <%% time_coq %%> "timestamp"
+    ; remap <%% address_rocq %%> "address"
+    ; remap <%% time_rocq %%> "timestamp"
     ; remap <%% address %%> "address"
     ; remap <%% operation %%> "operation"
     ].
 
   (** We run the extraction procedure inside the [TemplateMonad]. *)
-  (*  It uses the certified erasure from [MetaCoq] and the certified deboxing procedure *)
+  (*  It uses the certified erasure from [MetaRocq] and the certified deboxing procedure *)
   (*  that removes application of boxes to constants and constructors. *)
 
   (** NOTE: running computations inside [TemplateMonad] is quite slow. That's why we comment out this code and use a different way below *)
 
-  (* Time MetaCoq Run *)
+  (* Time MetaRocq Run *)
   (*   (t <- CameLIGO_extract [] TT_remap_counter [] [] CameLIGO_call_ctx LIGO_COUNTER_MODULE ;; *)
   (*     tmDefinition LIGO_COUNTER_MODULE.(lmd_module_name) t). *)
 
@@ -132,13 +132,13 @@ Section CounterExtraction.
 
   (** This command adds [cameLIGO_counter_prepared] to the environment, *)
   (*  which can be evaluated later *)
-  Time MetaCoq Run
+  Time MetaRocq Run
        (CameLIGO_prepare_extraction [] TT_remap_counter TT_rename_ctors_default [] "cctx_instance" LIGO_COUNTER_MODULE).
 
   Time Definition cameLIGO_counter_1 := Eval vm_compute in cameLIGO_counter_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/CounterCertified.mligo"
-  MetaCoq Run (tmMsg cameLIGO_counter_1).
+  MetaRocq Run (tmMsg cameLIGO_counter_1).
 
 End CounterExtraction.

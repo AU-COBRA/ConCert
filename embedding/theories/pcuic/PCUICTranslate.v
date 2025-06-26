@@ -1,13 +1,13 @@
 (** * Translation from λsmart expressions to PCUIC terms *)
-From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.Common Require Import BasicAst.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import MCProd.
-From MetaCoq.Utils Require Import MCList.
-From MetaCoq.Utils Require Import MCString.
-From MetaCoq.Utils Require Import bytestring.
-From MetaCoq.Template Require Import Loader.
+From MetaRocq.PCUIC Require Import PCUICAst.
+From MetaRocq.PCUIC Require Import PCUICLiftSubst.
+From MetaRocq.Common Require Import BasicAst.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import MRProd.
+From MetaRocq.Utils Require Import MRList.
+From MetaRocq.Utils Require Import MRString.
+From MetaRocq.Utils Require Import bytestring.
+From MetaRocq.Template Require Import Loader.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import Misc.
@@ -22,7 +22,7 @@ From Stdlib Require Import String.
 Module TCString := bytestring.String.
 
 Module P := PCUICAst.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import ListNotations.
 
 (** ** Translation of types *)
@@ -40,13 +40,13 @@ Fixpoint type_to_term (ty : type) : term :=
   | tyApp ty1 ty2 => tApp T⟦ty1⟧ T⟦ty2⟧
   | tyArr ty1 ty2 =>
     (* NOTE: we have to lift indices for the codomain,
-       since in Coq arrows are Pi types and introduce a binder *)
+       since in Rocq arrows are Pi types and introduce a binder *)
     tProd (aRelevant nAnon) T⟦ty1⟧ (lift0 1 T⟦ty2⟧)
   | tyRel i => tRel i
   end
 where "T⟦ ty ⟧ " := (type_to_term ty).
 
-(** Translating branches of the [eCase] construct. Note that MetaCoq uses indices
+(** Translating branches of the [eCase] construct. Note that MetaRocq uses indices
     to represent constructors. Indices are corresponding positions in the list of
     constructors for a particular inductive type *)
 Definition etrans_branch (params : list type)(bs : list (pat * term))
@@ -290,7 +290,7 @@ Module StdLib.
      gdInd Nat 0 [("Z", []); ("Suc", [(None,tyInd Nat)])] false;
      (* we omit other constructors for now, since in general integer literals are not supported yet *)
      gdInd Int 0 [("Z0", [])] false ;
-     (* just for remapping string to Coq string, constructors are not necessary *)
+     (* just for remapping string to Rocq string, constructors are not necessary *)
      gdInd String 0 [] false;
      gdInd List 1 [("nil", []); ("cons", [(None,tyRel 0);
                                          (None,tyApp (tyInd List) (tyRel 0))])] false;
@@ -341,7 +341,7 @@ Module StdLib.
   Notation "'False'" := (eConstr Bool false_name) (in custom expr at level 0).
 
   Notation "'star'" :=
-    (eConstr Unit "Coq.Init.Datatypes.tt")
+    (eConstr Unit "Corelib.Init.Datatypes.tt")
       (in custom expr at level 0).
 
 End StdLib.

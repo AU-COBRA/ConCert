@@ -51,8 +51,8 @@ Section FA2Client.
   Definition ClientError : Type := nat.
   Definition default_client_error : Error := 0%nat.
 
-  MetaCoq Run (make_setters ClientState).
-  MetaCoq Run (make_setters ClientSetup).
+  MetaRocq Run (make_setters ClientState).
+  MetaRocq Run (make_setters ClientSetup).
 
   Section Serialization.
 
@@ -126,8 +126,8 @@ Section FA2TransferHook.
   Definition HookError : Type := nat.
   Definition default_hook_error : Error := 0%nat.
 
-  MetaCoq Run (make_setters HookState).
-  MetaCoq Run (make_setters HookSetup).
+  MetaRocq Run (make_setters HookState).
+  MetaRocq Run (make_setters HookSetup).
 
   Section Serialization.
 

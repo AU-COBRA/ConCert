@@ -1,6 +1,6 @@
 (** * Extraction of Escrow to CameLIGO and liquidity*)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
@@ -162,15 +162,15 @@ Module EscrowLiquidityExtraction.
     ; <%% @set_State_buyer_withdrawable %%>
     ].
 
-  Import MCMonadNotation.
+  Import MRMonadNotation.
 
-  Time MetaCoq Run
+  Time MetaRocq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;
         tmDefinition ESCROW_MODULE_LIQUIDITY.(lmd_module_name) t
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
   Redirect "liquidity-extract/escrow.liq"
-  MetaCoq Run (tmMsg liquidity_escrow).
+  MetaRocq Run (tmMsg liquidity_escrow).
 
 End EscrowLiquidityExtraction.

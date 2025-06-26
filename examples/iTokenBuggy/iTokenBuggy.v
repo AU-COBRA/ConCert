@@ -46,8 +46,8 @@ Section iTokenBuggy.
   Definition Error : Type := nat.
   Definition default_error : Error := 1%nat.
 
-  MetaCoq Run (make_setters State).
-  MetaCoq Run (make_setters Setup).
+  MetaRocq Run (make_setters State).
+  MetaRocq Run (make_setters Setup).
 
   Section Serialization.
 

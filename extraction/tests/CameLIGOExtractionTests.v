@@ -1,6 +1,6 @@
 (** * Extraction of various contracts to CameLIGO *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import CameLIGOExtract.
@@ -9,7 +9,7 @@ From Stdlib Require Import Lia.
 From Stdlib Require Import List.
 
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 #[local]
 Parameter (cb : Blockchain.ChainBase).
@@ -34,7 +34,7 @@ Module BoolRect.
       shadowing in the resulting code *)
 
   (** One can see the variable names by quoting and printing the AST, as below *)
-  (* MetaCoq Quote Recursively Definition bool_rect_quoted := bool_rect. *)
+  (* MetaRocq Quote Recursively Definition bool_rect_quoted := bool_rect. *)
   (* Compute lookup_env bool_rect_quoted.1 <%% bool_rect %%>. *)
 
   (** This is, of course meaningless in eager languages, so usually we
@@ -48,7 +48,7 @@ Module BoolRect.
   Definition harness (func : string) : string :=
     "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (" ++ func ++ " 2n 3n))".
 
-  Time MetaCoq Run
+  Time MetaRocq Run
        (t <- CameLIGO_extract_single
               []
               []
@@ -60,7 +60,7 @@ Module BoolRect.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/max.mligo"
-    MetaCoq Run (tmMsg cameligo_max).
+    MetaRocq Run (tmMsg cameligo_max).
 End BoolRect.
 
 Module FoldLeft.
@@ -75,14 +75,14 @@ Module FoldLeft.
       | b :: t => foldL t (f a0 b)
       end.
 
-  MetaCoq Quote Recursively Definition bbb := foldL.
+  MetaRocq Quote Recursively Definition bbb := foldL.
 
   Definition sum (xs : list nat) := foldL Nat.add xs 0.
 
   Definition harness (sum_func : string) : string :=
     "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (" ++ sum_func ++ "([1n;2n;3n])))".
 
-  Time MetaCoq Run
+  Time MetaRocq Run
        (t <- CameLIGO_extract_single
               []
               []
@@ -94,7 +94,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/FoldL.mligo"
-      MetaCoq Run (tmMsg cameligo_sum).
+      MetaRocq Run (tmMsg cameligo_sum).
 
   (** This definition is different from [foldL]. The type abstractions are part of the
       fixpoint, and not bound by lambdas. Therefore, the type parameters are not
@@ -108,7 +108,7 @@ Module FoldLeft.
 
   Definition sumAlt (xs : list nat) := foldLAlt Nat.add xs 0.
 
-    Time MetaCoq Run
+    Time MetaRocq Run
        (t <- CameLIGO_extract_single
               []
               []
@@ -120,7 +120,7 @@ Module FoldLeft.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/FoldLAlt.mligo"
-      MetaCoq Run (tmMsg cameligo_sumAlt).
+      MetaRocq Run (tmMsg cameligo_sumAlt).
 
 End FoldLeft.
 
@@ -164,7 +164,7 @@ Module SafeHead.
   Definition harness : string :=
     "let main (st : unit * nat option) : operation list * (nat option) = (([]: operation list), Some (head_of_list_2 ([] : nat list)))".
 
-    Time MetaCoq Run
+    Time MetaRocq Run
          (t <- CameLIGO_extract_single
                 safe_head_inline
                 TT_consts
@@ -176,6 +176,6 @@ Module SafeHead.
 
     (** Extraction results in fully functional CameLIGO code *)
     Redirect "cameligo-extract/SafeHead.mligo"
-      MetaCoq Run (tmMsg cameligo_safe_head).
+      MetaRocq Run (tmMsg cameligo_safe_head).
 
 End SafeHead.
