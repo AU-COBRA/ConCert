@@ -1,6 +1,6 @@
 (** Extraction of Dexter 2 to CameLIGO *)
 
-From Coq Require Import List.
+From Stdlib Require Import List.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.

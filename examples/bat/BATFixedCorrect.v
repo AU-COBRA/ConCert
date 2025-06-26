@@ -1,8 +1,8 @@
 (** * Basic Attention Token contract *)
 (** Proofs for BAToken contract defined in [ConCert.Examples.BAT.BATFixed]. *)
-From Coq Require Import Lia.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import Lia.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.

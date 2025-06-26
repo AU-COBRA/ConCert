@@ -1,7 +1,7 @@
 (* A token-asset exchange contract based on Dexter
    https://gitlab.com/camlcase-dev/dexter/-/blob/f4ef07ea672a1397b58c2134b3437bb5ef69bcaa/dexter-contracts-ligo/dexter.ligo *)
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.

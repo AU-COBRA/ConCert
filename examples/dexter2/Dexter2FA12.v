@@ -20,8 +20,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 
 Definition non_zero_amount (amt : Z) : bool := (0 <? amt)%Z.
 

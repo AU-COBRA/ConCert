@@ -11,8 +11,8 @@ From ConCert.Utils Require Import Env.
 #[warnings="-notation-incompatible-prefix"]
 From MetaCoq.Utils Require Import utils.
 
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 
 Import ListNotations.
 Import MCMonadNotation.

@@ -2,10 +2,10 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Notations.
-From Coq Require Import String.
-From Coq Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import Notations.
+From Stdlib Require Import String.
+From Stdlib Require Import ZArith.
 
 Local Open Scope string_scope.
 

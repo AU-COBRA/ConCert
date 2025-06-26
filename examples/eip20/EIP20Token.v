@@ -5,8 +5,8 @@
   The implementation is essentially a port of
   https://github.com/ConsenSys/Tokens/blob/fdf687c69d998266a95f15216b1955a4965a0a6d/contracts/eip20/EIP20.sol
 *)
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.

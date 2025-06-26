@@ -8,12 +8,12 @@ From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingCorrect.
 
-From Coq Require Import String.
-From Coq Require Import Basics.
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import ssrbool.
-From Coq Require Import Program.Tactics.
+From Stdlib Require Import String.
+From Stdlib Require Import Basics.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import ssrbool.
+From Stdlib Require Import Program.Tactics.
 
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.

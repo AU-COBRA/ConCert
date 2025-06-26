@@ -9,8 +9,8 @@ From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 
 From MetaCoq.Template Require Import All.
 

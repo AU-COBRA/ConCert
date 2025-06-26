@@ -8,14 +8,14 @@ From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Wf.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import Morphisms.
-From Coq Require Import Setoid.
-From Coq Require Import Bool.
-From Coq Require Import Basics.
-From Coq Require Import Lia.
-From Coq Require Import Nat.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
+From Stdlib Require Import Morphisms.
+From Stdlib Require Import Setoid.
+From Stdlib Require Import Bool.
+From Stdlib Require Import Basics.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Nat.
 
 Open Scope program_scope.
 Open Scope string_scope.

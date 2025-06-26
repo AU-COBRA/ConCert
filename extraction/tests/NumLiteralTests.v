@@ -4,7 +4,7 @@ From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Template Require Import Ast.
 From MetaCoq.Utils Require Import monad_utils.
 From MetaCoq.Utils Require Import bytestring.
-From Coq Require Import ZArith.
+From Stdlib Require Import ZArith.
 
 
 

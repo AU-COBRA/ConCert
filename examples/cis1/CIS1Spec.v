@@ -47,9 +47,9 @@ From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.CIS1 Require Import CIS1Utils.
 
-From Coq Require Import Basics.
-From Coq Require Import List.
-From Coq Require Import ZArith.
+From Stdlib Require Import Basics.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 
 Import ListNotations.
 Import RemoveProperties.

@@ -24,9 +24,9 @@ From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From ConCert.Examples.Dexter2 Require Dexter2FA12Correct.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM. Import DEX2.
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import Lia.
 
 
 

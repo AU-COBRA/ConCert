@@ -6,8 +6,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggy.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggyPrinters.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 Import ListNotations.
 Import MonadNotation.
 

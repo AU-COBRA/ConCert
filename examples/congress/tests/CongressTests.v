@@ -8,8 +8,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
 From ConCert.Examples.Congress Require Export CongressGens.
 From ConCert.Examples.Congress Require Export CongressPrinters.
-From Coq Require Import ZArith.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 
 
 Definition LocalChainBase : ChainBase := TestUtils.LocalChainBase.

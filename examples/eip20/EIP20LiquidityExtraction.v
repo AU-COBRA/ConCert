@@ -12,8 +12,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Execution Require Import ContractCommon.
-From Coq Require Import String.
-From Coq Require Import ZArith.
+From Stdlib Require Import String.
+From Stdlib Require Import ZArith.
 
 Import MCMonadNotation.
 

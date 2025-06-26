@@ -1,8 +1,8 @@
-From Coq Require Import List.
-From Coq Require Import ZArith.
-From Coq Require Import Znumtheory.
-From Coq Require Import Permutation.
-From Coq Require Import Lia.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Znumtheory.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import Lia.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.

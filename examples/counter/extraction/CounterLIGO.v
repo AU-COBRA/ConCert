@@ -1,6 +1,6 @@
 (** * Extraction of various contracts to CameLIGO *)
 
-From Coq Require Import ZArith.
+From Stdlib Require Import ZArith.
 From MetaCoq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.

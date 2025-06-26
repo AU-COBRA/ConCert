@@ -5,9 +5,9 @@ From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import Common.
-From Coq Require Import Notations.
-From Coq Require Import String.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import Notations.
+From Stdlib Require Import String.
+From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
 Import MCMonadNotation.
 

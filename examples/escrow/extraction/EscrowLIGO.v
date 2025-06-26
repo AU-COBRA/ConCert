@@ -9,7 +9,7 @@ From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import ZArith.
 
 Local Open Scope string_scope.
 

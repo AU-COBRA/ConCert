@@ -13,8 +13,8 @@ From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggy.
 From ConCert.Examples.ExchangeBuggy Require Import ExchangeBuggyGens.
 From ConCert.Examples.ExchangeBuggy Require Export ExchangeBuggyPrinters.
 From ConCert.Utils Require Import Extras.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 Import ListNotations.
 
 

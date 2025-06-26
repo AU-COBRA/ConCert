@@ -3,7 +3,7 @@
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From Coq Require Import List.
+From Stdlib Require Import List.
 Import ListNotations.
 
 Ltac trace_induction :=

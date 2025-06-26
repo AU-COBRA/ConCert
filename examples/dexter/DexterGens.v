@@ -5,8 +5,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 Import MonadNotation.
 
 Module Type DexterTestsInfo.

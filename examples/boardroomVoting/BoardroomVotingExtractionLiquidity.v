@@ -14,8 +14,8 @@ From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 
 Import MCMonadNotation.
 

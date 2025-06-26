@@ -2,9 +2,9 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution.Test Require Import TraceGens.
 From ConCert.Execution.Test Require Import TestUtils.
 From QuickChick Require Import QuickChick.
-From Coq Require Import List.
-From Coq Require Import ZArith.
-From Coq Require Import Bool.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
 
 (** * Test parameters *)
 (** These determine the behaviour of the chain trace generators.

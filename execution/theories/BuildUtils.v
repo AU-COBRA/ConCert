@@ -1,7 +1,7 @@
-From Coq Require Import Lia.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Logic.Decidable.
-From Coq Require Import ZArith.
+From Stdlib Require Import Lia.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import Logic.Decidable.
+From Stdlib Require Import ZArith.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.

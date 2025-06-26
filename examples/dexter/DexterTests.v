@@ -11,8 +11,8 @@ From ConCert.Examples.Dexter Require Import Dexter.
 From ConCert.Examples.Dexter Require Export DexterPrinters.
 From ConCert.Examples.Dexter Require Import DexterGens.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 
 
 Definition token_pool_size : N := 100.

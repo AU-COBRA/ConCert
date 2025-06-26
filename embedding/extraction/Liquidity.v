@@ -1,7 +1,7 @@
-From Coq Require Import List.
-From Coq Require Import String.
-From Coq Require Import Basics.
-From Coq Require Import Bool.
+From Stdlib Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import Basics.
+From Stdlib Require Import Bool.
 From ConCert.Utils Require Extras.
 From ConCert.Utils Require Import Env.
 From ConCert.Embedding Require Import Ast.

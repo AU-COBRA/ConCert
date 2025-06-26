@@ -1,6 +1,6 @@
 (* This file captures what it means for a type to be finite *)
 
-From Coq Require Import List.
+From Stdlib Require Import List.
 Import ListNotations.
 
 Class Finite (T : Type) :=

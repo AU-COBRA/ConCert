@@ -1,7 +1,7 @@
 (** * λsmart language definition *)
 From MetaCoq.Template Require All.
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 From ConCert.Utils Require Import Env.
 
 Import ListNotations.

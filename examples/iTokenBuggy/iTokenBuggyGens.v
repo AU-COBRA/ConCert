@@ -5,8 +5,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 Import MonadNotation.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 Module Type iTokenBuggyGensInfo.
   Parameter contract_addr : Address.

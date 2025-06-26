@@ -8,8 +8,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Import BATPrinters.
-From Coq Require Import List.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 Import ListNotations.
 
 Definition contract_base_addr := addr_of_Z 128%Z.

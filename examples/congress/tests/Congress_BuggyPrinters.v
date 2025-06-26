@@ -3,7 +3,7 @@ From ConCert.Execution Require Import Serializable.
 #[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
-From Coq Require Import List.
+From Stdlib Require Import List.
 Open Scope string_scope.
 
 #[export]

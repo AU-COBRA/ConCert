@@ -14,7 +14,7 @@
      a (N.to_nat n).
 
    Note: Only specializes ChainBase when it is the very first abstraction. *)
-(* From Coq Require Import String. *)
+(* From Stdlib Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
@@ -25,7 +25,7 @@ From MetaCoq.Utils Require Import bytestring.
 From MetaCoq.Utils Require Import MCString.
 From MetaCoq.Utils Require Import MCList.
 From MetaCoq.Utils Require Import MCProd.
-From Coq Require Import List.
+From Stdlib Require Import List.
 
 Import ListNotations.
 Import MCMonadNotation.

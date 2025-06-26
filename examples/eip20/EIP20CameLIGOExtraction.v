@@ -1,6 +1,6 @@
 (** * Extraction of various contracts to CameLIGO *)
 
-From Coq Require Import String.
+From Stdlib Require Import String.
 From MetaCoq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.

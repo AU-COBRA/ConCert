@@ -13,10 +13,10 @@ From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
 
-From Coq Require Import String.
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import Lia.
+From Stdlib Require Import String.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Lia.
 
 From MetaCoq.Template Require Import All.
 

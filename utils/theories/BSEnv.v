@@ -1,8 +1,8 @@
 (** * Evaluation environments *)
 
-From Coq Require Import List.
-From Coq Require Import PeanoNat.
-From Coq Require Import Lia.
+From Stdlib Require Import List.
+From Stdlib Require Import PeanoNat.
+From Stdlib Require Import Lia.
 From ConCert.Utils Require Import Automation.
 From MetaCoq.Utils Require Import bytestring.
 

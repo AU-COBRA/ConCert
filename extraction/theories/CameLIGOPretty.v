@@ -28,10 +28,10 @@ From MetaCoq.Utils Require Import bytestring.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import Common.
 
-From Coq Require Import Nat.
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import Basics.
+From Stdlib Require Import Nat.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Basics.
 
 Local Open Scope bs_scope.
 

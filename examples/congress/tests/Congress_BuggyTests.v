@@ -10,8 +10,8 @@ From ConCert.Examples.Congress Require Export Congress_BuggyGens.
 From ConCert.Examples.Congress Require Export Congress_BuggyPrinters.
 From ConCert.Utils Require Import Extras.
 
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 Import ListNotations.
 
 

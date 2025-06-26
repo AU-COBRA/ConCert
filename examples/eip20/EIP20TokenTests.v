@@ -7,8 +7,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 From ConCert.Examples.EIP20 Require Export EIP20TokenPrinters.
 From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 Import ListNotations.
 
 

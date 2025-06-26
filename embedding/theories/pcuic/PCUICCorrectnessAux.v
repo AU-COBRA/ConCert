@@ -9,10 +9,10 @@ From MetaCoq.PCUIC Require Import PCUICTyping.
 From MetaCoq.PCUIC Require Import PCUICClosed.
 From MetaCoq.PCUIC Require Import PCUICLiftSubst.
 From MetaCoq.PCUIC Require Import PCUICWcbvEval.
-From Coq Require Import PeanoNat.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import Basics.
+From Stdlib Require Import PeanoNat.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
+From Stdlib Require Import Basics.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
 From ConCert.Embedding Require Import Misc.

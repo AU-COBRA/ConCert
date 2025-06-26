@@ -16,8 +16,8 @@ From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Extras.
 From ConCert.Utils Require StringExtra.
 
-From Coq Require Import List.
-From Coq Require Import String.
+From Stdlib Require Import List.
+From Stdlib Require Import String.
 
 Module TCString := bytestring.String.
 

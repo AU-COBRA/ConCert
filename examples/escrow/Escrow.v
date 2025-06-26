@@ -14,9 +14,9 @@ If the buyer does not commit the funds, the seller gets his money back after the
 deadline. The economic rationality shows up in our assumption that the seller
 will confirm he has received the item to get his own funds back. *)
 
-From Coq Require Import Bool.
-From Coq Require Import ZArith_base.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import Bool.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.

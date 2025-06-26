@@ -3,8 +3,8 @@
   https://github.com/bZxNetwork/contractsV2/commit/862d44ae5782263f6d99e32bfc270d58e7c2dd56#diff-660efc38dbeb9cb6ec2c1c7888a75d0e
 *)
 
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monad.
