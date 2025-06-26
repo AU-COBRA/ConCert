@@ -1,7 +1,7 @@
-From Coq Require Import Ascii.
-From Coq Require Import List.
-From Coq Require Import NArith.
-From Coq.Strings Require Import Byte.
+From Stdlib Require Import Ascii.
+From Stdlib Require Import List.
+From Stdlib Require Import NArith.
+From Stdlib.Strings Require Import Byte.
 From MetaCoq.Utils Require Import bytestring.
 
 Import String.

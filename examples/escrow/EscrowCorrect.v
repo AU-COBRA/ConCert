@@ -14,10 +14,10 @@ If the buyer does not commit the funds, the seller gets his money back after the
 deadline. The economic rationality shows up in our assumption that the seller
 will confirm he has received the item to get his own funds back. *)
 
-From Coq Require Import ZArith.
-From Coq Require Import Permutation.
-From Coq Require Import Lia.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import Lia.
+From Stdlib Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import ContractCommon.
@@ -214,7 +214,7 @@ Section Theories.
       assert (ctx_amount ctx mod 2 = 0).
       {
         rewrite Zeven_mod in amount_even.
-        unfold Zeq_bool in *.
+        unfold Z.eqb in *.
         destruct_match eqn:amount_mod_2 in amount_even; try congruence; auto.
       }
       rewrite <- (Z_div_exact_2 (ctx_amount ctx) 2) by (auto; lia).

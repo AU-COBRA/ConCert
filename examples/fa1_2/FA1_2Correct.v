@@ -9,10 +9,10 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.FA1_2 Require Import FA1_2. Import FA12Instance.
-From Coq Require Import ZArith_base.
-From Coq Require Import Bool.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import Lia.
 
 
 

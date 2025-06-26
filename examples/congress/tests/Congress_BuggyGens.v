@@ -5,8 +5,8 @@ From ConCert.Execution Require Import Serializable.
 #[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress_Buggy.
-From Coq Require Import ZArith.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 Import MonadNotation.
 
 Arguments SerializedValue : clear implicits.

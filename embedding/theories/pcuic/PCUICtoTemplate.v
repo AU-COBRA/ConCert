@@ -1,7 +1,7 @@
 (** * Almost one-to-one translation of PCUIC to Template Coq kernel AST *)
-From Coq Require Import Bool.
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import Bool.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 From MetaCoq.Template Require Import All.
 From MetaCoq.TemplatePCUIC Require Export PCUICToTemplate.
 Local Open Scope string_scope.

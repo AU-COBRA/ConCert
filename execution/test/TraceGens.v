@@ -21,8 +21,8 @@ From QuickChick Require Import QuickChick.
 
 Import MonadNotation. Open Scope monad_scope.
 
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 
 #[warnings="-notation-incompatible-prefix"]
 Import QcNotation.

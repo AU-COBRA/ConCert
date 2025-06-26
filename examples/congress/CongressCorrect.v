@@ -4,8 +4,8 @@ which members vote on proposals. We implement the contract in Gallina
 and then show that it does not send out more transactions than
 expected from the number of created proposals. *)
 
-From Coq Require Import Psatz.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import Psatz.
+From Stdlib Require Import List. Import ListNotations.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import ResultMonad.

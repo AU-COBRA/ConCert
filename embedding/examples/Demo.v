@@ -1,7 +1,7 @@
 (** * Simple examples on how to use our framework *)
-From Coq Require Import String.
-From Coq Require Import Basics.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import Basics.
+From Stdlib Require Import List.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import EvalE.

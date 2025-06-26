@@ -1,6 +1,6 @@
 Set Warnings "-extraction-inside-module".
 
-From Coq Require Import BinNat.
+From Stdlib Require Import BinNat.
 From ConCert.Execution Require Import Blockchain.
 #[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.

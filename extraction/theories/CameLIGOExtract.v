@@ -1,5 +1,5 @@
-From Coq Require Import List.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Serializable.

@@ -1,7 +1,7 @@
-(* From Coq Require Import Cyclic31. *)
-From Coq.Numbers.Cyclic.Int63 Require Import Cyclic63.
-From Coq Require Import List.
-From Coq Require Import Znumtheory.
+(* From Stdlib Require Import Cyclic31. *)
+From Stdlib.Numbers.Cyclic.Int63 Require Import Cyclic63.
+From Stdlib Require Import List.
+From Stdlib Require Import Znumtheory.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.

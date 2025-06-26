@@ -13,8 +13,8 @@ From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import BytestringExtra.
-From Coq Require Import List.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 From MetaCoq.Template Require Import All.
 From MetaCoq.Utils Require Import bytestring.
 

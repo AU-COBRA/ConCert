@@ -10,8 +10,8 @@ From ConCert.Examples.Escrow Require Import Escrow.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
-From Coq Require String.
-From Coq Require Import ZArith_base.
+From Stdlib Require String.
+From Stdlib Require Import ZArith.
 
 Local Open Scope string_scope.
 

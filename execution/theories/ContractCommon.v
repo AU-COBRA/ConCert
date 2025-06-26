@@ -6,8 +6,8 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 (** A type of finite maps (dictionaries) with addresses as keys.
 Basically, it's just a specilization of [FMap] to [Address] as keys.

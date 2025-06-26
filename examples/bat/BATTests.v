@@ -10,8 +10,8 @@ From ConCert.Examples.BAT Require Import BAT.
 From ConCert.Examples.BAT Require Import BATGens.
 From ConCert.Examples.BAT Require Export BATPrinters.
 From ConCert.Examples.BAT Require Import BATTestCommon.
-From Coq Require Import List.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 Import ListNotations.
 
 

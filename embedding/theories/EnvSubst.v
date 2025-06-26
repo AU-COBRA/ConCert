@@ -1,9 +1,9 @@
 (** * Conversion from values back to expressions through the environment substitution *)
-From Coq Require Import List.
-From Coq Require Import Relations.
-From Coq Require Import Morphisms.
-From Coq Require Import ssrbool.
-From Coq Require Import PeanoNat.
+From Stdlib Require Import List.
+From Stdlib Require Import Relations.
+From Stdlib Require Import Morphisms.
+From Stdlib Require Import ssrbool.
+From Stdlib Require Import PeanoNat.
 From ConCert.Utils Require Import Env.
 From ConCert.Utils Require Import Extras.
 From ConCert.Embedding Require Import EvalE.

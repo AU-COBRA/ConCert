@@ -10,8 +10,8 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import Lia.
-From Coq Require Import ZArith.
+From Stdlib Require Import Lia.
+From Stdlib Require Import ZArith.
 
 Import MCMonadNotation.
 

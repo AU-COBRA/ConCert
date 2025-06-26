@@ -16,12 +16,12 @@ From ConCert.Embedding Require Import Misc.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Env.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import Basics.
-From Coq Require Import Lia.
-From Coq Require Import ssrbool.
-From Coq Require Import Arith.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
+From Stdlib Require Import Basics.
+From Stdlib Require Import Lia.
+From Stdlib Require Import ssrbool.
+From Stdlib Require Import Arith.
 
 Import ListNotations.
 Import NamelessSubst.

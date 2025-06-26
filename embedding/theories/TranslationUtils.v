@@ -6,9 +6,9 @@ From ConCert.Utils Require Import Env.
 #[warnings="-notation-incompatible-prefix"]
 From MetaCoq.Template Require Import All.
 
-From Coq Require Import String.
-From Coq Require Import Basics.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import Basics.
+From Stdlib Require Import List.
 
 
 Import MCMonadNotation.

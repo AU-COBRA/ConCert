@@ -1,6 +1,6 @@
 From MetaCoq.Template Require Import All.
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 From ConCert.Utils Require StringExtra.
 
 Import ListNotations.

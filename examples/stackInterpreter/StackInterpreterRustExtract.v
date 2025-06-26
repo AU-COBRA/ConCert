@@ -7,9 +7,9 @@ From RustExtraction Require Import StringExtra.
 From MetaCoq.Template Require Import All.
 From MetaCoq.TemplatePCUIC Require Import PCUICToTemplate.
 From MetaCoq.Utils Require Import bytestring.
-From Coq Require Import List.
-From Coq Require Import ZArith.
-From Coq Require Import Bool.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
 
 
 

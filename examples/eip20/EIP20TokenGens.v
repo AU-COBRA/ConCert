@@ -5,8 +5,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.EIP20 Require Import EIP20Token.
 Import MonadNotation.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 Module Type EIP20GensInfo.
   Parameter contract_addr : Address.

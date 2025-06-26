@@ -1,9 +1,9 @@
 (** * Counter *)
 
-From Coq Require Import ZArith_base.
-From Coq Require Import List.
-From Coq Require Import Basics.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Basics.
+From Stdlib Require Import Lia.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Execution Require Import Serializable.

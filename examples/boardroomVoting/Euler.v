@@ -1,9 +1,9 @@
-From Coq Require Import List.
-From Coq Require Import Morphisms.
-From Coq Require Import Permutation.
-From Coq Require Import Psatz.
-From Coq Require Import ZArith.
-From Coq Require Import Znumtheory.
+From Stdlib Require Import List.
+From Stdlib Require Import Morphisms.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import Psatz.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Znumtheory.
 From ConCert.Utils Require Import Extras.
 Import ListNotations.
 

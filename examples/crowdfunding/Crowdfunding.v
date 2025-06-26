@@ -7,7 +7,7 @@ From ConCert.Embedding Require Import Prelude.
 From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
-From Coq Require Import String.
+From Stdlib Require Import String.
 From MetaCoq.Template Require Import All.
 
 Import MCMonadNotation.

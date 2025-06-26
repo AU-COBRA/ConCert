@@ -12,7 +12,7 @@ From ElmExtraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
-From Coq Require Import List.
+From Stdlib Require Import List.
 
 Import MCMonadNotation.
 

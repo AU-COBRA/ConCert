@@ -1,6 +1,6 @@
 (* A buggy token-asset exchange contract inspired by UniSwap and Dexter *)
-From Coq Require Import List.
-From Coq Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.

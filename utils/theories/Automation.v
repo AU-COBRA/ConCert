@@ -1,7 +1,7 @@
 (** * This file implements various helper tactics *)
-From Coq Require Import List.
-From Coq Require Import Permutation.
-From Coq Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import ZArith.
 Import ListNotations.
 
 Lemma Permutation_app_middle {A : Type} (xs l1 l2 l3 l4 : list A) :

@@ -13,8 +13,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import LocalBlockchain.
 From ConCert.Examples.Congress Require Import Congress.
 From ConCert.Examples.Congress Require Import CongressCorrect.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 
 Section LocalBlockchainTests.

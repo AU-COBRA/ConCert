@@ -5,9 +5,9 @@
   We also show that the implementation of the token complies with our formalization of the CIS1 standard.
 *)
 
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import Logic.Eqdep_dec.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Logic.Eqdep_dec.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
