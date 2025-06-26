@@ -126,9 +126,9 @@ In [Congress_Buggy.v](../examples/congress/Congress_Buggy.v) we try the opposite
 the same contract as above, but introduce a reentrancy issue into it. We then
 formally prove that this version of the Congress does _not_ satisfy the property
 proven for the other version. This is proven by using one of our implementations
-of our semantics and just asking Coq to compute.
+of our semantics and just asking Rocq to compute.
 
-In [LocalBlockchainTests.v](../examples/congress/LocalBlockchainTests.v) we test that Coq is
+In [LocalBlockchainTests.v](../examples/congress/LocalBlockchainTests.v) we test that Rocq is
 able to compute with the Congress by deploying it and interacting with it using
 one of our implementations of blockchains. We also specialize the proof shown
 about to our actual implementations of the execution layer described above.

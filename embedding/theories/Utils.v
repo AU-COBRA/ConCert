@@ -1,16 +1,16 @@
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
 From ConCert.Utils Require StringExtra.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Module TCString := bytestring.String.
 
 Open Scope string.
 
-(** Generation of string constants using MetaCoq *)
+(** Generation of string constants using MetaRocq *)
 Fixpoint mkNames (prefix : string) (ns : list string) (postfix : string) :=
   match ns with
   | [] => tmPrint "Done."%bs
@@ -20,7 +20,7 @@ Fixpoint mkNames (prefix : string) (ns : list string) (postfix : string) :=
                   mkNames prefix ns' postfix
   end.
 
-Fixpoint mdots (prefix : modpath) (l : list MCString.string) :=
+Fixpoint mdots (prefix : modpath) (l : list MRString.string) :=
   match l with
   | [] => prefix
   | h :: tl => mdots (MPdot prefix h) tl
@@ -51,7 +51,7 @@ Definition kername_of_string (s : string) : kername :=
        let name := TCString.of_string (hd "" (tl qualified_name)) in
        (modpath_of_string path, name).
 
-(** The printing functions below are similar to the ones from MetaCoq,
+(** The printing functions below are similar to the ones from MetaRocq,
     but we use different separators for different parts of the [kername] *)
 Notation s_to_bs := bytestring.String.of_string.
 Definition string_of_dirpath (dp : dirpath) : string :=

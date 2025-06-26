@@ -93,11 +93,11 @@ dependency-graphs: utils execution embedding extraction examples
 
 file-dependency-graph:
 	@echo "Generate dot files"
-	@coqdep -dumpgraph utils-file-dep.dot -f utils/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph execution-file-dep.dot -f execution/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph utils-file-dep.dot -f utils/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph execution-file-dep.dot -f execution/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
 
 	@echo "Add node colors"
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
@@ -131,12 +131,14 @@ file-dependency-graph:
 html: all
 	rm -rf docs
 	mkdir docs
-	coqdoc --html --interpolate --parse-comments \
+	rocq doc --html --interpolate --parse-comments \
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
+		--coqlib_url https://rocq-prover.org/doc/V9.0.0/corelib \
+    	--external https://rocq-prover.org/doc/V9.0.0/stdlib Stdlib \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
-		--external https://metacoq.github.io/html MetaCoq \
-		--external https://coq-community.org/coq-ext-lib/v0.11.7 ExtLib \
+		--external https://metarocq.github.io/html MetaRocq \
+		--external https://rocq-community.org/coq-ext-lib/v0.11.7 ExtLib \
 		--external https://au-cobra.github.io/coq-elm-extraction/ ElmExtraction \
 		--external https://au-cobra.github.io/coq-rust-extraction/ RustExtraction \
 		-R utils/theories ConCert.Utils \

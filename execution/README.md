@@ -1,5 +1,5 @@
 # Smart Contracts
-This repo is a formalization of execution layers of modern blockchains in Coq, along with property-based testing tools for testing smart contracts in ConCert.
+This repo is a formalization of execution layers of modern blockchains in Rocq, along with property-based testing tools for testing smart contracts in ConCert.
 
 ## Structure of the project
 The best place to start exploring the project is in

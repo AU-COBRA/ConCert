@@ -1,5 +1,5 @@
 { lib, mkCoqDerivation, which, coq
-  , metacoq, bignums, QuickChick, stdpp, RustExtraction, ElmExtraction
+  , metarocq, bignums, QuickChick, stdpp, RustExtraction, ElmExtraction
   , version ? null }:
 
 with lib; mkCoqDerivation {
@@ -28,12 +28,12 @@ with lib; mkCoqDerivation {
   ## if a consistent scheme gives the tag from the release number, you can do like this:
   # releaseRev = v: "v${v}";
 
-  propagatedBuildInputs = [ coq.ocamlPackages.findlib metacoq bignums QuickChick stdpp RustExtraction ElmExtraction ];
+  propagatedBuildInputs = [ coq.ocamlPackages.findlib metarocq bignums QuickChick stdpp RustExtraction ElmExtraction ];
 
   postPatch = ''patchShebangs ./extraction/process-extraction-examples.sh'';
 
   meta = {
-    description = "A framework for smart contract verification in Coq";
+    description = "A framework for smart contract verification in Rocq";
     maintainers = with maintainers; [ _4ever2 ];
     license = licenses.mit;
   };

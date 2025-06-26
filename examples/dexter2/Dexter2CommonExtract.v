@@ -2,7 +2,7 @@
 
 From Stdlib Require Import List.
 From Stdlib Require Import ZArith.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Execution Require Import Serializable.

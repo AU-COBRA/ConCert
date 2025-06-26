@@ -37,7 +37,7 @@ Section Congress.
       proposed_in : nat;
     }.
 
-  MetaCoq Run (make_setters Proposal).
+  MetaRocq Run (make_setters Proposal).
 
   Record Rules :=
     build_rules {
@@ -76,7 +76,7 @@ Section Congress.
     }.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
+  MetaRocq Run (make_setters State).
   (* end hide *)
 
   Section Serialization.

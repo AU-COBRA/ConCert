@@ -38,30 +38,30 @@ Next Obligation.
   eapply Nat.eqb_spec.
 Defined.
 
-Definition to_chain (sc : SimpleChain_coq) : Chain :=
-  let '(Build_chain_coq h s fh) := sc in build_chain h s fh.
+Definition to_chain (sc : SimpleChain_rocq) : Chain :=
+  let '(Build_chain_rocq h s fh) := sc in build_chain h s fh.
 
-Definition of_chain (c : Chain) : SimpleChain_coq :=
-  let '(build_chain h s fh) := c in Build_chain_coq h s fh.
+Definition of_chain (c : Chain) : SimpleChain_rocq :=
+  let '(build_chain h s fh) := c in Build_chain_rocq h s fh.
 
-Definition to_action_body (sab : SimpleActionBody_coq) : ActionBody :=
+Definition to_action_body (sab : SimpleActionBody_rocq) : ActionBody :=
   match sab with
   | Act_transfer addr x => act_transfer addr x
   end.
 
-Definition to_contract_call_context (scc : SimpleContractCallContext_coq) : ContractCallContext :=
-  let '(Build_ctx_coq origin from contr_addr contr_bal am) := scc in
+Definition to_contract_call_context (scc : SimpleContractCallContext_rocq) : ContractCallContext :=
+  let '(Build_ctx_rocq origin from contr_addr contr_bal am) := scc in
   build_ctx origin from contr_addr contr_bal am.
 
-Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_coq :=
+Definition of_contract_call_context (cc : ContractCallContext) : SimpleContractCallContext_rocq :=
   let '(build_ctx origin from contr_addr contr_bal am) := cc in
-  Build_ctx_coq origin from contr_addr contr_bal am.
+  Build_ctx_rocq origin from contr_addr contr_bal am.
 
 Import Serializable Prelude.Maps.
 
 Section Serialize.
   Hint Rewrite to_list_of_list of_list_to_list : hints.
-  Global Program Instance addr_map_serialize : Serializable addr_map_coq :=
+  Global Program Instance addr_map_serialize : Serializable addr_map_rocq :=
     {| serialize m := serialize (to_list m);
        deserialize l := option_map of_list (deserialize l); |}.
   Next Obligation.
@@ -69,11 +69,11 @@ Section Serialize.
     now autorewrite with hints.
   Defined.
 
-  Global Instance State_serializable : Serializable State_coq :=
-    Derive Serializable State_coq_rect<mkState_coq>.
+  Global Instance State_serializable : Serializable State_rocq :=
+    Derive Serializable State_rocq_rect<mkState_rocq>.
 
-  Global Instance Msg_serializable : Serializable Msg_coq :=
-    Derive Serializable Msg_coq_rect<Donate_coq, GetFunds_coq, Claim_coq>.
+  Global Instance Msg_serializable : Serializable Msg_rocq :=
+    Derive Serializable Msg_rocq_rect<Donate_rocq, GetFunds_rocq, Claim_rocq>.
 
 End Serialize.
 
@@ -81,19 +81,19 @@ End Serialize.
 Section Wrappers.
   Definition Setup := (nat * Z)%type.
 
-  Definition init_wrapper (f : SimpleContractCallContext_coq -> nat -> Z -> State_coq)
-                          : Chain -> ContractCallContext -> Setup -> result State_coq unit :=
+  Definition init_wrapper (f : SimpleContractCallContext_rocq -> nat -> Z -> State_rocq)
+                          : Chain -> ContractCallContext -> Setup -> result State_rocq unit :=
     fun c cc setup => Ok (f (of_contract_call_context cc) (fst setup) (snd setup)).
 
-  Definition wrapped_init : Chain -> ContractCallContext -> Setup -> result State_coq unit :=
+  Definition wrapped_init : Chain -> ContractCallContext -> Setup -> result State_rocq unit :=
     init_wrapper Init.init.
 
   Definition receive_wrapper
-             (f : SimpleChain_coq ->
-                  SimpleContractCallContext_coq ->
-                   Msg_coq -> State_coq -> option (State_coq * list SimpleActionBody_coq)) :
+             (f : SimpleChain_rocq ->
+                  SimpleContractCallContext_rocq ->
+                   Msg_rocq -> State_rocq -> option (State_rocq * list SimpleActionBody_rocq)) :
     Chain -> ContractCallContext ->
-    State_coq -> option Msg_coq -> result (State_coq * list ActionBody) unit :=
+    State_rocq -> option Msg_rocq -> result (State_rocq * list ActionBody) unit :=
     fun ch cc st msg =>
       match msg with
       | Some msg' =>
@@ -104,16 +104,16 @@ Section Wrappers.
       end.
 
   Definition wrapped_receive
-            : Chain -> ContractCallContext -> State_coq -> option Msg_coq
-             -> result (State_coq * list ActionBody) unit :=
+            : Chain -> ContractCallContext -> State_rocq -> option Msg_rocq
+             -> result (State_rocq * list ActionBody) unit :=
     receive_wrapper Receive.receive.
 
 End Wrappers.
 
-Definition cf_contract : Contract Setup Msg_coq State_coq unit :=
+Definition cf_contract : Contract Setup Msg_rocq State_rocq unit :=
   build_contract wrapped_init wrapped_receive.
 
-Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_coq :=
+Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_rocq :=
   match (env_contract_states env address) with
   | Some sv => deserialize sv
   | None => None
@@ -365,16 +365,16 @@ Proof.
 Qed.
 
 Lemma cf_transfer_cases {sch sctx msg init fin acts} :
-  map_forallb (Z.leb 0) (donations_coq init) ->
+  map_forallb (Z.leb 0) (donations_rocq init) ->
   consistent_balance init ->
   Receive.receive sch sctx msg init = Some (fin, acts) ->
 
-  ((Ctx_amount sctx + init.(balance_coq) = fin.(balance_coq))%Z /\ acts = [])
+  ((Ctx_amount sctx + init.(balance_rocq) = fin.(balance_rocq))%Z /\ acts = [])
 
-  \/ ((fin.(balance_coq) = 0%Z) /\ acts = [Act_transfer (Ctx_from sctx) init.(balance_coq)])
+  \/ ((fin.(balance_rocq) = 0%Z) /\ acts = [Act_transfer (Ctx_from sctx) init.(balance_rocq)])
 
   \/ (exists v, acts = [Act_transfer sctx.(Ctx_from) v] /\
-          (v <= init.(balance_coq))%Z /\ (fin.(balance_coq) = init.(balance_coq) - v)%Z).
+          (v <= init.(balance_rocq))%Z /\ (fin.(balance_rocq) = init.(balance_rocq) - v)%Z).
 Proof.
   intros Hpos Hbalance Hcall.
   destruct msg eqn:Hmsg.
@@ -391,7 +391,7 @@ Proof.
     inversion Hcall. repeat rewrite Bool.andb_true_iff in *.
     destruct Hcond as [[? ?] Hdone].
     specialize (Hbalance Hdone).
-    assert (z <= balance_coq init)%Z.
+    assert (z <= balance_rocq init)%Z.
     { rewrite <- Hbalance. eapply lookup_map_sum_map_leq; eauto. }
     right. right. eexists; split; eauto.
 Qed.
@@ -406,7 +406,7 @@ Theorem cf_backed bstate cf_addr lstate :
   env_contracts bstate cf_addr = Some (cf_contract : WeakContract) ->
   cf_state bstate cf_addr = Some lstate ->
   (env_account_balances bstate cf_addr >=
-   balance_coq lstate + sumZ act_body_amount (outgoing_acts bstate cf_addr)).
+   balance_rocq lstate + sumZ act_body_amount (outgoing_acts bstate cf_addr)).
 Proof.
   cbn in *.
   intros is_reachable is_deployed.
@@ -414,7 +414,7 @@ Proof.
   enough (H: exists lstate',
              cf_state bstate cf_addr = Some lstate' /\
              (env_account_balances bstate cf_addr >=
-              balance_coq lstate' + sumZ act_body_amount (outgoing_acts bstate cf_addr))).
+              balance_rocq lstate' + sumZ act_body_amount (outgoing_acts bstate cf_addr))).
   { intros. destruct H as [lstate' [? ?]].
     now replace lstate with lstate' by congruence. }
   contract_induction; intros; cbn in *; auto.
@@ -490,7 +490,7 @@ Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}
   builder_add_block prev hd acts = Ok new ->
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
-  (env_account_balances new cf_addr >= balance_coq lstate)%Z.
+  (env_account_balances new cf_addr >= balance_rocq lstate)%Z.
 Proof.
   intros Hnew Hcf Hst.
   destruct ChainBuilder; cbn in *.
@@ -508,8 +508,8 @@ Corollary cf_donations_backed_after_block {ChainBuilder : ChainBuilderType}
   builder_add_block prev hd acts = Ok new ->
   env_contracts new cf_addr = Some (cf_contract : WeakContract) ->
   cf_state new cf_addr = Some lstate ->
-  ~~ lstate.(done_coq) ->
-  (env_account_balances new cf_addr >= sum_map (lstate.(donations_coq)))%Z.
+  ~~ lstate.(done_rocq) ->
+  (env_account_balances new cf_addr >= sum_map (lstate.(donations_rocq)))%Z.
 Proof.
   intros Hnew Hcf Hst Hdone.
   destruct ChainBuilder; cbn in *.

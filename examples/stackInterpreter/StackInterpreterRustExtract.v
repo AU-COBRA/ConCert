@@ -4,9 +4,9 @@ From RustExtraction Require Import Printing.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
 From RustExtraction Require Import StringExtra.
-From MetaCoq.Template Require Import All.
-From MetaCoq.TemplatePCUIC Require Import PCUICToTemplate.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Template Require Import All.
+From MetaRocq.TemplatePCUIC Require Import PCUICToTemplate.
+From MetaRocq.Utils Require Import bytestring.
 From Stdlib Require Import List.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import Bool.
@@ -43,7 +43,7 @@ Instance RustConfig : RustPrintConfig :=
        print_full_names := false |}.
 
 Redirect "concordium-extract/interp.rs"
-MetaCoq Run (concordium_extraction
+MetaRocq Run (concordium_extraction
                STACK_INTERP_MODULE
                (ConcordiumRemap.build_remaps
                   (ConcordiumRemap.remap_Z_arith

@@ -7,25 +7,25 @@ From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Erasure.Typed Require Import ExAst.
-From MetaCoq.Erasure.Typed Require Import Optimize.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import TypeAnnotations.
-From MetaCoq.Erasure.Typed Require Import Annotations.
-From MetaCoq.Erasure.Typed Require Import Utils.
+From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Erasure.Typed Require Import ExAst.
+From MetaRocq.Erasure.Typed Require Import Optimize.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import TypeAnnotations.
+From MetaRocq.Erasure.Typed Require Import Annotations.
+From MetaRocq.Erasure.Typed Require Import Utils.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import BytestringExtra.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import MCSquash.
-From MetaCoq.Utils Require Import MCPrelude.
-From MetaCoq.Utils Require Import MCProd.
-From MetaCoq.Utils Require Import bytestring.
-From MetaCoq.Common Require Import Kernames.
-From MetaCoq.Template Require Import TemplateMonad.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import MRSquash.
+From MetaRocq.Utils Require Import MRPrelude.
+From MetaRocq.Utils Require Import MRProd.
+From MetaRocq.Utils Require Import bytestring.
+From MetaRocq.Common Require Import Kernames.
+From MetaRocq.Template Require Import TemplateMonad.
 
-Import MCMonadNotation ListNotations.
+Import MRMonadNotation ListNotations.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation error : Type) :=
   { lmd_module_name : string ;
@@ -92,7 +92,7 @@ Program Definition annot_extract_template_env_specalize
            (ignore : list kername) : result_string (∑ e, env_annots box_type e) :=
   let e := TemplateToPCUIC.trans_global_env e in
   e <- specialize_ChainBase_env (PCUICProgram.trans_env_env e) ;;
-  wfe <-check_wf_env_func extract_within_coq e;;
+  wfe <-check_wf_env_func extract_within_rocq e;;
   annot_extract_env_cameligo e wfe seeds ignore.
 
 
@@ -328,7 +328,7 @@ Section LigoExtract.
     ret (Σret, init_nm,receive_nm).
 
   (** Runs all the necessary steps in [TemplateMonad] and adds a definition
-      [<module_name>_prepared] to the Coq environment.
+      [<module_name>_prepared] to the Rocq environment.
       The definition consist of a call to erasure and pretty-printing for further
       evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
       which is much faster than running the computations inside [TemplateMonad]. *)

@@ -2,7 +2,7 @@
 
 (** NOTE: Currently does not compile due to some restrictions on closures in Liquidity. Moreover, the printing of literals might need adjustments. *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import Common.
@@ -17,7 +17,7 @@ From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -252,7 +252,7 @@ Definition to_inline : list kername :=
 
   ].
 
-(* Time MetaCoq Run ('(env, init_nm, receive_nm) <- quote_and_preprocess to_inline BV_MODULE ;;
+(* Time MetaRocq Run ('(env, init_nm, receive_nm) <- quote_and_preprocess to_inline BV_MODULE ;;
                   tmDefinition "bv_env" env ;;
                   tmDefinition "bv_init_nm" init_nm ;;
                   tmDefinition "bv_receive_nm" receive_nm). *)
@@ -348,10 +348,10 @@ Definition TT_rename : list (string * string) :=
   ; ("tt", "()")
   ].
 
-(* Time MetaCoq Run (
+(* Time MetaRocq Run (
   t <- liquidity_prepare_extraction PREFIX TT_remap TT_rename to_inline BV_MODULE bv_env bv_init_nm bv_receive_nm ;;
   tmDefinition BV_MODULE.(lmd_module_name) t
   ).
 
 (** We redirect the extraction result for later processing and compiling with the Liquidity compiler *)
-Redirect "liquidity-extract/BoardroomVoting.liq" MetaCoq Run (tmMsg liquidity_boardroomvoting). *)
+Redirect "liquidity-extract/BoardroomVoting.liq" MetaRocq Run (tmMsg liquidity_boardroomvoting). *)

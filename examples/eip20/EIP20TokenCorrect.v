@@ -665,9 +665,9 @@ Section Theories.
   Qed.
 
 
-  Remove Hints MCRelations.on_rel_refl : typeclass_instances.
-  Remove Hints MCRelations.on_rel_trans : typeclass_instances.
-  Remove Hints MCRelations.on_rel_sym : typeclass_instances.
+  Remove Hints MRRelations.on_rel_refl : typeclass_instances.
+  Remove Hints MRRelations.on_rel_trans : typeclass_instances.
+  Remove Hints MRRelations.on_rel_sym : typeclass_instances.
 
   (** ** Sum of balances always equals total supply *)
   Lemma sum_balances_eq_total_supply bstate caddr :

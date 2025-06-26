@@ -70,7 +70,7 @@ Module NamelessSubst.
     (** Converting from values back to expressions.
        This will be used to compare results of the evaluation with different semantics,
        or for stating soundness theorem for the translation to a different language, e.g.
-       to Template Coq terms.
+       to Template Rocq terms.
 
        The most non-trivial part is to convert closures, for which we have to perform
        some form of substitution of values from the value environment (see [subst_env])

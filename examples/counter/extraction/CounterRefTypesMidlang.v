@@ -6,15 +6,15 @@ From ConCert.Execution Require Import Serializable.
 From ElmExtraction Require Import Common.
 From ElmExtraction Require Import ElmExtract.
 From ElmExtraction Require Import PrettyPrinterMonad.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Common Require Import Kernames.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Common Require Import Kernames.
+From MetaRocq.Template Require Import All.
 From Stdlib Require Import List.
 From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 
 #[local]
@@ -90,7 +90,7 @@ Module CounterRefinmentTypes.
     end.
 End CounterRefinmentTypes.
 
-MetaCoq Run
+MetaRocq Run
         (p <- tmQuoteRecTransp (CounterRefinmentTypes.counter) false;;
         tmDefinition "counter_env"%bs p.1).
 
@@ -127,9 +127,9 @@ Definition ignored_concert_types :=
          <%% @ContractCallContext %%>;
          <%% @SerializedValue %%>].
 
-(* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
-From MetaCoq.Erasure.Typed Require Import Optimize.
-Definition extract_within_coq : extract_template_env_params :=
+(* TODO: tmp, revert once https://github.com/MetaRocq/metarocq/pull/1030 is resolved *)
+From MetaRocq.Erasure.Typed Require Import Optimize.
+Definition extract_within_rocq : extract_template_env_params :=
   {| template_transforms := [];
      check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      pcuic_args :=
@@ -138,7 +138,7 @@ Definition extract_within_coq : extract_template_env_params :=
 
 Definition counter_extract :=
   Eval vm_compute in
-    extract_template_env extract_within_coq
+    extract_template_env extract_within_rocq
       counter_env
       (KernameSet.singleton counter_name)
       (fun kn => List.existsb (eq_kername kn)
@@ -165,7 +165,7 @@ Definition midlang_prelude :=
     "import Transaction exposing (..)";
     "import Tuple exposing (..)"].
 
-MetaCoq Run (match counter_result with
+MetaRocq Run (match counter_result with
              | Ok s => tmMsg "Extraction of counter succeeded"%bs
              | Err err => tmFail err
              end).
@@ -177,4 +177,4 @@ Definition midlang_counter :=
   end.
 
 Redirect "midlang-extract/CounterRefTypesMidlang.midlang"
-  MetaCoq Run midlang_counter.
+  MetaRocq Run midlang_counter.

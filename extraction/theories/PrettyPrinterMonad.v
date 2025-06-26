@@ -1,12 +1,12 @@
 From Stdlib Require Import List.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import bytestring.
-From MetaCoq.SafeChecker Require Import PCUICErrors.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import bytestring.
+From MetaRocq.SafeChecker Require Import PCUICErrors.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import Common.
 
 Import String.
-Import monad_utils.MCMonadNotation.
+Import monad_utils.MRMonadNotation.
 Import ListNotations.
 Local Open Scope bs_scope.
 
@@ -49,7 +49,7 @@ Fixpoint prefix_spaces n s :=
   end.
 
 Definition collect_output_lines pps :=
-  MCList.rev_map (fun '(n, l) => prefix_spaces n l) (cur_output_line pps :: output_lines pps).
+  MRList.rev_map (fun '(n, l) => prefix_spaces n l) (cur_output_line pps :: output_lines pps).
 
 Definition result_string_err A := result A string.
 
@@ -135,7 +135,7 @@ Definition fresh_name (name : ident) (extra_used : list ident) : PrettyPrinter i
        match n with
        | 0 => ret "unreachable"
        | S n =>
-         let numbered_name := bytestring.String.append name (MCString.string_of_nat i) in
+         let numbered_name := bytestring.String.append name (MRString.string_of_nat i) in
          if existsb (bytestring.String.eqb numbered_name) used then
            f n (S i)
          else

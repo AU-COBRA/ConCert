@@ -1,5 +1,5 @@
 (** * Pretty-printing Liquidity code *)
-(** Adapted from [EPretty] of MetaCoq.Erasure. *)
+(** Adapted from [EPretty] of MetaRocq.Erasure. *)
 
 (** ** Features/limitations *)
 
@@ -28,17 +28,17 @@ From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import BytestringExtra.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.Erasure.Typed Require Import ExAst.
-From MetaCoq.Erasure Require Import EAst.
-From MetaCoq.Erasure Require Import EAstUtils.
-From MetaCoq.Utils Require Import MCList.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Erasure.Typed Require Import ExAst.
+From MetaRocq.Erasure Require Import EAst.
+From MetaRocq.Erasure Require Import EAstUtils.
+From MetaRocq.Utils Require Import MRList.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import bytestring.
 
 Local Open Scope bs_scope.
 Local Open Scope program_scope.
 
-Import ListNotations MCMonadNotation.
+Import ListNotations MRMonadNotation.
 Import String.
 
 
@@ -78,7 +78,7 @@ Section print_term.
   Definition tokenize := tokenize_aux EmptyString.
 
   (** Takes a fully qualified name and returns the last part, e.g.
-    for "Coq.ZArith.BinInt.Z.add" returns "add" *)
+    for "Stdlib.ZArith.BinInt.Z.add" returns "add" *)
   Definition unqual_name nm := last (tokenize "." nm) ("Error (Malformed_qualified_name)").
 
   Definition print_uncurried (s : string) (args : list string) :=
@@ -271,8 +271,8 @@ Section print_term.
   (* Certain names in Liquidity are reserved (like 'to' and others) so we
      ensure no fresh names are reserved *)
   (* Note: for reserved names from the syntax (like 'let', 'in', 'match', etc.)
-     we don't need to add them since they are also reserved names in Coq, hence
-     we can't write Coq programs with these names anyway. *)
+     we don't need to add them since they are also reserved names in Rocq, hence
+     we can't write Rocq programs with these names anyway. *)
   Definition is_reserved_name (id : string) (reserved : list string) :=
     List.existsb (eqb id) reserved.
 
@@ -691,7 +691,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
     | _ => "NotSupportedMutualFix"
     end
   | tCoFix l n => "NotSupportedCoFix"
-  | tPrim _ => "NotSupportedCoqPrimitive"
+  | tPrim _ => "NotSupportedRocqPrimitive"
   | tLazy _ => "NotSupportedLazy"
   | tForce _ => "NotSupportedForce"
   end.

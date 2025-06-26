@@ -1,5 +1,5 @@
 (** * Lemmas about the environment substitutions, closedness, etc. on expressions *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Misc.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.

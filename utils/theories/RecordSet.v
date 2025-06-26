@@ -1,14 +1,14 @@
-From MetaCoq.Template Require Import Ast.
-From MetaCoq.Template Require Import AstUtils.
-From MetaCoq.Common Require Import BasicAst.
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq.Utils Require Import monad_utils.
-From MetaCoq.Utils Require Import utils.
+From MetaRocq.Template Require Import Ast.
+From MetaRocq.Template Require Import AstUtils.
+From MetaRocq.Common Require Import BasicAst.
+From MetaRocq.Template Require Import Loader.
+From MetaRocq.Template Require Import TemplateMonad.
+From MetaRocq.Utils Require Import monad_utils.
+From MetaRocq.Utils Require Import utils.
 
 Global Unset Asymmetric Patterns.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Class SetterFromGetter {A B} (a : A -> B) :=
   setter_from_getter : (B -> B) -> A -> A.

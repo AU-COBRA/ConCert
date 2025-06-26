@@ -2,7 +2,7 @@
 
 (** The contract uses refinement types to specify some functional correctness properties *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Extraction Require LiquidityPretty.
@@ -15,7 +15,7 @@ From Stdlib Require Import ZArith.
 From Stdlib Require Import Bool.
 From Stdlib Require Import Lia.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
@@ -83,7 +83,7 @@ Section LiquidityExtractionSetup.
   Import LiquidityPretty.
   Import LiquidityExtract.
 
-  Definition PREFIX := "coq_".
+  Definition PREFIX := "rocq_".
 
   (** [sig] and [exist] becomes just wrappers *)
   Definition sig_def := "type 'a sig_ = 'a".
@@ -94,8 +94,8 @@ Section LiquidityExtractionSetup.
     [ remap <%% bool %%> "bool"
     ; remap <%% list %%> "list"
     ; remap <%% Amount %%> "tez"
-    ; remap <%% address_coq %%> "address"
-    ; remap <%% time_coq %%> "timestamp"
+    ; remap <%% address_rocq %%> "address"
+    ; remap <%% time_rocq %%> "timestamp"
     ; remap <%% option %%> "option"
     ; remap <%% result %%> "result"
     ; remap <%% Z.add %%> "addInt"
@@ -145,18 +145,18 @@ Section LiquidityExtractionSetup.
                         ++ printMain |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
   Definition to_inline := [<%% bool_rect %%>; <%% bool_rec %%>].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
       (t <- liquidity_extraction PREFIX TT_remap TT_rename to_inline COUNTER_MODULE ;;
         tmDefinition COUNTER_MODULE.(lmd_module_name) t
       ).
 
   (** We redirect the extraction result for later processing and compiling with the Liquidity compiler*)
   Redirect "liquidity-extract/CounterSubsetTypes.liq"
-    MetaCoq Run (tmMsg liquidity_counter).
+    MetaRocq Run (tmMsg liquidity_counter).
 
 End LiquidityExtractionSetup.

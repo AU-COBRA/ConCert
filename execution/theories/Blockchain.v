@@ -332,7 +332,7 @@ Definition get_contract_interface
   Some {| contract_address := addr; send := ifc_send; |}.
 
 Section Semantics.
-MetaCoq Run (make_setters Chain).
+MetaRocq Run (make_setters Chain).
 
 Definition add_balance
            (addr : Address)
@@ -420,7 +420,7 @@ Proof.
   now rewrite env_eq.
 Qed.
 
-MetaCoq Run (make_setters Environment).
+MetaRocq Run (make_setters Environment).
 
 Definition transfer_balance (from to : Address) (amount : Amount) (env : Environment) :=
   env<|env_account_balances ::= add_balance to amount|>
@@ -717,7 +717,7 @@ Record ChainState :=
     chain_state_queue : list Action;
   }.
 
-MetaCoq Run (make_setters ChainState).
+MetaRocq Run (make_setters ChainState).
 
 Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
 | step_block :

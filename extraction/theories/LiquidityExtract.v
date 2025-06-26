@@ -1,25 +1,25 @@
-From MetaCoq.Common Require Import Kernames.
-From MetaCoq.PCUIC Require Import PCUICAst.
+From MetaRocq.Common Require Import Kernames.
+From MetaRocq.PCUIC Require Import PCUICAst.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require ResultMonad.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.Erasure.Typed Require Import Optimize.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Erasure.Typed Require Import Optimize.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import BytestringExtra.
 From Stdlib Require Import List.
 From Stdlib Require Import ZArith.
-From MetaCoq.Template Require Import All.
-From MetaCoq.Utils Require Import bytestring.
+From MetaRocq.Template Require Import All.
+From MetaRocq.Utils Require Import bytestring.
 
 Import ListNotations.
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 
 Definition to_constant_decl (gd : option global_decl) :=
@@ -66,15 +66,15 @@ Definition extract_template_env_specialize
            (ignore : kername -> bool) : result_string _ :=
   let Σ := TemplateToPCUIC.trans_global_env Σ in
   Σ <- specialize_ChainBase_env (PCUICProgram.trans_env_env Σ) ;;
-  wfΣ <- check_wf_env_func extract_within_coq Σ;;
+  wfΣ <- check_wf_env_func extract_within_rocq Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 (* Extract an environment with some minimal checks. This assumes the environment
-   is well-formed (to make it computable from within Coq) but furthermore checks that the
+   is well-formed (to make it computable from within Rocq) but furthermore checks that the
    erased context is closed, expanded and that the masks are valid before dearging.
    Takes [should_inline] - a map that returns true for the constants that should be inlined.
-   Suitable for extraction of programs **from within Coq**. *)
-Definition extract_liquidity_within_coq (to_inline : kername -> bool)
+   Suitable for extraction of programs **from within Rocq**. *)
+Definition extract_liquidity_within_rocq (to_inline : kername -> bool)
            (seeds : KernameSet.t) :=
   {| check_wf_env_func Σ := Ok (assume_env_wellformed Σ);
      template_transforms :=
@@ -84,7 +84,7 @@ Definition extract_liquidity_within_coq (to_inline : kername -> bool)
           extract_transforms :=
             (* TODO: a 'false' second-last arg disables fully
                expanded environments - only for boardroomvoting *)
-            (* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+            (* TODO: tmp, revert once https://github.com/MetaRocq/metarocq/pull/1030 is resolved *)
             [dearg_transform overridden_masks true false true true true]
        |}
   |}.
@@ -93,13 +93,13 @@ Definition extract (to_inline : kername -> bool)
            (seeds : KernameSet.t)
            (extract_ignore : kername -> bool)
            (Σ : global_env) : TemplateMonad ExAst.global_env :=
-  extract_template_env_certifying_passes Ok (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
+  extract_template_env_certifying_passes Ok (extract_liquidity_within_rocq to_inline seeds) Σ seeds extract_ignore.
 
 Definition extract_specialize (to_inline : kername -> bool)
            (seeds : KernameSet.t)
            (extract_ignore : kername -> bool)
            (Σ : global_env) : TemplateMonad ExAst.global_env :=
-  extract_template_env_certifying_passes specialize_ChainBase_env (extract_liquidity_within_coq to_inline seeds) Σ seeds extract_ignore.
+  extract_template_env_certifying_passes specialize_ChainBase_env (extract_liquidity_within_rocq to_inline seeds) Σ seeds extract_ignore.
 
 
 Definition printLiquidityDefs_
@@ -222,7 +222,7 @@ Definition liquidity_call_ctx : string :=
     Current.balance ())))".
 
 Definition liquidity_extract_args :=
-  {| check_wf_env_func := check_wf_env_func extract_within_coq;
+  {| check_wf_env_func := check_wf_env_func extract_within_rocq;
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;
@@ -346,7 +346,7 @@ Definition quote_and_preprocess {Base : ChainBase}
   ret (Σret, init_nm,receive_nm).
 
 (** Runs all the necessary steps in [TemplateMonad] and adds a definition
-    [<module_name>_prepared] to the Coq environment.
+    [<module_name>_prepared] to the Rocq environment.
     The definition consist of a call to erasure and pretty-printing for further
     evaluation outside of [TemplateMonad], using, e.g. [Eval vm_compute in],
     which is much faster than running the computations inside [TemplateMonad]. *)

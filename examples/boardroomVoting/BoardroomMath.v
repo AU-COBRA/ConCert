@@ -806,7 +806,7 @@ End WithBoardroomAxioms.
 Module Zp.
   Local Open Scope Z.
 
-  (* Look at the definition of [mod] in Coq's StdLib, it probably has changed. *)
+  (* Look at the definition of [mod] in Rocq's StdLib, it probably has changed. *)
   Fixpoint mod_pow_pos_aux (a : Z) (x : positive) (m : Z) (r : Z) : Z :=
     match x with
     | x~0%positive => mod_pow_pos_aux (a * a mod m) x m r

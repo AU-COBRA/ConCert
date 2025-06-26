@@ -1,0 +1,35 @@
+opam-version: "2.0"
+name: "rocq-concert"
+version: "dev"
+synopsis: "A framework for smart contract verification in Rocq"
+description: "A framework for smart contract verification in Rocq"
+maintainer: "Danil Annenkov <danil.v.annenkov@gmail.com>"
+authors: "The COBRA team"
+license: "MIT"
+homepage: "https://github.com/AU-COBRA/ConCert"
+doc: "https://au-cobra.github.io/ConCert/toc.html"
+bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
+depends: [
+  "rocq-core" {= "9.0.0"}
+  "rocq-stdlib" {= "9.0.0"}
+  "rocq-bignums" {= "9.0.0+rocq9.0"}
+  "rocq-metarocq-common" {= "1.4+9.0"}
+  "rocq-metarocq-erasure" {= "1.4+9.0"}
+  "rocq-metarocq-pcuic" {= "1.4+9.0"}
+  "rocq-metarocq-safechecker" {= "1.4+9.0"}
+  "rocq-metarocq-template" {= "1.4+9.0"}
+  "rocq-metarocq-template-pcuic" {= "1.4+9.0"}
+  "rocq-metarocq-utils" {= "1.4+9.0"}
+  "coq-rust-extraction" {= "0.1.1"}
+  "coq-elm-extraction" {= "0.1.1"}
+  "coq-quickchick" {= "2.1.0"}
+  "coq-stdpp" {= "1.12.0"}
+]
+build: [
+  [make "core"]
+  [make "html"] {with-doc}
+]
+install: [
+  [make "install"]
+]
+dev-repo: "git+https://github.com/AU-COBRA/ConCert.git"

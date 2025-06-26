@@ -1,9 +1,9 @@
-(** * Almost one-to-one translation of PCUIC to Template Coq kernel AST *)
+(** * Almost one-to-one translation of PCUIC to Template Rocq kernel AST *)
 From Stdlib Require Import Bool.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
-From MetaCoq.Template Require Import All.
-From MetaCoq.TemplatePCUIC Require Export PCUICToTemplate.
+From MetaRocq.Template Require Import All.
+From MetaRocq.TemplatePCUIC Require Export PCUICToTemplate.
 Local Open Scope string_scope.
 Set Asymmetric Patterns.
 

@@ -11,9 +11,9 @@ From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Prelude.
 
 Import ListNotations.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Open Scope list.
 
@@ -25,7 +25,7 @@ Set Nonrecursive Elimination Schemes.
 (** Brackets like [[\ \]] delimit the scope of data type definitions and like [[| |]] the scope of programs *)
 
 (** Generating names for the data structures. We also add a prefix, corresponding ti the current module path. *)
-MetaCoq Run
+MetaRocq Run
          (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp
@@ -33,7 +33,7 @@ MetaCoq Run
               "deadline"; "goal"; "done";
               "Res" ; "Error";
               "Msg"; "Donate"; "GetFunds"; "Claim";
-              "Action"; "Transfer"; "Empty"] "_coq").
+              "Action"; "Transfer"; "Empty"] "_rocq").
 
 Import ListNotations.
 
@@ -49,20 +49,20 @@ Definition state_syn : global_dec :=
        done : Bool;
        goal : Money } \].
 
-(* TODO: MetaCoq does not generate projections at the moment.
+(* TODO: MetaRocq does not generate projections at the moment.
      (However, it worked before somehow)
-     Probably related to https://github.com/MetaCoq/metacoq/issues/369
+     Probably related to https://github.com/MetaRocq/metarocq/issues/369
 
      For now, we just define records explicitly.
    *)
 
-Record State_coq : Set := mkState_coq
-  { balance_coq : BinNums.Z;
-    donations_coq : addr_map_coq;
-    owner_coq : nat;
-    deadline_coq : nat;
-    done_coq : bool;
-    goal_coq : BinNums.Z }.
+Record State_rocq : Set := mkState_rocq
+  { balance_rocq : BinNums.Z;
+    donations_rocq : addr_map_rocq;
+    owner_rocq : nat;
+    deadline_rocq : nat;
+    done_rocq : bool;
+    goal_rocq : BinNums.Z }.
 
 (** We can print actual AST by switching off the notations *)
 
@@ -84,9 +84,9 @@ Set Printing Notations.
 (** Unquoting the definition of a record *)
 
 (* TODO: disabled due to the issue with generating projections *)
-(* MetaCoq Unquote Inductive (global_to_tc state_syn). *)
+(* MetaRocq Unquote Inductive (global_to_tc state_syn). *)
 
-(** As a result, we get a new Coq record [State_coq] *)
+(** As a result, we get a new Rocq record [State_rocq] *)
 
 Definition msg_syn :=
   [\ data Msg =
@@ -94,7 +94,7 @@ Definition msg_syn :=
      | GetFunds [_]
      | Claim [_] \].
 
-MetaCoq Unquote Inductive (global_to_tc msg_syn).
+MetaRocq Unquote Inductive (global_to_tc msg_syn).
 
 (** Custom notations for patterns, projections and constructors *)
 Module Notations.
@@ -192,7 +192,7 @@ Import Prelude.
 
 (** Generating string constants for variable names *)
 
-MetaCoq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain";
+MetaRocq Run (mkNames "" ["c"; "s"; "e"; "m"; "v"; "dl"; "g"; "chain";
                      "tx_amount"; "bal"; "sender"; "own"; "isdone" ;
                      "accs"; "now";
                      "newstate"; "newmap"; "cond"] "").
@@ -207,4 +207,4 @@ Notation "'if' cond 'then' b1 'else' b2 : ty" :=
         b1 custom expr at level 4,
         b2 custom expr at level 4).
 
-Definition SCtx := to_string_name <% SimpleContractCallContext_coq %>.
+Definition SCtx := to_string_name <% SimpleContractCallContext_rocq %>.

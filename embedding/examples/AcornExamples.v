@@ -1,6 +1,6 @@
 (** * Examples of library code and contracts originating
       from the actual Acorn implementation *)
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
@@ -12,7 +12,7 @@ From Stdlib Require Import String.
 From Stdlib Require Import List.
 From Stdlib Require Import PeanoNat.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import ListNotations.
 
 Open Scope list.
@@ -20,14 +20,14 @@ Open Scope list.
 (** All ASTs below were produced by a printing function implemented in
     Haskell and operating on Haskell representation of Acorn terms.
     We collect the outputs of our printing procedure for several modules
-    in this Coq file. For the [ListBase] example, we give also a
+    in this Rocq file. For the [ListBase] example, we give also a
     corresponding Acorn source code *)
 
 (** ** [Bool] module from the standard library of Acorn *)
 Module AcornBool.
-  MetaCoq Run define_mod_prefix.
+  MetaRocq Run define_mod_prefix.
 
-  Definition Data := [gdInd "Bool" 0 [("True_coq", []); ("False_coq", [])] false].
+  Definition Data := [gdInd "Bool" 0 [("True_rocq", []); ("False_rocq", [])] false].
   (*---------------------*)
   Definition Functions := [
     ("not", eLambda "x"
@@ -35,21 +35,21 @@ Module AcornBool.
                     (eCase ("Bool", [])
                            (tyInd "Bool")
                            (eRel 0)
-                           [(pConstr "True_coq" [], eConstr "Bool" "False_coq");
-                            (pConstr "False_coq" [], eConstr "Bool" "True_coq")]))].
+                           [(pConstr "True_rocq" [], eConstr "Bool" "False_rocq");
+                            (pConstr "False_rocq" [], eConstr "Bool" "True_rocq")]))].
 
-  MetaCoq Run (translateData [] Data).
+  MetaRocq Run (translateData [] Data).
 
-  MetaCoq Run (translateDefs [] Data Functions).
+  MetaRocq Run (translateDefs [] Data Functions).
 End AcornBool.
 
 (** ** [Maybe] module from the standard library of Acorn *)
 
 Module AcornMaybe.
-  MetaCoq Run define_mod_prefix.
+  MetaRocq Run define_mod_prefix.
 
-  Definition Data := [gdInd "Maybe" 1 [("Nothing_coq", []);
-                                       ("Just_coq", [(None, tyRel 0)])] false].
+  Definition Data := [gdInd "Maybe" 1 [("Nothing_rocq", []);
+                                       ("Just_rocq", [(None, tyRel 0)])] false].
   (*---------------------*)
   Definition Functions := [
     ("isJust", eTyLam "A"
@@ -58,11 +58,11 @@ Module AcornMaybe.
                   (eCase ("Maybe",[tyRel 0])
                     (tyInd "Bool")
                     (eRel 0)
-                    [(pConstr "Nothing_coq" [], eConstr "Bool" "False_coq");
-                    (pConstr "Just_coq" ["x0"], eConstr "Bool" "True_coq")])))].
+                    [(pConstr "Nothing_rocq" [], eConstr "Bool" "False_rocq");
+                    (pConstr "Just_rocq" ["x0"], eConstr "Bool" "True_rocq")])))].
 
-  MetaCoq Run (translateData [] Data).
-  MetaCoq Run (translateDefs AcornBool.exported (Data ++ AcornBool.Data) Functions).
+  MetaRocq Run (translateData [] Data).
+  MetaRocq Run (translateDefs AcornBool.exported (Data ++ AcornBool.Data) Functions).
 
 End AcornMaybe.
 
@@ -71,7 +71,7 @@ Import AcornMaybe.
 (** ** Acorn pairs *)
 Module AcornProd.
 
-  Definition Data := [gdInd "Pair" 2 [("Pair_coq", [(None, tyRel 1);
+  Definition Data := [gdInd "Pair" 2 [("Pair_rocq", [(None, tyRel 1);
                                                     (None, tyRel 0)])] false].
   (*---------------------*)
 
@@ -83,7 +83,7 @@ Module AcornProd.
                   (eCase ("Pair",[(tyRel 1); (tyRel 0)])
                     (tyRel 1)
                     (eRel 0)
-                    [(pConstr "Pair_coq" ["x0"; "x1"], eRel 1)]))));
+                    [(pConstr "Pair_rocq" ["x0"; "x1"], eRel 1)]))));
      ("snd", eTyLam "A"
               (eTyLam "A"
                 (eLambda "x"
@@ -91,11 +91,11 @@ Module AcornProd.
                   (eCase ("Pair",[(tyRel 1); (tyRel 0)])
                     (tyRel 0)
                     (eRel 0)
-                    [(pConstr "Pair_coq" ["x0"; "x1"], eRel 0)]))))].
+                    [(pConstr "Pair_rocq" ["x0"; "x1"], eRel 0)]))))].
 
-  MetaCoq Run (translateData [] Data).
+  MetaRocq Run (translateData [] Data).
 
-  MetaCoq Run (translateDefs [] Data Functions).
+  MetaRocq Run (translateDefs [] Data Functions).
 End AcornProd.
 
 (** ** Acorn [List] module *)
@@ -126,9 +126,9 @@ definition map a b (f :: a -> b) =
     foldr [a] [List b] (fun (x :: a) = Cons [b] (f x)) (Nil [b])
 
 
--- This definition corresponds to fold_left from the Coq's StdLib.
+-- This definition corresponds to fold_left from the Rocq's StdLib.
 -- Recursion is on the first argument.
-   This is the only case handled by Acorn -> Coq translation.
+   This is the only case handled by Acorn -> Rocq translation.
 definition foldl_alt a b (f :: b -> a -> b) =
   letrec go (xs :: List a) (acc :: b) :: b =
      case xs of
@@ -168,8 +168,8 @@ Module AcornListBase.
   Definition Data := [
     gdInd "List"
       1
-      [("Nil_coq", []);
-      ("Cons_coq", [(None, tyRel 0); (None, (tyApp (tyInd "List") (tyRel 0)))])] false].
+      [("Nil_rocq", []);
+      ("Cons_rocq", [(None, tyRel 0); (None, (tyApp (tyInd "List") (tyRel 0)))])] false].
 
   (*---------------------*)
   Definition Functions :=
@@ -179,11 +179,11 @@ Module AcornListBase.
         (eApp
           (eApp
             (eApp
-              (eConstr "List" "Cons_coq")
+              (eConstr "List" "Cons_rocq")
               (eTy (tyRel 0)))
             (eRel 0))
           (eApp
-            (eConstr "List" "Nil_coq")
+            (eConstr "List" "Nil_rocq")
             (eTy (tyRel 0))))))
   ; ("foldr", eTyLam "A"
       (eTyLam "A"
@@ -201,8 +201,8 @@ Module AcornListBase.
                   ("List", [tyRel 1])
                   (tyRel 0)
                   (eRel 0)
-                  [(pConstr "Nil_coq" [], eRel 2);
-                  (pConstr "Cons_coq" ["x0"; "x1"],
+                  [(pConstr "Nil_rocq" [], eRel 2);
+                  (pConstr "Cons_rocq" ["x0"; "x1"],
                    eApp
                     (eApp (eRel 5) (eRel 1))
                     (eApp (eRel 3) (eRel 0)))]))
@@ -222,10 +222,10 @@ Module AcornListBase.
               (eLambda "x"
                 (tyRel 1)
                 (eApp
-                  (eApp (eConstr "List" "Cons_coq") (eTy (tyRel 0)))
+                  (eApp (eConstr "List" "Cons_rocq") (eTy (tyRel 0)))
                   (eApp (eRel 1) (eRel 0)))))
             (eApp
-              (eConstr "List" "Nil_coq")
+              (eConstr "List" "Nil_rocq")
               (eTy (tyRel 0)))))))
   ; ("foldl_alt", eTyLam "A"
       (eTyLam "A"
@@ -241,8 +241,8 @@ Module AcornListBase.
                   ("List", [tyRel 1])
                   (tyRel 0)
                   (eRel 1)
-                  [(pConstr "Nil_coq" [], eRel 0);
-                   (pConstr "Cons_coq" ["x0"; "x1"],
+                  [(pConstr "Nil_rocq" [], eRel 0);
+                   (pConstr "Cons_rocq" ["x0"; "x1"],
                    eApp
                     (eApp (eRel 4) (eRel 0))
                     (eApp
@@ -284,7 +284,7 @@ Module AcornListBase.
                   (eApp (eConst "foldr") (eTy (tyRel 0)))
                   (eTy (tyApp (tyInd "List") (tyRel 0))))
                 (eApp
-                  (eConstr "List" "Cons_coq")
+                  (eConstr "List" "Cons_rocq")
                   (eTy (tyRel 0))))
               (eRel 0))
             (eRel 1)))))
@@ -307,21 +307,21 @@ Module AcornListBase.
                     ("List", [tyRel 2])
                     (tyApp (tyInd "List") (tyRel 0))
                     (eRel 1)
-                    [(pConstr "Nil_coq" [],
-                      eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));
-                     (pConstr "Cons_coq"
+                    [(pConstr "Nil_rocq" [],
+                      eApp (eConstr "List" "Nil_rocq") (eTy (tyRel 0)));
+                     (pConstr "Cons_rocq"
                         ["x0"; "x1"],
                       eCase
                         ("List", [tyRel 1])
                         (tyApp (tyInd "List") (tyRel 0))
                         (eRel 2)
-                        [(pConstr "Nil_coq" [],
-                          eApp (eConstr "List" "Nil_coq") (eTy (tyRel 0)));
-                         (pConstr "Cons_coq" ["x0"; "x1"],
+                        [(pConstr "Nil_rocq" [],
+                          eApp (eConstr "List" "Nil_rocq") (eTy (tyRel 0)));
+                         (pConstr "Cons_rocq" ["x0"; "x1"],
                           eApp
                             (eApp
                               (eApp
-                                (eConstr "List" "Cons_coq")
+                                (eConstr "List" "Cons_rocq")
                                 (eTy (tyRel 0)))
                               (eApp
                                 (eApp (eRel 7) (eRel 3))
@@ -351,12 +351,12 @@ Module AcornListBase.
               (eApp
                 (eApp
                   (eApp
-                    (eConstr "List" "Cons_coq")
+                    (eConstr "List" "Cons_rocq")
                     (eTy (tyRel 0)))
                   (eRel 0))
                 (eRel 1)))))
         (eApp
-          (eConstr "List" "Nil_coq")
+          (eConstr "List" "Nil_rocq")
           (eTy (tyRel 0)))))
   ; ("zip", eTyLam "A"
       (eTyLam "A"
@@ -373,7 +373,7 @@ Module AcornListBase.
                 (tyRel 0))))
           (eApp
             (eApp
-              (eConstr "Pair" "Pair_coq")
+              (eConstr "Pair" "Pair_rocq")
               (eTy (tyRel 1)))
             (eTy (tyRel 0))))))
   ; ("filter", eTyLam "A"
@@ -396,42 +396,42 @@ Module AcornListBase.
                   ("Bool", [])
                   (tyApp (tyInd "List") (tyRel 0))
                   (eApp (eRel 2) (eRel 1))
-                  [(pConstr "True_coq" [],
+                  [(pConstr "True_rocq" [],
                     eApp
                       (eApp
                         (eApp
-                          (eConstr "List" "Cons_coq")
+                          (eConstr "List" "Cons_rocq")
                           (eTy (tyRel 0)))
                         (eRel 1))
                       (eRel 0));
-                   (pConstr "False_coq" [], eRel 0)]))))
+                   (pConstr "False_rocq" [], eRel 0)]))))
           (eApp
-            (eConstr "List" "Nil_coq")
+            (eConstr "List" "Nil_rocq")
             (eTy (tyRel 0))))))
   ].
 
-  MetaCoq Run (translateData [] Data).
+  MetaRocq Run (translateData [] Data).
 
   Definition gEnv := (Data ++ AcornBool.Data ++ AcornProd.Data)%list.
 
   Definition dependencies := AcornBool.exported ++ AcornProd.exported.
 
-  MetaCoq Run (translateDefs dependencies gEnv Functions).
+  MetaRocq Run (translateDefs dependencies gEnv Functions).
 
   Definition AcornList := List.
 
   (** We prove that the imported definitions are equivalent to the
-      corresponding definitions from the standard library of Coq *)
+      corresponding definitions from the standard library of Rocq *)
   Fixpoint from_acorn {A : Set} (acornL : AcornList A) : list A :=
     match acornL with
-    | Cons_coq hd tl => hd :: from_acorn tl
-    | Nil_coq => []
+    | Cons_rocq hd tl => hd :: from_acorn tl
+    | Nil_rocq => []
     end.
 
-  Fixpoint to_acorn {A : Set} (coqL : list A) : AcornList A :=
-    match coqL with
-    | hd :: tl => Cons_coq _ hd (to_acorn tl)
-    | nil => Nil_coq _
+  Fixpoint to_acorn {A : Set} (rocqL : list A) : AcornList A :=
+    match rocqL with
+    | hd :: tl => Cons_rocq _ hd (to_acorn tl)
+    | nil => Nil_rocq _
     end.
 
   Lemma to_from_acorn (A : Set) (l : AcornList A) : to_acorn (from_acorn l) = l.
@@ -447,7 +447,7 @@ Module AcornListBase.
   Arguments foldr {_ _}.
   Arguments concat {_}.
 
-  Lemma acorn_foldr_coq_fold_right (A B : Set) (l : AcornList A) (f : A -> B -> B) a :
+  Lemma acorn_foldr_rocq_fold_right (A B : Set) (l : AcornList A) (f : A -> B -> B) a :
     foldr f a l = fold_right f a (from_acorn l).
   Proof.
     induction l; simpl; auto.
@@ -463,12 +463,12 @@ Module AcornListBase.
     induction l1; intros l2; destruct l2; simpl; try rewrite to_from_acorn; auto.
     f_equal. rewrite app_nil_r. rewrite to_from_acorn.
     clear IHl1; induction l1; simpl. congruence. now f_equal.
-    change (a0 :: from_acorn l2) with (from_acorn (Cons_coq _ a0 l2)).
+    change (a0 :: from_acorn l2) with (from_acorn (Cons_rocq _ a0 l2)).
     now f_equal.
   Qed.
 
   #[local]
-  Hint Rewrite acorn_foldr_coq_fold_right concat_app from_to_acorn : hints.
+  Hint Rewrite acorn_foldr_rocq_fold_right concat_app from_to_acorn : hints.
 
   Lemma concat_assoc :
     forall (A : Set) (l m n : AcornList A), concat l (concat m n) = concat (concat l m) n.
@@ -488,19 +488,19 @@ Module AcornBlochain.
 
   Definition ABl_data := [
     gdInd "Caller" 0
-      [("CallerContract_coq", [(None, tyInd "nat")]);
-       ("CallerAccount_coq", [(None, tyInd "string")])] false;
+      [("CallerContract_rocq", [(None, tyInd "nat")]);
+       ("CallerAccount_rocq", [(None, tyInd "string")])] false;
     gdInd "ChainContext" 0
-      [("ChainContext_coq",
+      [("ChainContext_rocq",
         [(None, tyInd "nat");
          (None, tyInd "nat");
          (None, tyInd "nat")])] false;
     gdInd "InitContext" 0
-      [("InitContext_coq",
+      [("InitContext_rocq",
         [(None, (tyInd "ChainContext"));
          (None, tyInd "string")])] false;
     gdInd "ReceiveContext" 0
-      [("ReceiveContext_coq",
+      [("ReceiveContext_rocq",
         [(None, (tyInd "ChainContext"));
          (None, tyInd "string");
          (None, tyInd "nat")])] false
@@ -513,61 +513,61 @@ Module AcornBlochain.
           ("ChainContext", [])
           (tyInd "nat")
           (eRel 0)
-          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
+          [(pConstr "ChainContext_rocq" ["x0"; "x1"; "x2"], eRel 2)]))
     ; ("blockHeight", eLambda "x"
         (tyInd "ChainContext")
         (eCase
           ("ChainContext", [])
           (tyInd "nat")
           (eRel 0)
-          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
+          [(pConstr "ChainContext_rocq" ["x0"; "x1"; "x2"], eRel 1)]))
     ; ("finalizedHeight", eLambda "x"
         (tyInd "ChainContext")
         (eCase
           ("ChainContext", [])
           (tyInd "nat")
           (eRel 0)
-          [(pConstr "ChainContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))
+          [(pConstr "ChainContext_rocq" ["x0"; "x1"; "x2"], eRel 0)]))
     ; ("initOrigin", eLambda "x"
         (tyInd "InitContext")
         (eCase
           ("InitContext", [])
           (tyInd "string")
           (eRel 0)
-          [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 0)]))
+          [(pConstr "InitContext_rocq" ["x0"; "x1"], eRel 0)]))
     ; ("initChain", eLambda "x"
         (tyInd "InitContext")
         (eCase
           ("InitContext", [])
           (tyInd "ChainContext")
           (eRel 0)
-          [(pConstr "InitContext_coq" ["x0"; "x1"], eRel 1)]))
+          [(pConstr "InitContext_rocq" ["x0"; "x1"], eRel 1)]))
     ; ("receiveChain", eLambda "x"
         (tyInd "ReceiveContext")
         (eCase
           ("ReceiveContext", [])
           (tyInd "ChainContext")
           (eRel 0)
-          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 2)]))
+          [(pConstr "ReceiveContext_rocq" ["x0"; "x1"; "x2"], eRel 2)]))
     ; ("receiveOrigin", eLambda "x"
         (tyInd "ReceiveContext")
         (eCase
           ("ReceiveContext", [])
           (tyInd "string")
           (eRel 0)
-          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 1)]))
+          [(pConstr "ReceiveContext_rocq" ["x0"; "x1"; "x2"], eRel 1)]))
     ; ("receiveSelfAddress", eLambda "x"
         (tyInd "ReceiveContext")
         (eCase
           ("ReceiveContext", [])
           (tyInd "nat")
           (eRel 0)
-          [(pConstr "ReceiveContext_coq" ["x0"; "x1"; "x2"], eRel 0)]))
+          [(pConstr "ReceiveContext_rocq" ["x0"; "x1"; "x2"], eRel 0)]))
     ].
 
-  MetaCoq Run (translateData stdlib_prefixes ABl_data).
+  MetaRocq Run (translateData stdlib_prefixes ABl_data).
 
-  MetaCoq Run (translateDefs stdlib_prefixes (StdLib.Σ ++ ABl_data)%list ABl_functions).
+  MetaRocq Run (translateDefs stdlib_prefixes (StdLib.Σ ++ ABl_data)%list ABl_functions).
 End AcornBlochain.
 
 (** ** A simple [Counter] contract *)
@@ -575,7 +575,7 @@ End AcornBlochain.
 (** Concrete syntax *)
 
 (*
-module CoqExamples where
+module RocqExamples where
 
 import Prim
 
@@ -599,16 +599,16 @@ definition count (s :: CState) (msg :: Msg) =
       CState (Prim.minusInt64 (balance s) a) (owner s)
  *)
 
-(** Data type definitions corresponding representation of the module [CoqExamples] above *)
+(** Data type definitions corresponding representation of the module [RocqExamples] above *)
 Definition acorn_datatypes :=
   [ gdInd "Msg" 0
-      [("Inc_coq", [(None, tyInd "Z")]);
-       ("Dec_coq", [(None, tyInd "Z")])] false;
+      [("Inc_rocq", [(None, tyInd "Z")]);
+       ("Dec_rocq", [(None, tyInd "Z")])] false;
     gdInd "CState" 0
-      [("CState_coq", [(None, tyInd "Z");
+      [("CState_rocq", [(None, tyInd "Z");
        (None, tyInd "string")])] false].
 
-MetaCoq Run (translateData [] acorn_datatypes).
+MetaRocq Run (translateData [] acorn_datatypes).
 
 Definition Σ' :=
   (StdLib.Σ ++ acorn_datatypes)%list.
@@ -621,7 +621,7 @@ Section Prim.
 End Prim.
 
 
-(** Function definitions corresponding representation of the module [CoqExamples] above *)
+(** Function definitions corresponding representation of the module [RocqExamples] above *)
 Definition acorn_module : list (string * expr) :=
   [ ("owner", eLambda "x"
       (tyInd "CState")
@@ -629,14 +629,14 @@ Definition acorn_module : list (string * expr) :=
         ("CState", [])
         (tyInd "string")
         (eRel 0)
-        [(pConstr "CState_coq" ["x0"; "x1"], eRel 0)]))
+        [(pConstr "CState_rocq" ["x0"; "x1"], eRel 0)]))
   ; ("balance", eLambda "x"
       (tyInd "CState")
       (eCase
         ("CState", [])
         (tyInd "Z")
         (eRel 0)
-        [(pConstr "CState_coq" ["x0"; "x1"], eRel 1)]))
+        [(pConstr "CState_rocq" ["x0"; "x1"], eRel 1)]))
   ; ("count", eLambda "x"
       (tyInd "CState")
       (eLambda "x"
@@ -645,10 +645,10 @@ Definition acorn_module : list (string * expr) :=
           ("Msg", [])
           (tyInd "CState")
           (eRel 0)
-          [(pConstr "Inc_coq" ["x0"],
+          [(pConstr "Inc_rocq" ["x0"],
             eApp
               (eApp
-                (eConstr "CState" "CState_coq")
+                (eConstr "CState" "CState_rocq")
                 (eApp
                   (eApp
                     (eConst "plusInt64")
@@ -657,10 +657,10 @@ Definition acorn_module : list (string * expr) :=
               (eApp
                 (eConst "owner")
                 (eRel 2)));
-           (pConstr "Dec_coq" ["x0"],
+           (pConstr "Dec_rocq" ["x0"],
             eApp
               (eApp
-                (eConstr "CState" "CState_coq")
+                (eConstr "CState" "CState_rocq")
                 (eApp
                   (eApp
                     (eConst "minusInt64")
@@ -669,7 +669,7 @@ Definition acorn_module : list (string * expr) :=
               (eApp (eConst "owner") (eRel 2)))])))
   ].
 
-MetaCoq Run (translateDefs [] Σ' acorn_module).
+MetaRocq Run (translateDefs [] Σ' acorn_module).
 
 Open Scope Z_scope.
 
@@ -678,7 +678,7 @@ Lemma inc_correct init_state n i final_state :
   balance init_state = n ->
 
   (* sending "increment" *)
-  count init_state (Inc_coq i) = final_state ->
+  count init_state (Inc_rocq i) = final_state ->
 
   (* result *)
   balance final_state = n + i.
@@ -693,22 +693,22 @@ Module ForPeresentation.
 
 Definition owner : CState -> string := fun x =>
   match x with
-  | CState_coq _ x1 => x1
+  | CState_rocq _ x1 => x1
   end.
 
 Definition balance : CState -> Z := fun x =>
   match x with
-  | CState_coq x0 _ => x0
+  | CState_rocq x0 _ => x0
   end.
 
 Definition count
   : CState -> Msg -> CState := fun x x0 =>
  match x0 with
- | Inc_coq x1 =>
-     CState_coq (plusInt64 (balance x) x1)
+ | Inc_rocq x1 =>
+     CState_rocq (plusInt64 (balance x) x1)
                 (owner x)
- | Dec_coq x1 =>
-   CState_coq (minusInt64 (balance x) x1)
+ | Dec_rocq x1 =>
+   CState_rocq (minusInt64 (balance x) x1)
               (owner x)
  end.
 End ForPeresentation.
@@ -716,7 +716,7 @@ End ForPeresentation.
 Module Recursion.
 
   Definition R_data := [
-    gdInd "Nat" 0 [("Zero_coq", []); ("Suc_coq", [(None, (tyInd "Nat"))])] false
+    gdInd "Nat" 0 [("Zero_rocq", []); ("Suc_rocq", [(None, (tyInd "Nat"))])] false
   ].
   (*---------------------*)
 
@@ -733,10 +733,10 @@ Module Recursion.
               ("Nat", [])
               (tyInd "Nat")
               (eRel 1)
-              [(pConstr "Zero_coq" [], eRel 0);
-               (pConstr "Suc_coq" ["x0"],
+              [(pConstr "Zero_rocq" [], eRel 0);
+               (pConstr "Suc_rocq" ["x0"],
                 eApp
-                  (eConstr "Nat" "Suc_coq")
+                  (eConstr "Nat" "Suc_rocq")
                   (eApp
                     (eApp (eRel 3) (eRel 0))
                     (eRel 1)))])))
@@ -746,20 +746,20 @@ Module Recursion.
         (eRel 0))
     ].
 
-  MetaCoq Run (translateData [] R_data).
+  MetaRocq Run (translateData [] R_data).
 
-  MetaCoq Run (translateDefs [] (StdLib.Σ ++ R_data)%list R_functions).
+  MetaRocq Run (translateDefs [] (StdLib.Σ ++ R_data)%list R_functions).
 
   Fixpoint Nat_nat (n : Nat) : nat :=
     match n with
-    | Zero_coq => O
-    | Suc_coq n' => S (Nat_nat n')
+    | Zero_rocq => O
+    | Suc_rocq n' => S (Nat_nat n')
     end.
 
   Fixpoint nat_Nat (n : nat) : Nat :=
     match n with
-    | O => Zero_coq
-    | S n' => Suc_coq (nat_Nat n')
+    | O => Zero_rocq
+    | S n' => Suc_rocq (nat_Nat n')
     end.
 
   Lemma Nat_nat_left n : nat_Nat (Nat_nat n) = n.
@@ -810,7 +810,7 @@ Definition id_forall :=
 (** Application [id id] fails, since [A] must be [Set], but type of
  [id] is [forall A, A -> A], which lives in [Type] *)
 (* Compute (expr_to_tc StdLib.Σ (reindexify 0 id_id_syn)). *)
-Fail MetaCoq Run (translateDefs [] [] [("id_id", id_id_syn)]).
+Fail MetaRocq Run (translateDefs [] [] [("id_id", id_id_syn)]).
 (* Illegal application:
 The term "id" of type "forall A : Set, A -> A"
 cannot be applied to the terms

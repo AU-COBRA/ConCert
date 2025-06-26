@@ -1,6 +1,6 @@
 (** * Extraction of Escrow to CameLIGO and liquidity *)
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
@@ -113,13 +113,13 @@ Module EscrowCameLIGOExtraction.
     ; <%% default_error %%>
     ].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
     (CameLIGO_prepare_extraction to_inline TT_remap_ligo
       TT_rename_ligo [] "cctx_instance" ESCROW_MODULE_LIGO).
 
   Time Definition cameLIGO_escrow := Eval vm_compute in cameligo_escrow_prepared.
 
   Redirect "cameligo-extract/EscrowExtract.mligo"
-    MetaCoq Run (tmMsg cameLIGO_escrow).
+    MetaRocq Run (tmMsg cameLIGO_escrow).
 
 End EscrowCameLIGOExtraction.

@@ -116,14 +116,14 @@ Section LQTFA12Types.
   | msg_get_total_supply : getTotalSupply_param -> Msg.
 
   (* begin hide *)
-  MetaCoq Run (make_setters transfer_param).
-  MetaCoq Run (make_setters approve_param).
-  MetaCoq Run (make_setters mintOrBurn_param).
-  MetaCoq Run (make_setters getAllowance_param).
-  MetaCoq Run (make_setters getBalance_param).
-  MetaCoq Run (make_setters getTotalSupply_param).
-  MetaCoq Run (make_setters State).
-  MetaCoq Run (make_setters Setup).
+  MetaRocq Run (make_setters transfer_param).
+  MetaRocq Run (make_setters approve_param).
+  MetaRocq Run (make_setters mintOrBurn_param).
+  MetaRocq Run (make_setters getAllowance_param).
+  MetaRocq Run (make_setters getBalance_param).
+  MetaRocq Run (make_setters getTotalSupply_param).
+  MetaRocq Run (make_setters State).
+  MetaRocq Run (make_setters Setup).
   (* end hide *)
 
   Definition mintedOrBurnedTokens (msg : option Msg) : Z :=

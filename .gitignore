@@ -14,7 +14,7 @@ embedding/**/*.svg
 extraction/**/*.svg
 examples/**/*.svg
 
-##Coq
+##Rocq
 *.vo
 *.vio
 *.vok
@@ -23,9 +23,13 @@ examples/**/*.svg
 *.v.d
 *~
 CoqMakefile
+RocqMakefile
 CoqMakefile.conf
+RocqMakefile.conf
 Makefile.coq
+Makefile.rocq
 Makefile.coq.conf
+Makefile.rocq.conf
 *.a
 *.cma
 *.cmi
@@ -70,6 +74,7 @@ extraction/tests/extracted-code/cameligo-extract/tests/*
 **/src/main.rs
 
 .coq-native/
+.rocq-native/
 .csdp.cache
 .lia.cache
 .nia.cache

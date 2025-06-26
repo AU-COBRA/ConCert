@@ -26,11 +26,11 @@ Module CrowdfundingProperties.
   Open Scope nat.
   Open Scope bool.
 
-  Definition deadline_passed now (s : State_coq) := s.(deadline_coq) <? now.
+  Definition deadline_passed now (s : State_rocq) := s.(deadline_rocq) <? now.
 
-  Definition goal_reached (s : State_coq) := (s.(goal_coq) <=? s.(balance_coq))%Z.
+  Definition goal_reached (s : State_rocq) := (s.(goal_rocq) <=? s.(balance_rocq))%Z.
 
-  Definition funded now (s : State_coq) :=
+  Definition funded now (s : State_rocq) :=
     deadline_passed now s && goal_reached s.
 
   Lemma not_leb n m : ~~ (n <=? m) -> m <? n.
@@ -68,8 +68,8 @@ Module CrowdfundingProperties.
       because we check if the deadline have passed by comparing the deadline recorded in the
       internal state with the current slot number.*)
   Lemma receive_blockchain_state height1 height2 cur_slot fheight1 fheight2 msg st ctx :
-    Receive.receive (Build_chain_coq height1 cur_slot fheight1) ctx msg st =
-    Receive.receive (Build_chain_coq height2 cur_slot fheight2) ctx msg st.
+    Receive.receive (Build_chain_rocq height1 cur_slot fheight1) ctx msg st =
+    Receive.receive (Build_chain_rocq height2 cur_slot fheight2) ctx msg st.
   Proof.
     destruct msg;
       simpl;
@@ -79,17 +79,17 @@ Module CrowdfundingProperties.
   Qed.
 
   (** This function is a simplistic execution environment that performs one step of execution *)
-  Definition run (receive : State_coq -> option (State_coq * list SimpleActionBody_coq)) (init : State_coq)
-    : State_coq * list SimpleActionBody_coq :=
+  Definition run (receive : State_rocq -> option (State_rocq * list SimpleActionBody_rocq)) (init : State_rocq)
+    : State_rocq * list SimpleActionBody_rocq :=
     match receive init with
     | Some (fin, out) => (fin, out)
     | None => (init, []) (* if an error occurs, the state remains the same *)
     end.
 
   (** A wrapper for the assertions about the contract execution *)
-  Definition assertion (pre : State_coq -> Prop)
-             (entry : State_coq -> option (State_coq * list SimpleActionBody_coq))
-             (post : State_coq -> list SimpleActionBody_coq -> Prop) :=
+  Definition assertion (pre : State_rocq -> Prop)
+             (entry : State_rocq -> option (State_rocq * list SimpleActionBody_rocq))
+             (post : State_rocq -> list SimpleActionBody_rocq -> Prop) :=
     forall init, pre init -> exists fin out, run entry init = (fin, out) /\ post fin out.
 
   Notation "{{ P }} c {{ Q }}" := (assertion P c Q) (at level 50).
@@ -103,23 +103,23 @@ Module CrowdfundingProperties.
       {{ fun init =>
          deadline_passed BC.(Current_slot) init
        /\ ~~ (goal_reached init)
-       /\ ~~ init.(done_coq)
-       /\ lookup_map init.(donations_coq) sender = Some v }}
+       /\ ~~ init.(done_rocq)
+       /\ lookup_map init.(donations_rocq) sender = Some v }}
 
         (* contract call *)
-       Receive.receive BC CallCtx Claim_coq
+       Receive.receive BC CallCtx Claim_rocq
 
        (* post-condition *)
-       {{fun fin out => lookup_map fin.(donations_coq) sender = Some 0%Z
+       {{fun fin out => lookup_map fin.(donations_rocq) sender = Some 0%Z
          /\ In (Act_transfer sender v) out}}.
   Proof.
     unfold assertion. intros init H. simpl.
     destruct H as [Hdl [Hgoal [Hndone Hlook]]].
     unfold deadline_passed,goal_reached in *; simpl in *.
     repeat eexists. unfold run. simpl.
-    assert (balance_coq init <? goal_coq init = true)%Z by now apply Znot_leb.
+    assert (balance_rocq init <? goal_rocq init = true)%Z by now apply Znot_leb.
     repeat destruct (_ <? _)%Z; tryfalse. destruct (_ <? _); tryfalse.
-    destruct (~~ done_coq _)%bool; tryfalse.
+    destruct (~~ done_rocq _)%bool; tryfalse.
     destruct (lookup_map _ _); tryfalse; inversion Hlook; subst; clear Hlook.
     repeat split; cbn. apply lookup_map_add. now constructor.
   Qed.
@@ -130,17 +130,17 @@ Module CrowdfundingProperties.
         (donation := CallCtx.(Ctx_amount)) :
 
     {{ fun init =>
-          sender ∉ init.(donations_coq) (* the sender have not donated before *)
+          sender ∉ init.(donations_rocq) (* the sender have not donated before *)
        /\ ~~ deadline_passed BC.(Current_slot) init }}
 
       (* contract call *)
-    Receive.receive BC CallCtx Donate_coq
+    Receive.receive BC CallCtx Donate_rocq
 
     {{ fun fin out =>
          (* nothing gets transferred *)
          out = []
          (* donation has been accepted *)
-         /\ lookup_map fin.(donations_coq) sender = Some donation }}.
+         /\ lookup_map fin.(donations_rocq) sender = Some donation }}.
   Proof.
     unfold assertion. intros init H. simpl.
     destruct H as [Hnew_sender Hdl].
@@ -161,17 +161,17 @@ Module CrowdfundingProperties.
         (new_don := CallCtx.(Ctx_amount)) old_don :
     {{ fun init =>
          (* the sender has already donated before *)
-         lookup_map init.(donations_coq) sender = Some old_don
+         lookup_map init.(donations_rocq) sender = Some old_don
 
        /\ ~~ deadline_passed BC.(Current_slot) init }}
 
-     Receive.receive BC CallCtx Donate_coq
+     Receive.receive BC CallCtx Donate_rocq
 
     {{ fun fin out =>
          (* nothing gets transferred *)
          out = []
          (* donation has been added *)
-       /\ lookup_map fin.(donations_coq) sender = Some (old_don + new_don)%Z }}.
+       /\ lookup_map fin.(donations_rocq) sender = Some (old_don + new_don)%Z }}.
   Proof.
     unfold assertion. intros init H. simpl.
     subst sender new_don.
@@ -186,7 +186,7 @@ Module CrowdfundingProperties.
     repeat split; simpl; eauto. now rewrite lookup_map_add.
   Qed.
 
-  Fixpoint sum_map (m : addr_map_coq) : Z :=
+  Fixpoint sum_map (m : addr_map_rocq) : Z :=
     match m with
     | mnil => 0
     | mcons _ v m' => v + sum_map m'
@@ -250,7 +250,7 @@ Module CrowdfundingProperties.
 
   Definition consistent_balance_deadline current_slot state :=
     ~~ deadline_passed current_slot state ->
-  sum_map (donations_coq state) = balance_coq state.
+  sum_map (donations_rocq state) = balance_rocq state.
 
 
   (** This lemma holds for any message *)
@@ -281,7 +281,7 @@ Module CrowdfundingProperties.
       unfold consistent_balance_deadline in *.
       unfold deadline_passed in *.
       unfold run. simpl.
-      destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
+      destruct (deadline_rocq init <? Current_slot BC) eqn:Hdl.
       ** (* it is not possible to get funds before the deadline, so the state is not modified *)
          (match goal with
           | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
@@ -293,7 +293,7 @@ Module CrowdfundingProperties.
       unfold consistent_balance_deadline in *.
       unfold deadline_passed in *.
       unfold run. simpl.
-      destruct (deadline_coq init <? Current_slot BC) eqn:Hdl.
+      destruct (deadline_rocq init <? Current_slot BC) eqn:Hdl.
       ** (* it is not possible to get funds before the deadline, so the state is not modified *)
          (match goal with
           | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
@@ -304,8 +304,8 @@ Module CrowdfundingProperties.
   Qed.
 
   Definition consistent_balance state :=
-    ~~ state.(done_coq) ->
-  sum_map (donations_coq state) = balance_coq state.
+    ~~ state.(done_rocq) ->
+  sum_map (donations_rocq state) = balance_rocq state.
 
 
   (** This lemma holds for any message *)
@@ -342,9 +342,9 @@ Module CrowdfundingProperties.
       unfold consistent_balance in *.
       unfold deadline_passed in *.
       unfold run. simpl.
-      destruct (done_coq _) eqn:Hdone.
+      destruct (done_rocq _) eqn:Hdone.
       * rewrite Bool.andb_false_r. repeat eexists; eauto.
-        intros. destruct (done_coq _); tryfalse.
+        intros. destruct (done_rocq _); tryfalse.
       * (match goal with
          | [ |- context[(if ?x then _ else _)]] => destruct x eqn:Hx
          end);
@@ -352,7 +352,7 @@ Module CrowdfundingProperties.
         cbn. now apply sum_map_sub_in.
   Qed.
 
-  Definition donations_non_neg init := map_forallb (Z.leb 0%Z) init.(donations_coq) = true.
+  Definition donations_non_neg init := map_forallb (Z.leb 0%Z) init.(donations_rocq) = true.
 
   Lemma non_neg_add_in m : forall n0 (v' : Z) k,
       (0 <= v')%Z ->
@@ -457,18 +457,18 @@ Module CrowdfundingProperties.
 
   Lemma GetFunds_correct BC CallCtx (OwnerAddr := CallCtx.(Ctx_from)) (funds : Z) :
     {{ fun init => funded BC.(Current_slot) init
-       /\ init.(owner_coq) =? OwnerAddr
-       /\ balance_coq init = funds }}
+       /\ init.(owner_rocq) =? OwnerAddr
+       /\ balance_rocq init = funds }}
 
-    Receive.receive BC CallCtx GetFunds_coq
+    Receive.receive BC CallCtx GetFunds_rocq
 
     {{ fun fin out =>
        (* the money are sent back *)
        In (Act_transfer OwnerAddr funds) out
        (* set balance to 0 after withdrawing by the owner *)
-       /\ fin.(balance_coq) = 0%Z
+       /\ fin.(balance_rocq) = 0%Z
        (* set the "done" flag *)
-       /\ fin.(done_coq) = true}}.
+       /\ fin.(done_rocq) = true}}.
   Proof.
     unfold assertion. intros init H. simpl.
     destruct H as [Hfunded [Hown Hbalance]]. unfold funded,goal_reached,deadline_passed in *.
@@ -483,10 +483,10 @@ Module CrowdfundingProperties.
   Lemma no_claim_if_succeeded BC CallCtx the_state :
     {{ fun init =>
          funded BC.(Current_slot) init
-         /\ ~~ init.(done_coq)
+         /\ ~~ init.(done_rocq)
          /\ init = the_state }}
 
-      Receive.receive BC CallCtx Claim_coq
+      Receive.receive BC CallCtx Claim_rocq
 
     (* Nothing happens - the stated stays the same and no outgoing transfers *)
     {{ fun fin out => fin = the_state /\ out = [] }}.
@@ -507,16 +507,16 @@ Module CrowdfundingProperties.
 
   (** Backers cannot claim their money if the contract is marked as "done" *)
   Lemma no_claim_after_done BC CallCtx the_state :
-    {{ fun init => init.(done_coq) /\ init = the_state }}
+    {{ fun init => init.(done_rocq) /\ init = the_state }}
 
-     Receive.receive BC CallCtx Claim_coq
+     Receive.receive BC CallCtx Claim_rocq
     (* Nothing happens - the stated stays the same and no outgoing transfers *)
     {{ fun fin out => fin = the_state /\ out = [] }}.
   Proof.
     unfold assertion. intros init H. simpl. destruct H. subst.
     unfold funded,deadline_passed,goal_reached in *. subst. simpl in *.
     exists the_state. eexists.
-    unfold run. simpl in *. destruct (done_coq _); tryfalse. simpl in *.
+    unfold run. simpl in *. destruct (done_rocq _); tryfalse. simpl in *.
     now rewrite Bool.andb_false_r.
   Qed.
 

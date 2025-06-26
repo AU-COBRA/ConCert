@@ -1,10 +1,10 @@
 (** Proofs of correctness *)
-From MetaCoq.Utils Require Import MCUtils.
-From MetaCoq.PCUIC Require Import PCUICAst.
-From MetaCoq.PCUIC Require Import PCUICAstUtils.
-From MetaCoq.PCUIC Require Import PCUICLiftSubst.
-From MetaCoq.PCUIC Require Import PCUICTyping.
-From MetaCoq.PCUIC Require Import PCUICSubstitution.
+From MetaRocq.Utils Require Import MRUtils.
+From MetaRocq.PCUIC Require Import PCUICAst.
+From MetaRocq.PCUIC Require Import PCUICAstUtils.
+From MetaRocq.PCUIC Require Import PCUICLiftSubst.
+From MetaRocq.PCUIC Require Import PCUICTyping.
+From MetaRocq.PCUIC Require Import PCUICSubstitution.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EvalE.

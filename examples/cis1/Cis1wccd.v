@@ -61,7 +61,7 @@ Section WccdToken.
     }.
 
   (* begin hide *)
-  MetaCoq Run (make_setters AddressState).
+  MetaRocq Run (make_setters AddressState).
   (* end hide *)
 
 
