@@ -33,7 +33,7 @@ clean:
 	rm -rf docs
 .PHONY: clean
 
-install: all
+install: core
 	+make -C utils install
 	+make -C execution install
 	+make -C embedding install
