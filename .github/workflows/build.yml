@@ -128,7 +128,7 @@ jobs:
 
       - name: Prepare documentation for deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: docs
 
