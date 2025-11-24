@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch ${{ github.ref_name }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: sudo apt-get update
       - name: Restore opam cache
