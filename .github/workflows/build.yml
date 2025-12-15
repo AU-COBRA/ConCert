@@ -140,7 +140,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download extraction results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: extraction-results
           path: extraction/tests/extracted-code
