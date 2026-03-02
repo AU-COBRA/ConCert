@@ -10,3 +10,4 @@ proc-macro = true
 syn = { version = "1.0.63", features = ["full", "extra-traits"] }
 quote = "=1.0.0"
 proc-macro2 = "1.0"
+unicode-ident = "=1.0.22"

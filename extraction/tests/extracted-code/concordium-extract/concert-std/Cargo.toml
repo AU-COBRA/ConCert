@@ -10,6 +10,7 @@ crate-type = ["rlib"]
 bumpalo = "=3.14.0"
 concert-std-derive = { path = "../concert-std-derive" }
 immutable-map = "0.1.2"
+unicode-ident = "=1.0.22"
 
 [patch.crates-io]
 concordium-std-derive = { git = "https://github.com/Concordium/concordium-rust-smart-contracts", rev="4d4b024b547a1f120f6d6951cbc409c94f8f146a" }
