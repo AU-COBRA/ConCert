@@ -20,10 +20,10 @@ From ConCert.Execution Require Import InterContractCommunication.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.Dexter2 Require Import Dexter2FA12. Import DEX2LQT.
-From Coq Require Import ZArith_base.
-From Coq Require Import Bool.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import Lia.
 
 
 

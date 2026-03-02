@@ -7,8 +7,8 @@ From ConCert.Execution.Test Require Import LocalBlockchain.
 From QuickChick Require Import QuickChick.
 #[warnings="-notation-incompatible-prefix"]
 Import QcNotation. Import MonadNotation. Import BindOptNotation.
-From Coq Require Import ZArith.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 
 Import BoundedN.Stdpp.
 
@@ -170,6 +170,9 @@ Definition chainstep_states {prev_bstate next_bstate}
 
 (* Utils for Show instances *)
 Open Scope string_scope.
+(* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
+(* TODO: reenable non-recursive warning once fixed upstream in Quickchick*)
+#[warnings="-non-recursive,-deprecated-dirpath-Coq"]
 Derive Show for unit.
 
 Definition deserialize_to_string {ty : Type}

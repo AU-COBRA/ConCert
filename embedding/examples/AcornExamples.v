@@ -6,11 +6,11 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import TranslationUtils.
-From Coq Require Import ZArith.
-From Coq Require Import Basics.
-From Coq Require Import String.
-From Coq Require Import List.
-From Coq Require Import PeanoNat.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Basics.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
+From Stdlib Require Import PeanoNat.
 
 Import MCMonadNotation.
 Import ListNotations.

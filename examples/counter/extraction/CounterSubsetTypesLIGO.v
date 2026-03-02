@@ -11,9 +11,9 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Utils Require Import Automation.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
-From Coq Require Import ZArith.
-From Coq Require Import Bool.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
+From Stdlib Require Import Lia.
 
 Import MCMonadNotation.
 

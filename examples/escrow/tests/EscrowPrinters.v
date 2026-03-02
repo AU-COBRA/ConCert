@@ -8,7 +8,13 @@ From ConCert.Examples.Escrow Require Import Escrow.
 
 Local Open Scope string_scope.
 
+(* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
+(* TODO: reenable non-recursive warning once fixed upstream in Quickchick*)
+#[warnings="-non-recursive,-deprecated-dirpath-Coq"]
 Derive Show for NextStep.
+(* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
+(* TODO: reenable non-recursive warning once fixed upstream in Quickchick*)
+#[warnings="-non-recursive,-deprecated-dirpath-Coq"]
 Derive Show for Msg.
 
 #[export]

@@ -12,10 +12,10 @@
     The BAT contract is a combination of a EIP20 token contract and a crowdsale contract.
     The types and definitions in this file extends the EIP20 contract implemented in [ConCert.Execution.Examples.EIP20Token].
 *)
-From Coq Require Import Lia.
-From Coq Require Import List.
-From Coq Require Import Permutation.
-From Coq Require Import ZArith.
+From Stdlib Require Import Lia.
+From Stdlib Require Import List.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import ZArith.
 From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.

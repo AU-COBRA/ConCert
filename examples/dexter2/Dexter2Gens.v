@@ -8,8 +8,8 @@ From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Examples.Dexter2 Require Import Dexter2CPMM.
 From ConCert.Examples.Dexter2 Require Import Dexter2Printers.
 Import MonadNotation.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 Module Type Dexter2Info.
   Parameter accounts : list Address.

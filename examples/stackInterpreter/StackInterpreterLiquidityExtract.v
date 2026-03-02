@@ -7,7 +7,7 @@ From ConCert.Extraction Require LiquidityPretty.
 From ConCert.Extraction Require LiquidityExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
 From ConCert.Utils Require Import BSEnv.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
 Import MCMonadNotation.
 Import Interpreter.

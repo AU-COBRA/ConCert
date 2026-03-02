@@ -10,9 +10,9 @@ From MetaCoq.Erasure.Typed Require Import Extraction.
 From MetaCoq.Erasure.Typed Require Import ResultMonad.
 From MetaCoq.Common Require Import Kernames.
 From MetaCoq.Template Require Import All.
-From Coq Require Import List.
-From Coq Require Import Lia.
-From Coq Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Lia.
+From Stdlib Require Import ZArith.
 
 Import MCMonadNotation.
 

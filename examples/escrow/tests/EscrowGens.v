@@ -8,8 +8,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Escrow Require Import Escrow.
 Import MonadNotation.
-From Coq Require Import ZArith.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 
 Module Type EscrowGensInfo.
   Parameter contract_addr : Address.

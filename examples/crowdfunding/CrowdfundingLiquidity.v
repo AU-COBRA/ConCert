@@ -1,6 +1,6 @@
 (** * Extraction of a crowdfunding contract *)
 
-From Coq Require Import ZArith.
+From Stdlib Require Import ZArith.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LiquidityPretty.

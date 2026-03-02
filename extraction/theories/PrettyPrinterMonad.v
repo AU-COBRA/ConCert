@@ -1,4 +1,4 @@
-From Coq Require Import List.
+From Stdlib Require Import List.
 From MetaCoq.Utils Require Import monad_utils.
 From MetaCoq.Utils Require Import bytestring.
 From MetaCoq.SafeChecker Require Import PCUICErrors.

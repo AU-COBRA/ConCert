@@ -10,8 +10,8 @@ From QuickChick Require Import QuickChick.
 #[warnings="-notation-incompatible-prefix"]
 Import QcNotation.
 
-From Coq Require Import ZArith.
-From Coq Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List. Import ListNotations.
 Import BoundedN.Stdpp.
 
 Definition Base := TestUtils.LocalChainBase.
@@ -24,8 +24,13 @@ Open Scope string_scope.
 Definition sep : string := ", ".
 
 (* Derive Show for positive. *)
+(* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
+#[warnings=",-deprecated-dirpath-Coq"]
 Derive Show for SerializedType.
 
+(* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
+(* TODO: reenable non-recursive warning once fixed upstream in Quickchick*)
+#[warnings="-non-recursive,-deprecated-dirpath-Coq"]
 Derive Show for result.
 
 #[export]

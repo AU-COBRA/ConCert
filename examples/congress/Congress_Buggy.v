@@ -5,9 +5,9 @@ version can send out too many transactions. This is done by
 constructing a contract that actually exploits this version of the
 Congress and then just asking Coq to compute. *)
 
-From Coq Require Import ZArith.
-From Coq Require Import Psatz.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Psatz.
+From Stdlib Require Import List.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import BoundedN.
 From ConCert.Execution Require Import Containers.

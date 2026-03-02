@@ -9,8 +9,8 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
 
 
 

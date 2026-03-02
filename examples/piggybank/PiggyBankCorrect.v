@@ -13,9 +13,9 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import BuildUtils.
 
-From Coq Require Import List. Import ListNotations.
-From Coq Require Import ZArith_base.
-From Coq Require Import Lia.
+From Stdlib Require Import List. Import ListNotations.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Lia.
 
 (** A few tactics to make the proofs more manageable and more transparent *)
 Ltac insert_reduce :=
@@ -503,7 +503,7 @@ Section SafetyProperties.
           apply H with (addr := caddr) in reach as balance_pos; clear H.
           rewrite !Z.add_0_r in balance.
           apply Zminus_eq in balance.
-          
+
           (* Finally we need to evaluate the new transfer action that finalize produced *)
           evaluate_transfer; try easy.
           -- lia.
@@ -516,7 +516,7 @@ Section SafetyProperties.
                 lia.
               }
               clear balance_pos.
-              update_all. 
+              update_all.
               exists bstate.
               split; auto.
               split; try now rewrite queue0.

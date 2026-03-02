@@ -19,11 +19,11 @@
 
     Pattern-matching: pattern-matching on pairs is not supported by Liquidity,
     so all the programs must use projections. *)
-From Coq Require Import Basics.
-From Coq Require Import List.
-From Coq Require Import ssrfun.
-From Coq Require Import ZArith.
-From Coq.Strings Require Import Byte.
+From Stdlib Require Import Basics.
+From Stdlib Require Import List.
+From Stdlib Require Import ssrfun.
+From Stdlib Require Import ZArith.
+From Stdlib.Strings Require Import Byte.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import BytestringExtra.

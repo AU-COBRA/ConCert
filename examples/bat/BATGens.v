@@ -6,8 +6,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATPrinters.
 From ConCert.Examples.EIP20 Require Import EIP20TokenGens.
-From Coq Require Import List.
-From Coq Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import ZArith.
 Import ListNotations.
 Import MonadNotation.
 

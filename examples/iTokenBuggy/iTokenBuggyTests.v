@@ -6,8 +6,8 @@ From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggy.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyPrinters.
 From ConCert.Examples.iTokenBuggy Require Import iTokenBuggyGens.
-From Coq Require Import ZArith.
-From Coq Require Import List.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
 Import ListNotations.
 
 

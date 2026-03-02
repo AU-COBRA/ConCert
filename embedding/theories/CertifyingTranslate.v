@@ -8,9 +8,9 @@ From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
-From Coq Require Import Basics.
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import Basics.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 
 Import ListNotations.
 Import NamelessSubst.
@@ -48,7 +48,7 @@ Definition my_negb_syn :=
 MetaCoq Unquote Definition my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
 (** We prove that the running the interpreter with [my_negb_syn] applied
-    to an expression originating from Coq' boolean value computes the same
+    to an expression originating From Stdlib' boolean value computes the same
     result as the unquoted function [my_negb]. As a result, we do not
     depend on correctness of [unquote] *)
 Lemma my_negb_correct b :

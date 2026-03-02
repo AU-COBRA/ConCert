@@ -6,8 +6,8 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import TranslationUtils.
 From ConCert.Embedding Require Import Utils.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
-From Coq Require Import String.
-From Coq Require Import List.
+From Stdlib Require Import String.
+From Stdlib Require Import List.
 
 From MetaCoq.Template Require Import All.
 

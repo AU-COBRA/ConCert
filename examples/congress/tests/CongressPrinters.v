@@ -3,7 +3,7 @@ From ConCert.Execution Require Import Serializable.
 #[warnings="-notation-incompatible-prefix"]
 From ConCert.Execution.Test Require Import QCTest.
 From ConCert.Examples.Congress Require Import Congress.
-From Coq Require Import List.
+From Stdlib Require Import List.
 Open Scope string_scope.
 
 Arguments SerializedValue : clear implicits.

@@ -7,10 +7,10 @@ From ConCert.Embedding Require Import SimpleBlockchain.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
 From ConCert.Examples.Crowdfunding Require Import Crowdfunding.
 From ConCert.Utils Require Import Automation.
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import ssrbool.
-From Coq Require Import Lia.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import ssrbool.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 Import Prelude.Maps.

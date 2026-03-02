@@ -56,12 +56,12 @@ The next types deal with semantics.
   where these implementations need to prove that they satisfy our semantics.
 *)
 
-From Coq Require Import ZArith.
-From Coq Require Import List.
-From Coq Require Import Psatz.
-From Coq Require Import Permutation.
-From Coq Require Import Morphisms.
-From Coq Require Import String.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List.
+From Stdlib Require Import Psatz.
+From Stdlib Require Import Permutation.
+From Stdlib Require Import Morphisms.
+From Stdlib Require Import String.
 From ConCert.Execution Require Import ChainedList.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.

@@ -1,6 +1,6 @@
 (** This file defines some helpful notations for monads. *)
-From Coq Require Import List.
-From Coq Require Import Basics.
+From Stdlib Require Import List.
+From Stdlib Require Import Basics.
 
 Class Monad (m : Type -> Type) : Type :=
 build_monad {

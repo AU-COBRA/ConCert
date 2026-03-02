@@ -7,7 +7,7 @@ From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require CameLIGOPretty.
 From ConCert.Extraction Require CameLIGOExtract.
 From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
-From Coq Require Import ZArith_base.
+From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
 Import MCMonadNotation.
 Import Interpreter.

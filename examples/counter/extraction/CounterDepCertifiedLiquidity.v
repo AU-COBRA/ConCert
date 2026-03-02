@@ -14,8 +14,8 @@ From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
 From MetaCoq.Erasure.Typed Require Import CertifyingEta.
-From Coq Require Import ZArith.
-From Coq Require Import Bool.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import Bool.
 
 Import MCMonadNotation.
 

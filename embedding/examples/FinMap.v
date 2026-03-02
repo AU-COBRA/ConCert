@@ -1,7 +1,7 @@
 (** * Finite maps  *)
 
-From Coq Require Import FMaps.
-From Coq Require Import String.
+From Stdlib Require Import FMaps.
+From Stdlib Require Import String.
 Import ListNotations.
 From MetaCoq.Template Require Import All.
 
