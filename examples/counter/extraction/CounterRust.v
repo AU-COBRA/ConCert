@@ -1,7 +1,7 @@
 From ConCert.Examples.Counter Require Counter.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
-From RustExtraction Require Import RustExtract.
+From TypedExtraction Require Import RustExtract.
 From Stdlib Require Import Bool.
 From MetaRocq.Template Require Import All.
 

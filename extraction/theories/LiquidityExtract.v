@@ -66,7 +66,7 @@ Definition extract_template_env_specialize
            (ignore : kername -> bool) : result_string _ :=
   let Σ := TemplateToPCUIC.trans_global_env Σ in
   Σ <- specialize_ChainBase_env (PCUICProgram.trans_env_env Σ) ;;
-  wfΣ <- check_wf_env_func extract_within_rocq Σ;;
+  wfΣ <- check_wf_env_func extract_within_coq Σ;;
   extract_pcuic_env (pcuic_args params) Σ wfΣ seeds ignore.
 
 (* Extract an environment with some minimal checks. This assumes the environment
@@ -222,7 +222,7 @@ Definition liquidity_call_ctx : string :=
     Current.balance ())))".
 
 Definition liquidity_extract_args :=
-  {| check_wf_env_func := check_wf_env_func extract_within_rocq;
+  {| check_wf_env_func := check_wf_env_func extract_within_coq;
      template_transforms := [];
      pcuic_args :=
        {| optimize_prop_discr := true;

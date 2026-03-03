@@ -92,7 +92,7 @@ Program Definition annot_extract_template_env_specalize
            (ignore : list kername) : result_string (∑ e, env_annots box_type e) :=
   let e := TemplateToPCUIC.trans_global_env e in
   e <- specialize_ChainBase_env (PCUICProgram.trans_env_env e) ;;
-  wfe <-check_wf_env_func extract_within_rocq e;;
+  wfe <-check_wf_env_func extract_within_coq e;;
   annot_extract_env_cameligo e wfe seeds ignore.
 
 

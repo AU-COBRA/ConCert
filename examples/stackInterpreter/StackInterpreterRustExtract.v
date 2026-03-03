@@ -1,9 +1,9 @@
 From ConCert.Examples.StackInterpreter Require Import StackInterpreter.
-From RustExtraction Require Import RustExtract.
-From RustExtraction Require Import Printing.
+From TypedExtraction Require Import RustExtract.
+From TypedExtraction Require Import Printing.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import ConcordiumExtract.
-From RustExtraction Require Import StringExtra.
+From TypedExtraction Require Import StringExtra.
 From MetaRocq.Template Require Import All.
 From MetaRocq.TemplatePCUIC Require Import PCUICToTemplate.
 From MetaRocq.Utils Require Import bytestring.

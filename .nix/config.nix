@@ -6,15 +6,14 @@
 
   no-rocq-yet = true;
 
-  default-bundle = "9.0";
+  default-bundle = "9.1";
 
-  bundles."9.0" = {
-    coqPackages.coq.override.version = "9.0";
-    coqPackages.metarocq.override.version = "1.4-9.0.1";
+  bundles."9.1" = {
+    coqPackages.coq.override.version = "9.1";
+    coqPackages.metarocq.override.version = "1.4.1-9.1";
     coqPackages.stdpp.override.version = "1.12.0";
     coqPackages.QuickChick.override.version = "2.1.1";
-    coqPackages.RustExtraction.override.version = "0.1.1";
-    coqPackages.ElmExtraction.override.version = "0.1.1";
+    coqPackages.TypedExtraction.override.version = "0.2.0";
   };
 
   cachix.coq = {};

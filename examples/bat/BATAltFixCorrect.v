@@ -290,7 +290,7 @@ Section Theories.
   Proof.
     intros * receive_some account account_not_sender.
     contract_simpl.
-    setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
+    rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
     now setoid_rewrite FMap.find_add_ne.
   Qed.
 
@@ -372,7 +372,7 @@ Section Theories.
   Proof.
     intros * receive_some.
     contract_simpl.
-    setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto. cbn.
+    rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto. cbn.
     destruct (FMap.find (batFundDeposit prev_state) (balances prev_state)) eqn:from_balance;
       setoid_rewrite from_balance;
       setoid_rewrite FMap.find_add; cbn;
@@ -395,7 +395,7 @@ Section Theories.
   Proof.
     intros * receive_some account account_not_batfund.
     contract_simpl.
-    setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
+    rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
     now setoid_rewrite FMap.find_add_ne.
   Qed.
 
@@ -612,7 +612,7 @@ Section Theories.
     contract_simpl.
     unfold EIP20Token.sum_balances.
     cbn in *.
-    setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
+    rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
     destruct (FMap.find (ctx_from ctx) (balances prev_state)) eqn:from_balance.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
@@ -632,7 +632,7 @@ Section Theories.
     intros * receive_some.
     contract_simpl.
     unfold EIP20Token.sum_balances. cbn.
-    setoid_rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
+    rewrite EIP20TokenCorrect.add_is_partial_alter_plus; auto.
     destruct (FMap.find (batFundDeposit prev_state) (balances prev_state)) eqn:from_balance.
     - setoid_rewrite from_balance.
       setoid_rewrite FMap.elements_add_existing; eauto.
@@ -935,7 +935,7 @@ Section Theories.
       update_all.
       (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
         So now we can add a new block containing a finalize call *)
-      add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list.Forall_singleton, address_eq_refl.
+      add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list_relations.Forall_singleton, address_eq_refl.
       (* The hypothesis "slot_hit" no longer holds, so we have to update it manually before calling update_all *)
       update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
         (rewrite_environment_equiv; cbn; easy).
@@ -1090,7 +1090,7 @@ Section Theories.
         apply empty_queue_is_emptyable.
       + clear reward Hreward creator Hcreator.
         apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
-        apply list.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
+        apply list_relations.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
 
         (* Check if funding goal was already hit *)
         destruct (tokenCreationMin cstate - total_supply cstate) eqn:tokens_left_to_fund.
@@ -1266,7 +1266,7 @@ Section Theories.
           batfund_not_caddr
           ethfund_not_caddr.
 
-    add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto. apply list.Forall_singleton, address_eq_refl.
+    add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto. apply list_relations.Forall_singleton, address_eq_refl.
     update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
       (rewrite_environment_equiv; cbn; lia).
     update bstate with bstate0 in enough_balance_to_fund by

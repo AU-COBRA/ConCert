@@ -2,13 +2,13 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
-From ElmExtraction Require Import Common.
-From ElmExtraction Require Import ElmExtract.
+From TypedExtraction Require Import Common.
+From TypedExtraction Require Import ElmExtract.
 From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
 From MetaRocq.Erasure.Typed Require Import Extraction.
 From MetaRocq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ElmExtraction Require Import PrettyPrinterMonad.
+From TypedExtraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
 From MetaRocq.Common Require Import Kernames.
 From MetaRocq.Template Require Import All.
@@ -58,7 +58,7 @@ Definition should_inline kn :=
   || if String.index 0 "setter_from_getter" (string_of_kername kn) then true else false.
 
 Definition extract_params :=
-  {| check_wf_env_func := check_wf_env_func extract_within_rocq;
+  {| check_wf_env_func := check_wf_env_func extract_within_coq;
      template_transforms := [template_inline should_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;

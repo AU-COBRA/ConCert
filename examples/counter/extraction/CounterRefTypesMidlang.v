@@ -3,9 +3,9 @@
 (** The contract uses refinement types to specify some functional correctness properties *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
-From ElmExtraction Require Import Common.
-From ElmExtraction Require Import ElmExtract.
-From ElmExtraction Require Import PrettyPrinterMonad.
+From TypedExtraction Require Import Common.
+From TypedExtraction Require Import ElmExtract.
+From TypedExtraction Require Import PrettyPrinterMonad.
 From MetaRocq.Erasure.Typed Require Import Extraction.
 From MetaRocq.Erasure.Typed Require Import ResultMonad.
 From MetaRocq.Common Require Import Kernames.
