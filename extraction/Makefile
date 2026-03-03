@@ -1,8 +1,8 @@
 all: theory
 .PHONY: all
 
-RocqMakefile: _CoqProject
-	rocq makefile -f _CoqProject -o RocqMakefile
+RocqMakefile: _RocqProject
+	rocq makefile -f _RocqProject -o RocqMakefile
 
 theory: RocqMakefile
 	+@make -f RocqMakefile
@@ -34,7 +34,7 @@ force: ;
 all: theory process-extraction-examples
 
 # Do not forward these files
-Makefile _CoqProject: ;
+Makefile _RocqProject: ;
 
 process-extraction-examples: theory
 	./process-extraction-examples.sh

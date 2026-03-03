@@ -105,11 +105,11 @@ dependency-graphs: utils execution embedding extraction examples
 
 file-dependency-graph:
 	@echo "Generate dot files"
-	@rocq dep -dumpgraph utils-file-dep.dot -f utils/_CoqProject >/dev/null 2>&1
-	@rocq dep -dumpgraph execution-file-dep.dot -f execution/_CoqProject >/dev/null 2>&1
-	@rocq dep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
-	@rocq dep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
-	@rocq dep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph utils-file-dep.dot -f utils/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph execution-file-dep.dot -f execution/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph embedding-file-dep.dot -f embedding/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph extraction-file-dep.dot -f extraction/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph examples-file-dep.dot -f examples/_RocqProject >/dev/null 2>&1
 
 	@echo "Add node colors"
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp

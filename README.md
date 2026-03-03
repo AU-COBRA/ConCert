@@ -86,7 +86,7 @@ embedding, extraction, and tests. Extracted smart contracts can be found
 
 The project consists of four subprojects: `embedding`, `execution`, `extraction`,
 and `examples` located in the corresponding folders.
-Each subproject has its own `_CoqProject` file and `Makefile`.
+Each subproject has its own `_RocqProject` file and `Makefile`.
 The `Makefile` in the root folder dispatches the calls to the corresponding subproject.
 
 ## Documentation

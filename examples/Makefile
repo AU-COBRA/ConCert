@@ -1,8 +1,8 @@
 all: examples process-extraction-examples
 .PHONY: all
 
-RocqMakefile: _CoqProject
-	rocq makefile -f _CoqProject -o RocqMakefile
+RocqMakefile: _RocqProject
+	rocq makefile -f _RocqProject -o RocqMakefile
 
 examples: RocqMakefile
 	+@make -f RocqMakefile
@@ -33,7 +33,7 @@ quick: RocqMakefile
 force: ;
 
 # Do not forward these files
-Makefile _CoqProject: ;
+Makefile _RocqProject: ;
 
 process-extraction-examples: examples
 	cd ../extraction && ./process-extraction-examples.sh
