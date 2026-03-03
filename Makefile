@@ -33,18 +33,27 @@ clean:
 	rm -rf docs
 .PHONY: clean
 
-install: core
+install:
 	+make -C utils install
 	+make -C execution install
 	+make -C embedding install
 	+make -C extraction install
 .PHONY: install
 
+install-examples:
+	+make -C examples install
+.PHONY: install-examples
+
 uninstall:
 	+make -C utils uninstall
 	+make -C execution uninstall
 	+make -C embedding uninstall
 	+make -C extraction uninstall
+.PHONY: uninstall
+
+uninstall-examples:
+	+make -C examples uninstall
+.PHONY: uninstall-examples
 
 vos:
 	+make -C utils vos
@@ -59,9 +68,11 @@ quick:
 	+make -C embedding quick
 	+make -C extraction quick
 	+make -C examples quick
+.PHONY: quick
 
 QuickChick: examples
 	+make -C examples QuickChick
+.PHONY: QuickChick
 
 test-extraction:
 	+make -C extraction test-extraction
@@ -90,6 +101,7 @@ dependency-graphs: utils execution embedding extraction examples
 	+make -C embedding dep-graphs-svg
 	+make -C extraction dep-graphs-svg
 	+make -C examples dep-graphs-svg
+.PHONY: dependency-graphs
 
 file-dependency-graph:
 	@echo "Generate dot files"
@@ -127,6 +139,7 @@ file-dependency-graph:
 
 	@echo "Convert to SVG"
 	@dot -Tsvg -o file-dep.svg file-dep.dot ; rm -f file-dep.dot
+.PHONY: file-dependency-graph
 
 html: all
 	rm -rf docs
