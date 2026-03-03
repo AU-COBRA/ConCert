@@ -1,0 +1,150 @@
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+-arg "-output-dir ../extraction/tests/extracted-code/"
+
+-R ../utils/theories ConCert.Utils
+-R ../execution/theories ConCert.Execution
+-R ../execution/test ConCert.Execution.Test
+-R ../embedding/theories ConCert.Embedding
+-R ../embedding/extraction ConCert.Embedding.Extraction
+-R ../extraction/theories ConCert.Extraction
+
+-Q eip20 ConCert.Examples.EIP20
+eip20/EIP20Token.v
+eip20/EIP20TokenCorrect.v
+eip20/EIP20TokenGens.v
+eip20/EIP20TokenPrinters.v
+eip20/EIP20TokenTests.v
+eip20/EIP20LiquidityExtraction.v
+eip20/EIP20CameLIGOExtraction.v
+
+-Q bat ConCert.Examples.BAT
+bat/BATCommon.v
+bat/BAT.v
+bat/BATFixed.v
+bat/BATAltFix.v
+bat/BATCorrect.v
+bat/BATFixedCorrect.v
+bat/BATAltFixCorrect.v
+bat/BATPrinters.v
+bat/BATGens.v
+bat/BATTestCommon.v
+bat/BATTests.v
+bat/BATFixedTests.v
+bat/BATAltFixTests.v
+
+-Q fa2 ConCert.Examples.FA2
+fa2/FA2Interface.v
+fa2/FA2LegacyInterface.v
+fa2/FA2Token.v
+fa2/TestContracts.v
+fa2/FA2Printers.v
+fa2/FA2Gens.v
+fa2/FA2TokenTests.v
+
+-Q fa1_2 ConCert.Examples.FA1_2
+fa1_2/FA1_2.v
+fa1_2/FA1_2Correct.v
+
+-Q dexter ConCert.Examples.Dexter
+dexter/Dexter.v
+dexter/DexterPrinters.v
+dexter/DexterGens.v
+dexter/DexterTests.v
+
+-Q dexter2 ConCert.Examples.Dexter2
+dexter2/Dexter2FA12.v
+dexter2/Dexter2CPMM.v
+dexter2/Dexter2FA12Correct.v
+dexter2/Dexter2CPMMCorrect.v
+dexter2/Dexter2CommonExtract.v
+dexter2/Dexter2FA12ExtractLIGO.v
+dexter2/Dexter2CPMMExtractLIGO.v
+dexter2/Dexter2Printers.v
+dexter2/Dexter2Gens.v
+dexter2/Dexter2Tests.v
+
+-Q exchangeBuggy ConCert.Examples.ExchangeBuggy
+exchangeBuggy/ExchangeBuggy.v
+exchangeBuggy/ExchangeBuggyPrinters.v
+exchangeBuggy/ExchangeBuggyGens.v
+exchangeBuggy/ExchangeBuggyTests.v
+
+-Q iTokenBuggy ConCert.Examples.iTokenBuggy
+iTokenBuggy/iTokenBuggy.v
+iTokenBuggy/iTokenBuggyGens.v
+iTokenBuggy/iTokenBuggyPrinters.v
+iTokenBuggy/iTokenBuggyTests.v
+
+-Q cis1 ConCert.Examples.CIS1
+cis1/CIS1Spec.v
+cis1/CIS1Utils.v
+cis1/Cis1wccd.v
+
+-Q stackInterpreter ConCert.Examples.StackInterpreter
+stackInterpreter/StackInterpreter.v
+stackInterpreter/StackInterpreterRustExtract.v
+stackInterpreter/StackInterpreterExtract.v
+stackInterpreter/StackInterpreterLiquidityExtract.v
+stackInterpreter/StackInterpreterLIGOExtract.v
+
+-Q congress ConCert.Examples.Congress
+congress/Congress.v
+congress/CongressCorrect.v
+congress/Congress_Buggy.v
+congress/LocalBlockchainTests.v
+congress/tests/CongressGens.v
+congress/tests/CongressPrinters.v
+congress/tests/CongressTests.v
+congress/tests/Congress_BuggyGens.v
+congress/tests/Congress_BuggyPrinters.v
+congress/tests/Congress_BuggyTests.v
+
+-Q escrow ConCert.Examples.Escrow
+escrow/Escrow.v
+escrow/EscrowCorrect.v
+escrow/tests/EscrowGens.v
+escrow/tests/EscrowPrinters.v
+escrow/tests/EscrowTests.v
+escrow/extraction/EscrowLIGO.v
+escrow/extraction/EscrowLiquidity.v
+escrow/extraction/EscrowMidlang.v
+escrow/extraction/EscrowRust.v
+
+-Q boardroomVoting ConCert.Examples.BoardroomVoting
+boardroomVoting/Egcd.v
+boardroomVoting/Euler.v
+boardroomVoting/BoardroomMath.v
+boardroomVoting/BoardroomVoting.v
+boardroomVoting/BoardroomVotingZ.v
+boardroomVoting/BoardroomVotingTest.v
+boardroomVoting/BoardroomVotingExtractionCameLIGO.v
+boardroomVoting/BoardroomVotingExtractionLiquidity.v
+
+-Q counter ConCert.Examples.Counter
+counter/Counter.v
+counter/embedding/CounterEmbed.v
+counter/extraction/CounterCertifiedLiquidity.v
+counter/extraction/CounterDepCertifiedLiquidity.v
+counter/extraction/CounterSubsetTypesLIGO.v
+counter/extraction/CounterSubsetTypesLiquidity.v
+counter/extraction/CounterRefTypesMidlang.v
+counter/extraction/CounterRust.v
+counter/extraction/CounterLIGO.v
+
+-Q crowdfunding ConCert.Examples.Crowdfunding
+crowdfunding/CrowdfundingData.v
+crowdfunding/Crowdfunding.v
+crowdfunding/CrowdfundingCorrect.v
+crowdfunding/ExecFrameworkIntegration.v
+crowdfunding/CrowdfundingDataExt.v
+crowdfunding/CrowdfundingExt.v
+crowdfunding/CrowdfundingCameLIGO.v
+crowdfunding/CrowdfundingLiquidity.v
+
+-Q piggybank ConCert.Examples.PiggyBank
+piggybank/PiggyBank.v
+piggybank/PiggyBankCorrect.v
+piggybank/PiggyBankExtractLIGO.v
+piggybank/PiggyBankExtractLiquidity.v
+piggybank/PiggyBankExtractRust.v

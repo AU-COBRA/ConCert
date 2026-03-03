@@ -81,8 +81,8 @@ Section BATCommon.
   Definition default_error : Error := 1%nat.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
-  MetaCoq Run (make_setters Setup).
+  MetaRocq Run (make_setters State).
+  MetaRocq Run (make_setters Setup).
 
   Section Serialization.
 
@@ -453,7 +453,7 @@ Section BATCommon.
     induction accounts; intros * is_address act HIn.
     - inversion HIn.
     - cbn in HIn.
-      apply list.Forall_cons in is_address as [is_address is_address'].
+      apply list_relations.Forall_cons in is_address as [is_address is_address'].
       destruct_match in HIn.
       destruct HIn; subst.
       all: eauto.
@@ -467,7 +467,7 @@ Section BATCommon.
     - now cbn.
     - cbn.
       destruct_match; auto.
-      apply list.Forall_cons.
+      apply list_relations.Forall_cons.
       destruct_and_split; auto.
       apply address_eq_refl.
   Qed.

@@ -2,11 +2,10 @@ jobs:
   ConCert:
     needs:
     - coq
-    - metacoq
+    - metarocq
     - QuickChick
     - stdpp
-    - RustExtraction
-    - ElmExtraction
+    - TypedExtraction
     runs-on: ubuntu-latest
     steps:
     - name: Determine which commit to initially checkout
@@ -14,7 +13,7 @@ jobs:
         github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
         }}\" >> $GITHUB_ENV\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.target_commit }}
@@ -28,7 +27,7 @@ jobs:
         }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
         \  fi\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
@@ -40,12 +39,12 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (ConCert)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"ConCert\" \\\n   --dry-run 2> err > out || (touch fail;
+        \"9.1\" --argstr job \"ConCert\" \\\n   --dry-run 2> err > out || (touch fail;
         true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
@@ -57,100 +56,32 @@ jobs:
         status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
+      name: 'Building/fetching previous CI target: metarocq'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: bignums'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "bignums"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "bignums"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: QuickChick'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "QuickChick"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "QuickChick"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: stdpp'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "stdpp"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "stdpp"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: RustExtraction'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "RustExtraction"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: ElmExtraction'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "ElmExtraction"
+      name: 'Building/fetching previous CI target: TypedExtraction'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "TypedExtraction"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "ConCert"
-  ElmExtraction:
-    needs:
-    - coq
-    - metacoq
-    runs-on: ubuntu-latest
-    steps:
-    - name: Determine which commit to initially checkout
-      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"target_commit=${{
-        github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
-        }}\" >> $GITHUB_ENV\nfi\n"
-    - name: Git checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        ref: ${{ env.target_commit }}
-    - name: Determine which commit to test
-      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"tested_commit=${{
-        github.sha }}\" >> $GITHUB_ENV\nelse\n  merge_commit=$(git ls-remote ${{ github.event.repository.html_url
-        }} refs/pull/${{ github.event.number }}/merge | cut -f1)\n  mergeable=$(git
-        merge --no-commit --no-ff ${{ github.event.pull_request.base.sha }} > /dev/null
-        2>&1; echo $?; git merge --abort > /dev/null 2>&1 || true)\n  if [ -z \"$merge_commit\"\
-        \ -o \"x$mergeable\" != \"x0\" ]; then\n    echo \"tested_commit=${{ github.event.pull_request.head.sha
-        }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
-        \  fi\nfi\n"
-    - name: Git checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        ref: ${{ env.tested_commit }}
-    - name: Cachix install
-      uses: cachix/install-nix-action@v31
-      with:
-        nix_path: nixpkgs=channel:nixpkgs-unstable
-    - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v16
-      with:
-        authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
-        name: au-cobra
-    - id: stepGetDerivation
-      name: Getting derivation for current job (ElmExtraction)
-      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"ElmExtraction\" \\\n   --dry-run 2> err > out || (touch
-        fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
-        failed\"; exit 1; fi\n"
-    - id: stepCheck
-      name: Checking presence of CI target for current job
-      run: "if $(cat out err | grep -q \"built:\") ; then\n  echo \"CI target needs
-        actual building\"\n  if $(cat out err | grep -q \"derivations will be built:\"\
-        ) ; then\n    echo \"waiting a bit for derivations that should be in cache\"\
-        \n    sleep 30\n  fi\nelse\n  echo \"CI target already built\"\n  echo \"\
-        status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "ElmExtraction"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "ConCert"
   QuickChick:
     needs:
     - coq
@@ -161,7 +92,7 @@ jobs:
         github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
         }}\" >> $GITHUB_ENV\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.target_commit }}
@@ -175,7 +106,7 @@ jobs:
         }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
         \  fi\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
@@ -187,12 +118,12 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (QuickChick)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"QuickChick\" \\\n   --dry-run 2> err > out || (touch
+        \"9.1\" --argstr job \"QuickChick\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
@@ -204,28 +135,28 @@ jobs:
         status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: mathcomp-boot'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "mathcomp-boot"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "mathcomp-boot"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: ExtLib'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "ExtLib"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "ExtLib"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: simple-io'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "simple-io"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "simple-io"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "QuickChick"
-  RustExtraction:
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "QuickChick"
+  TypedExtraction:
     needs:
     - coq
-    - metacoq
+    - metarocq
     runs-on: ubuntu-latest
     steps:
     - name: Determine which commit to initially checkout
@@ -233,7 +164,7 @@ jobs:
         github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
         }}\" >> $GITHUB_ENV\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.target_commit }}
@@ -247,7 +178,7 @@ jobs:
         }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
         \  fi\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
@@ -259,12 +190,142 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
-      name: Getting derivation for current job (RustExtraction)
+      name: Getting derivation for current job (TypedExtraction)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"RustExtraction\" \\\n   --dry-run 2> err > out || (touch
+        \"9.1\" --argstr job \"TypedExtraction\" \\\n   --dry-run 2> err > out ||
+        (touch fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting
+        derivation failed\"; exit 1; fi\n"
+    - id: stepCheck
+      name: Checking presence of CI target for current job
+      run: "if $(cat out err | grep -q \"built:\") ; then\n  echo \"CI target needs
+        actual building\"\n  if $(cat out err | grep -q \"derivations will be built:\"\
+        ) ; then\n    echo \"waiting a bit for derivations that should be in cache\"\
+        \n    sleep 30\n  fi\nelse\n  echo \"CI target already built\"\n  echo \"\
+        status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: coq'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: stdlib'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "stdlib"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: metarocq'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: TypedExtraction-plugin'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "TypedExtraction-plugin"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: Building/fetching current CI target
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "TypedExtraction"
+  coq:
+    needs:
+    - rocq-core
+    runs-on: ubuntu-latest
+    steps:
+    - name: Determine which commit to initially checkout
+      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"target_commit=${{
+        github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
+        }}\" >> $GITHUB_ENV\nfi\n"
+    - name: Git checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ env.target_commit }}
+    - name: Determine which commit to test
+      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"tested_commit=${{
+        github.sha }}\" >> $GITHUB_ENV\nelse\n  merge_commit=$(git ls-remote ${{ github.event.repository.html_url
+        }} refs/pull/${{ github.event.number }}/merge | cut -f1)\n  mergeable=$(git
+        merge --no-commit --no-ff ${{ github.event.pull_request.base.sha }} > /dev/null
+        2>&1; echo $?; git merge --abort > /dev/null 2>&1 || true)\n  if [ -z \"$merge_commit\"\
+        \ -o \"x$mergeable\" != \"x0\" ]; then\n    echo \"tested_commit=${{ github.event.pull_request.head.sha
+        }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
+        \  fi\nfi\n"
+    - name: Git checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ env.tested_commit }}
+    - name: Cachix install
+      uses: cachix/install-nix-action@v31
+      with:
+        nix_path: nixpkgs=channel:nixpkgs-unstable
+    - name: Cachix setup au-cobra
+      uses: cachix/cachix-action@v16
+      with:
+        authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        extraPullNames: coq, coq-community, metarocq
+        name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (coq)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"9.1\" --argstr job \"coq\" \\\n   --dry-run 2> err > out || (touch fail;
+        true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
+        failed\"; exit 1; fi\n"
+    - id: stepCheck
+      name: Checking presence of CI target for current job
+      run: "if $(cat out err | grep -q \"built:\") ; then\n  echo \"CI target needs
+        actual building\"\n  if $(cat out err | grep -q \"derivations will be built:\"\
+        ) ; then\n    echo \"waiting a bit for derivations that should be in cache\"\
+        \n    sleep 30\n  fi\nelse\n  echo \"CI target already built\"\n  echo \"\
+        status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: rocq-core'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "rocq-core"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: Building/fetching current CI target
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
+  metarocq:
+    needs:
+    - coq
+    runs-on: ubuntu-latest
+    steps:
+    - name: Determine which commit to initially checkout
+      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"target_commit=${{
+        github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
+        }}\" >> $GITHUB_ENV\nfi\n"
+    - name: Git checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ env.target_commit }}
+    - name: Determine which commit to test
+      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"tested_commit=${{
+        github.sha }}\" >> $GITHUB_ENV\nelse\n  merge_commit=$(git ls-remote ${{ github.event.repository.html_url
+        }} refs/pull/${{ github.event.number }}/merge | cut -f1)\n  mergeable=$(git
+        merge --no-commit --no-ff ${{ github.event.pull_request.base.sha }} > /dev/null
+        2>&1; echo $?; git merge --abort > /dev/null 2>&1 || true)\n  if [ -z \"$merge_commit\"\
+        \ -o \"x$mergeable\" != \"x0\" ]; then\n    echo \"tested_commit=${{ github.event.pull_request.head.sha
+        }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
+        \  fi\nfi\n"
+    - name: Git checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ env.tested_commit }}
+    - name: Cachix install
+      uses: cachix/install-nix-action@v31
+      with:
+        nix_path: nixpkgs=channel:nixpkgs-unstable
+    - name: Cachix setup au-cobra
+      uses: cachix/cachix-action@v16
+      with:
+        authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        extraPullNames: coq, coq-community, metarocq
+        name: au-cobra
+    - id: stepGetDerivation
+      name: Getting derivation for current job (metarocq)
+      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
+        \"9.1\" --argstr job \"metarocq\" \\\n   --dry-run 2> err > out || (touch
         fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
@@ -276,17 +337,33 @@ jobs:
         status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
+      name: 'Building/fetching previous CI target: equations'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "equations"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: metarocq-safechecker-plugin'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq-safechecker-plugin"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: metarocq-erasure-plugin'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq-erasure-plugin"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: metarocq-translations'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq-translations"
+    - if: steps.stepCheck.outputs.status != 'fetched'
+      name: 'Building/fetching previous CI target: metarocq-quotation'
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq-quotation"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "RustExtraction"
-  coq:
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "metarocq"
+  rocq-core:
     needs: []
     runs-on: ubuntu-latest
     steps:
@@ -295,7 +372,7 @@ jobs:
         github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
         }}\" >> $GITHUB_ENV\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.target_commit }}
@@ -309,7 +386,7 @@ jobs:
         }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
         \  fi\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
@@ -321,13 +398,13 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
-      name: Getting derivation for current job (coq)
+      name: Getting derivation for current job (rocq-core)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"coq\" \\\n   --dry-run 2> err > out || (touch fail;
-        true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
+        \"9.1\" --argstr job \"rocq-core\" \\\n   --dry-run 2> err > out || (touch
+        fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
       name: Checking presence of CI target for current job
@@ -338,87 +415,8 @@ jobs:
         status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
-  metacoq:
-    needs:
-    - coq
-    runs-on: ubuntu-latest
-    steps:
-    - name: Determine which commit to initially checkout
-      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"target_commit=${{
-        github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
-        }}\" >> $GITHUB_ENV\nfi\n"
-    - name: Git checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        ref: ${{ env.target_commit }}
-    - name: Determine which commit to test
-      run: "if [ ${{ github.event_name }} = \"push\" ]; then\n  echo \"tested_commit=${{
-        github.sha }}\" >> $GITHUB_ENV\nelse\n  merge_commit=$(git ls-remote ${{ github.event.repository.html_url
-        }} refs/pull/${{ github.event.number }}/merge | cut -f1)\n  mergeable=$(git
-        merge --no-commit --no-ff ${{ github.event.pull_request.base.sha }} > /dev/null
-        2>&1; echo $?; git merge --abort > /dev/null 2>&1 || true)\n  if [ -z \"$merge_commit\"\
-        \ -o \"x$mergeable\" != \"x0\" ]; then\n    echo \"tested_commit=${{ github.event.pull_request.head.sha
-        }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
-        \  fi\nfi\n"
-    - name: Git checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        ref: ${{ env.tested_commit }}
-    - name: Cachix install
-      uses: cachix/install-nix-action@v31
-      with:
-        nix_path: nixpkgs=channel:nixpkgs-unstable
-    - name: Cachix setup au-cobra
-      uses: cachix/cachix-action@v16
-      with:
-        authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
-        name: au-cobra
-    - id: stepGetDerivation
-      name: Getting derivation for current job (metacoq)
-      run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"metacoq\" \\\n   --dry-run 2> err > out || (touch fail;
-        true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
-        failed\"; exit 1; fi\n"
-    - id: stepCheck
-      name: Checking presence of CI target for current job
-      run: "if $(cat out err | grep -q \"built:\") ; then\n  echo \"CI target needs
-        actual building\"\n  if $(cat out err | grep -q \"derivations will be built:\"\
-        ) ; then\n    echo \"waiting a bit for derivations that should be in cache\"\
-        \n    sleep 30\n  fi\nelse\n  echo \"CI target already built\"\n  echo \"\
-        status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: equations'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "equations"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-safechecker-plugin'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-safechecker-plugin"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-erasure-plugin'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-erasure-plugin"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-translations'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-translations"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metacoq-quotation'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq-quotation"
-    - if: steps.stepCheck.outputs.status != 'fetched'
-      name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "metacoq"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "rocq-core"
   stdpp:
     needs:
     - coq
@@ -429,7 +427,7 @@ jobs:
         github.sha }}\" >> $GITHUB_ENV\nelse\n  echo \"target_commit=${{ github.event.pull_request.head.sha
         }}\" >> $GITHUB_ENV\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.target_commit }}
@@ -443,7 +441,7 @@ jobs:
         }}\" >> $GITHUB_ENV\n  else\n    echo \"tested_commit=$merge_commit\" >> $GITHUB_ENV\n\
         \  fi\nfi\n"
     - name: Git checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ env.tested_commit }}
@@ -455,12 +453,12 @@ jobs:
       uses: cachix/cachix-action@v16
       with:
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        extraPullNames: coq, coq-community, metacoq
+        extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
       name: Getting derivation for current job (stdpp)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.0\" --argstr job \"stdpp\" \\\n   --dry-run 2> err > out || (touch fail;
+        \"9.1\" --argstr job \"stdpp\" \\\n   --dry-run 2> err > out || (touch fail;
         true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
         failed\"; exit 1; fi\n"
     - id: stepCheck
@@ -472,24 +470,24 @@ jobs:
         status=fetched\" >> $GITHUB_OUTPUT\nfi\n"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: coq'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "coq"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: stdlib'
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "stdlib"
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "stdlib"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
-      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.0" --argstr
-        job "stdpp"
-name: Nix CI for bundle 9.0
+      run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
+        --argstr job "stdpp"
+name: Nix CI for bundle 9.1
 on:
   pull_request:
     paths:
-    - .github/workflows/nix-action-9.0.yml
+    - .github/workflows/nix-action-9.1.yml
   pull_request_target:
     paths-ignore:
-    - .github/workflows/nix-action-9.0.yml
+    - .github/workflows/nix-action-9.1.yml
     - '**.md'
     - '**.gitignore'
     - '**.opam'

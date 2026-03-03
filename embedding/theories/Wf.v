@@ -1,5 +1,5 @@
 (** * Well-formedness conditions *)
-From MetaCoq.Utils Require Import utils.
+From MetaRocq.Utils Require Import utils.
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import EnvSubst.
 From ConCert.Embedding Require Import EvalE.

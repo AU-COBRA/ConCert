@@ -434,7 +434,7 @@ Definition existsPShrink
 (* QuickChick (
   existsP arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0)
 ). *)
-(* coqtop-stdout:[1; 2; 5; 0; 3]
+(* rocqtop-stdout:[1; 2; 5; 0; 3]
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 6 tests and 0 shrinks. (0 discards)
    *)
@@ -442,7 +442,7 @@ Success - found witness satisfying the predicate!
   existsPShrink arbitrary (fun (l : list nat) => 5 <? fold_left plus l 0)
 ). *)
 (*
-coqtop-stdout:[4; 2]
+rocqtop-stdout:[4; 2]
 Success - found witness satisfying the predicate!
 +++ Failed (as expected) after 5 tests and 3 shrinks. (0 discards)
  *)

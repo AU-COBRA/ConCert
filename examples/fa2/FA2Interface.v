@@ -98,16 +98,16 @@ Section FA2Interface.
 
   Section Setters.
 
-    MetaCoq Run (make_setters transfer_destination).
-    MetaCoq Run (make_setters transfer).
-    MetaCoq Run (make_setters balance_of_request).
-    MetaCoq Run (make_setters balance_of_response).
-    MetaCoq Run (make_setters balance_of_param).
-    MetaCoq Run (make_setters token_metadata).
-    MetaCoq Run (make_setters operator_param).
-    MetaCoq Run (make_setters transfer_destination_descriptor).
-    MetaCoq Run (make_setters transfer_descriptor).
-    MetaCoq Run (make_setters transfer_descriptor_param).
+    MetaRocq Run (make_setters transfer_destination).
+    MetaRocq Run (make_setters transfer).
+    MetaRocq Run (make_setters balance_of_request).
+    MetaRocq Run (make_setters balance_of_response).
+    MetaRocq Run (make_setters balance_of_param).
+    MetaRocq Run (make_setters token_metadata).
+    MetaRocq Run (make_setters operator_param).
+    MetaRocq Run (make_setters transfer_destination_descriptor).
+    MetaRocq Run (make_setters transfer_descriptor).
+    MetaRocq Run (make_setters transfer_descriptor_param).
 
   End Setters.
 

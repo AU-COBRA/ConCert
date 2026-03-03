@@ -2,7 +2,7 @@
 
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Embedding.Extraction Require SimpleBlockchainExt.
@@ -14,7 +14,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Open Scope Z.
 
@@ -24,14 +24,14 @@ Existing Instance PrintConfShortNames.PrintWithShortNames.
 
 Module Crowdfunding.
 
-  Notation storage := ((time_coq × Z × address_coq) × Maps.addr_map_coq × bool).
+  Notation storage := ((time_rocq × Z × address_rocq) × Maps.addr_map_rocq × bool).
 
   Definition crowdfunding_init (ctx : ContractCallContext)
-                               (setup : (time_coq × Z × address_coq))
+                               (setup : (time_rocq × Z × address_rocq))
                                : result storage nat :=
       if ctx.(ctx_amount) =? 0 then Ok (setup, (Maps.mnil, false)) else Err 0%nat.
 
-  Definition init (setup : (time_coq × Z × address_coq))
+  Definition init (setup : (time_rocq × Z × address_rocq))
                   : result storage nat :=
     Ok (setup, (Maps.mnil, false)).
 
@@ -52,18 +52,18 @@ Module Crowdfunding.
   (* We assume that there is a function converting addresses to [nat] *)
   Parameter addr_to_nat : forall `{ChainBase}, Blockchain.Address -> nat.
 
-  Definition to_simple_ctx_addr `{ChainBase} (addr : Blockchain.Address) : address_coq :=
-    if address_is_contract addr then ContractAddr_coq (addr_to_nat addr) else
-      UserAddr_coq (addr_to_nat addr).
+  Definition to_simple_ctx_addr `{ChainBase} (addr : Blockchain.Address) : address_rocq :=
+    if address_is_contract addr then ContractAddr_rocq (addr_to_nat addr) else
+      UserAddr_rocq (addr_to_nat addr).
 
   Definition crowdfunding_receive_inner
             (c : Chain)
             (ctx : ContractCallContext)
-            (params : msg_coq)
+            (params : msg_rocq)
             (st : storage)
-            : result (list SimpleActionBody_coq × storage) nat :=
+            : result (list SimpleActionBody_rocq × storage) nat :=
     let res := receive params st
-            (Time_coq c.(current_slot),
+            (Time_rocq c.(current_slot),
              (to_simple_ctx_addr ctx.(ctx_from),
              (ctx.(ctx_amount),
              ctx.(ctx_contract_balance)))) in
@@ -76,7 +76,7 @@ Module Crowdfunding.
     end.
 
   Definition CF_MODULE :
-    CameLIGOMod _ _ _ storage SimpleActionBody_coq nat :=
+    CameLIGOMod _ _ _ storage SimpleActionBody_rocq nat :=
     {| (* a name for the definition with the extracted code *)
       lmd_module_name := "cameLIGO_crowdfunding" ;
 
@@ -103,14 +103,14 @@ Module Crowdfunding.
 
       (* code for the entry point *)
       lmd_entry_point :=
-      ("type storage = ((time_coq * (tez * address)) * ((address,tez) map * bool))" ++ nl
+      ("type storage = ((time_rocq * (tez * address)) * ((address,tez) map * bool))" ++ nl
        ++ CameLIGOPretty.printMain "crowdfunding_receive"
-                                    "msg_coq"
+                                    "msg_rocq"
                                     "storage")%bs
     |}.
 
   (** We run the extraction procedure inside the [TemplateMonad].
-      It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+      It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
       that removes application of boxes to constants and constructors. *)
 
 End Crowdfunding.
@@ -124,9 +124,9 @@ Section CrowdfundingExtraction.
   Definition TT_remap_crowdfunding : list (kername * string) :=
 
   [ (* types *)
-    remap <%% address_coq %%> "address"
-  ; remap <%% SimpleActionBody_coq %%> "operation"
-  ; remap <%% Maps.addr_map_coq %%> "(address,tez) map"
+    remap <%% address_rocq %%> "address"
+  ; remap <%% SimpleActionBody_rocq %%> "operation"
+  ; remap <%% Maps.addr_map_rocq %%> "(address,tez) map"
 
   (* simple addresses and the execution layer addresses are treated as the same *)
   ; remap <%% @to_simple_ctx_addr %%> "(fun (x : address) -> x)"
@@ -142,13 +142,13 @@ Section CrowdfundingExtraction.
     [ ("nil", "[]");
       ("mnil", "Map.empty") ].
 
-  Time MetaCoq Run
+  Time MetaRocq Run
        (CameLIGO_prepare_extraction [] TT_remap_crowdfunding (TT_rename ++ TT_rename_ctors_default) [] "cctx_instance" CF_MODULE).
 
   Time Definition cameLIGO_crowdfunding := Eval vm_compute in cameLIGO_crowdfunding_prepared.
 
   (** We redirect the extraction result for later processing and compiling with the CameLIGO compiler *)
   Redirect "cameligo-extract/CrowdfundingCertifiedExtraction.mligo"
-  MetaCoq Run (tmMsg cameLIGO_crowdfunding).
+  MetaRocq Run (tmMsg cameLIGO_crowdfunding).
 
 End CrowdfundingExtraction.

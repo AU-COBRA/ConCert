@@ -1,19 +1,19 @@
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
-From MetaCoq.Template Require Import Ast.
-From MetaCoq.Template Require Import LiftSubst.
-From MetaCoq.Template Require Import AstUtils.
-From MetaCoq.Template Require Import Loader.
-From MetaCoq.Template Require Import TemplateMonad.
-From MetaCoq.Template Require Import Typing.
-From MetaCoq.Utils Require Import utils.
-From MetaCoq.Utils Require Import bytestring.
-From MetaCoq.Erasure Require EAst.
-From MetaCoq.SafeChecker Require Import PCUICSafeChecker.
-From MetaCoq.SafeChecker Require Import PCUICWfEnvImpl.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Template Require Import Ast.
+From MetaRocq.Template Require Import LiftSubst.
+From MetaRocq.Template Require Import AstUtils.
+From MetaRocq.Template Require Import Loader.
+From MetaRocq.Template Require Import TemplateMonad.
+From MetaRocq.Template Require Import Typing.
+From MetaRocq.Utils Require Import utils.
+From MetaRocq.Utils Require Import bytestring.
+From MetaRocq.Erasure Require EAst.
+From MetaRocq.SafeChecker Require Import PCUICSafeChecker.
+From MetaRocq.SafeChecker Require Import PCUICWfEnvImpl.
 From Stdlib.Strings Require Import Byte.
 
 Import PCUICErrors.
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import String.
 
 
@@ -226,7 +226,7 @@ Definition Z_syn_to_Z (t : EAst.term) : option Z :=
   | _ => None
   end.
 
-(* TODO: port the pretty-printers to use bytestring and use MetaCoq's MCString utils *)
+(* TODO: port the pretty-printers to use bytestring and use MetaRocq's MRString utils *)
 
 Definition parens (top : bool) (s : string) : string :=
   if top then s else "(" ++ s ++ ")".

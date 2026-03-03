@@ -1,9 +1,1 @@
--R theories ConCert.Utils
-theories/Automation.v
-theories/BSEnv.v
-theories/BytestringExtra.v
-theories/Env.v
-theories/Extras.v
-theories/RecordSet.v
-theories/RecordUpdate.v
-theories/StringExtra.v
+_RocqProject

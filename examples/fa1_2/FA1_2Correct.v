@@ -772,7 +772,7 @@ Section Theories.
     induction (outgoing_acts bstate caddr).
     - reflexivity.
     - cbn.
-      apply list.Forall_cons in act_amount_zero as (act_amount_zero & acts_amount_zero).
+      apply list_relations.Forall_cons in act_amount_zero as (act_amount_zero & acts_amount_zero).
       rewrite act_amount_zero, Z.add_0_l.
       now apply IHl.
   Qed.

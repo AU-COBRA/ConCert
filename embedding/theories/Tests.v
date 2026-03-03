@@ -25,7 +25,7 @@ Proof. reflexivity. Qed.
 
 Definition id_f_syn := [| (\x : Nat => ^0) 1 |].
 
-MetaCoq Unquote Definition id_f_one := (expr_to_tc Σ id_f_syn).
+MetaRocq Unquote Definition id_f_one := (expr_to_tc Σ id_f_syn).
 Example id_f_eq :
   id_f_one = 1.
 Proof. reflexivity. Qed.
@@ -33,7 +33,7 @@ Proof. reflexivity. Qed.
 (* The same as [id_f_syn], but with named vars *)
 Definition id_f_with_vars := [| (\x : Nat => x) 1 |].
 
-MetaCoq Unquote Definition id_f_one' := (expr_to_tc Σ (indexify [] id_f_with_vars)).
+MetaRocq Unquote Definition id_f_one' := (expr_to_tc Σ (indexify [] id_f_with_vars)).
 Example id_f_eq' :
   id_f_one' = 1.
 Proof. reflexivity. Qed.
@@ -44,7 +44,7 @@ Definition simple_let_syn :=
      let y : Nat := 1 in ^0
    |].
 
-MetaCoq Unquote Definition simple_let := (expr_to_tc Σ simple_let_syn).
+MetaRocq Unquote Definition simple_let := (expr_to_tc Σ simple_let_syn).
 Example simple_let_eq :
   simple_let 1 = 1.
 Proof. reflexivity. Qed.
@@ -55,7 +55,7 @@ Definition simple_let_with_vars_syn :=
      let y : Nat := 1 in y
    |].
 
-MetaCoq Unquote Definition simple_let' := (expr_to_tc Σ (indexify [] simple_let_with_vars_syn)).
+MetaRocq Unquote Definition simple_let' := (expr_to_tc Σ (indexify [] simple_let_with_vars_syn)).
 Example simple_let_eq' :
   simple_let' 0 = 1.
 Proof. reflexivity. Qed.
@@ -69,7 +69,7 @@ Definition negb_syn :=
           | False -> True
   |].
 
-MetaCoq Unquote Definition negb' := (expr_to_tc Σ (indexify [] negb_syn)).
+MetaRocq Unquote Definition negb' := (expr_to_tc Σ (indexify [] negb_syn)).
 
 Example negb'_correct : forall b, negb' b = negb b.
 Proof.
@@ -79,7 +79,7 @@ Qed.
 Definition myplus_syn :=
   [| \x : Nat => \y : Nat => x + y |].
 
-MetaCoq Unquote Definition myplus := (expr_to_tc Σ (indexify [] myplus_syn)).
+MetaRocq Unquote Definition myplus := (expr_to_tc Σ (indexify [] myplus_syn)).
 
 Definition stupid_case :=
   fun y : Set => fun x : y => fun z : list y =>
@@ -88,9 +88,9 @@ Definition stupid_case :=
                 | _ => x
                 end.
 
-MetaCoq Quote Definition q_stupid_case := Eval compute in stupid_case.
-MetaCoq Quote Recursively Definition q_stupid_case_rec := stupid_case.
-MetaCoq Quote Definition cons_syn := (fun A : Set => cons A).
+MetaRocq Quote Definition q_stupid_case := Eval compute in stupid_case.
+MetaRocq Quote Recursively Definition q_stupid_case_rec := stupid_case.
+MetaRocq Quote Definition cons_syn := (fun A : Set => cons A).
 
 Definition case_ex :=
   [| \\y => \x : 'y => \z : List 'y =>
@@ -100,7 +100,7 @@ Definition case_ex :=
 
 (* Compute (expr_to_tc Σ (indexify [] case_ex)). *)
 
-MetaCoq Unquote Definition case_ex_def := (expr_to_tc Σ (indexify [] case_ex)).
+MetaRocq Unquote Definition case_ex_def := (expr_to_tc Σ (indexify [] case_ex)).
 
 Example case_ex_def_unquote :
   case_ex_def =
@@ -118,7 +118,7 @@ Definition case_ex1 :=
 
 (* Compute (expr_to_tc Σ (indexify [] case_ex1)). *)
 
-MetaCoq Unquote Definition case_ex_def1 := (expr_to_tc Σ (indexify [] case_ex1)).
+MetaRocq Unquote Definition case_ex_def1 := (expr_to_tc Σ (indexify [] case_ex1)).
 
 Definition case_ex2 :=
   [| \\y => case ({eConstr List "nil"} "y") : List 'y return List 'y of
@@ -128,20 +128,20 @@ Definition case_ex2 :=
 (* Compute indexify [] case_ex2. *)
 (* Compute (expr_to_tc Σ (indexify [] case_ex2)). *)
 
-MetaCoq Unquote Definition case_ex_def2 := (expr_to_tc Σ (indexify [] case_ex2)).
+MetaRocq Unquote Definition case_ex_def2 := (expr_to_tc Σ (indexify [] case_ex2)).
 
 Definition example_type := [! ∀ "A", ∀ "B", Prod '"A" '"B" !].
 
-MetaCoq Unquote Definition ex_type_def := (type_to_tc (indexify_type [] example_type)).
+MetaRocq Unquote Definition ex_type_def := (type_to_tc (indexify_type [] example_type)).
 
 Definition map_syn :=
 gdInd "AMap" 2 [("ANil", []);
                   ("ACons", [(None,tyRel 1); (None,tyRel 0);
                                (None,(tyApp (tyApp (tyInd "AMap") (tyRel 1)) (tyRel 0)))])] false.
 
-MetaCoq Unquote Inductive (global_to_tc map_syn).
+MetaRocq Unquote Inductive (global_to_tc map_syn).
 
 Definition single_field_record_syn :=
   [\ record "sfrec" := "mkRec" {"fld" : Nat } \].
 
-MetaCoq Unquote Inductive (global_to_tc single_field_record_syn).
+MetaRocq Unquote Inductive (global_to_tc single_field_record_syn).

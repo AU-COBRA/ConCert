@@ -474,7 +474,7 @@ Section SafetyProperties.
         (* In this case we can smash the piggybank *)
         add_block [(build_act (owner cstate) (owner cstate) (act_call caddr 0 ((@serialize Msg _) Smash)))] 1%nat; eauto.
         admit.
-        apply list.Forall_singleton, address_eq_refl.
+        apply list_relations.Forall_singleton, address_eq_refl.
         update_all.
         evaluate_action contract; try easy.
         * (* Prove that there is enough balance to evaluate action *)

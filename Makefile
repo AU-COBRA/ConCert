@@ -33,18 +33,27 @@ clean:
 	rm -rf docs
 .PHONY: clean
 
-install: core
+install:
 	+make -C utils install
 	+make -C execution install
 	+make -C embedding install
 	+make -C extraction install
 .PHONY: install
 
+install-examples:
+	+make -C examples install
+.PHONY: install-examples
+
 uninstall:
 	+make -C utils uninstall
 	+make -C execution uninstall
 	+make -C embedding uninstall
 	+make -C extraction uninstall
+.PHONY: uninstall
+
+uninstall-examples:
+	+make -C examples uninstall
+.PHONY: uninstall-examples
 
 vos:
 	+make -C utils vos
@@ -59,9 +68,11 @@ quick:
 	+make -C embedding quick
 	+make -C extraction quick
 	+make -C examples quick
+.PHONY: quick
 
 QuickChick: examples
 	+make -C examples QuickChick
+.PHONY: QuickChick
 
 test-extraction:
 	+make -C extraction test-extraction
@@ -90,14 +101,15 @@ dependency-graphs: utils execution embedding extraction examples
 	+make -C embedding dep-graphs-svg
 	+make -C extraction dep-graphs-svg
 	+make -C examples dep-graphs-svg
+.PHONY: dependency-graphs
 
 file-dependency-graph:
 	@echo "Generate dot files"
-	@coqdep -dumpgraph utils-file-dep.dot -f utils/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph execution-file-dep.dot -f execution/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph embedding-file-dep.dot -f embedding/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph extraction-file-dep.dot -f extraction/_CoqProject >/dev/null 2>&1
-	@coqdep -dumpgraph examples-file-dep.dot -f examples/_CoqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph utils-file-dep.dot -f utils/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph execution-file-dep.dot -f execution/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph embedding-file-dep.dot -f embedding/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph extraction-file-dep.dot -f extraction/_RocqProject >/dev/null 2>&1
+	@rocq dep -dumpgraph examples-file-dep.dot -f examples/_RocqProject >/dev/null 2>&1
 
 	@echo "Add node colors"
 	@sed -i.tmp 's/"\]/", style=filled, fillcolor="#FFC09F"\]/' utils-file-dep.dot ; rm -f utils-file-dep.dot.tmp
@@ -127,18 +139,20 @@ file-dependency-graph:
 
 	@echo "Convert to SVG"
 	@dot -Tsvg -o file-dep.svg file-dep.dot ; rm -f file-dep.dot
+.PHONY: file-dependency-graph
 
 html: all
 	rm -rf docs
 	mkdir docs
-	coqdoc --html --interpolate --parse-comments \
+	rocq doc --html --interpolate --parse-comments \
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
+		--coqlib_url https://rocq-prover.org/doc/V9.0.0/corelib \
+    	--external https://rocq-prover.org/doc/V9.0.0/stdlib Stdlib \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
-		--external https://metacoq.github.io/html MetaCoq \
-		--external https://coq-community.org/coq-ext-lib/v0.11.7 ExtLib \
-		--external https://au-cobra.github.io/coq-elm-extraction/ ElmExtraction \
-		--external https://au-cobra.github.io/coq-rust-extraction/ RustExtraction \
+		--external https://metarocq.github.io/html MetaRocq \
+		--external https://rocq-community.org/coq-ext-lib/v0.11.7 ExtLib \
+		--external https://peregrine-project.github.io/rocq-typed-extraction/ TypedExtraction \
 		-R utils/theories ConCert.Utils \
 		-R execution/theories ConCert.Execution \
 		-R execution/test ConCert.Execution.Test \

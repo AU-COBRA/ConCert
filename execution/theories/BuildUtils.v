@@ -430,8 +430,8 @@ Proof.
     now eexists.
   - (* Case: queue contains at least one action,
         thus we need to either discard or evaluate it *)
-    apply list.Forall_cons_1 in acts_from_account as [act_from_a acts_from_account].
-    apply list.Forall_cons_1 in no_new_acts as [no_new_acts_from_a no_new_acts].
+    apply list_relations.Forall_cons_1 in acts_from_account as [act_from_a acts_from_account].
+    apply list_relations.Forall_cons_1 in no_new_acts as [no_new_acts_from_a no_new_acts].
     edestruct action_evaluation_decidable as
       [[mid_env [new_acts [action_evaluation]]] | no_action_evaluation]; eauto.
     + (* Case: the action is evaluable *)

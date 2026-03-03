@@ -4,8 +4,8 @@
     We also demonstrate how one can use the certifying eta-expansion to make sure
     that constants and constructors are applied to all logical arguments *)
 
-From MetaCoq.Common Require Import Kernames.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Common Require Import Kernames.
+From MetaRocq.Template Require Import All.
 From ConCert.Embedding Require Import Notations.
 From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Execution Require Import Blockchain.
@@ -13,16 +13,16 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Extraction Require Import LiquidityExtract.
 From ConCert.Extraction Require Import LiquidityPretty.
 From ConCert.Extraction Require Import Common.
-From MetaCoq.Erasure.Typed Require Import CertifyingEta.
+From MetaRocq.Erasure.Typed Require Import CertifyingEta.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import Bool.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.
 
-Definition PREFIX := "coq_".
+Definition PREFIX := "rocq_".
 
 Module Counter.
 
@@ -100,8 +100,8 @@ Definition TT_remap : list (kername * string) :=
   [ remap <%% bool %%> "bool"
   ; remap <%% list %%> "list"
   ; remap <%% Amount %%> "tez"
-  ; remap <%% address_coq %%> "address"
-  ; remap <%% time_coq %%> "timestamp"
+  ; remap <%% address_rocq %%> "address"
+  ; remap <%% time_rocq %%> "timestamp"
   ; remap <%% option %%> "option"
   ; remap <%% result %%> "result"
   ; remap <%% Z.add %%> "addInt"
@@ -147,17 +147,17 @@ Definition COUNTER_MODULE : LiquidityMod msg _ (Z × address) storage operation 
   |}.
 
 (** We run the extraction procedure inside the [TemplateMonad].
-    It uses the certified erasure from [MetaCoq] and the certified deboxing procedure
+    It uses the certified erasure from [MetaRocq] and the certified deboxing procedure
     that removes application of boxes to constants and constructors. *)
 
-Time MetaCoq Run
+Time MetaRocq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_MODULE ;;
       tmDefinition COUNTER_MODULE.(lmd_module_name) t
      ).
 
 (* Print liquidity_counter. *)
 
-(* Now we show how we can also eta expand using MetaCoq.
+(* Now we show how we can also eta expand using MetaRocq.
    There is a version of the counter above that it partially applied, and if we
    try to extract that extraction fails. *)
 
@@ -181,12 +181,12 @@ Definition COUNTER_PARTIAL_MODULE : LiquidityMod msg _ (Z × address) storage op
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
                        ++ printMain |}.
 
-Fail MetaCoq Run
+Fail MetaRocq Run
      (liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_PARTIAL_MODULE).
 (* The command has indeed failed with message:
    Erased environment is not expanded enough for dearging to be provably correct *)
 
-(* However, Coq's metatheory already includes eta conversion as part of its TCB,
+(* However, Rocq's metatheory already includes eta conversion as part of its TCB,
    so we can systematically eta expand the necessary terms and easily generate
    a proof that the new definition is equal to the old (by reflexivity). *)
 
@@ -194,8 +194,8 @@ Fail MetaCoq Run
 Definition anchor := fun x : nat => x.
 Definition CURRENT_MODULE := Eval compute in <%% anchor %%>.1.
 
-(** Running our eta-expansion procedure with MetaCoq *)
-MetaCoq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
+(** Running our eta-expansion procedure with MetaRocq *)
+MetaRocq Run (counter_syn <- quote_recursively_body counter_partially_applied ;;
              tmDefinition "counter_partially_applied_syn"%bs counter_syn;;
              (* eta-expand dedinitions in the environment *)
              Σexpanded <- eta_global_env_template
@@ -241,7 +241,7 @@ Definition COUNTER_PARTIAL_EXPANDED_MODULE : LiquidityMod msg _ (Z × address) s
      lmd_entry_point := printWrapper (PREFIX ++ "counter") ++ nl
                        ++ printMain |}.
 
-Time MetaCoq Run
+Time MetaRocq Run
      (t <- liquidity_extraction PREFIX TT_remap TT_rename [] COUNTER_PARTIAL_EXPANDED_MODULE ;;
       tmDefinition COUNTER_PARTIAL_EXPANDED_MODULE.(lmd_module_name) t
      ).

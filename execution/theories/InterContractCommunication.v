@@ -217,8 +217,8 @@ Section InterContractCommunication.
     trace_induction; cbn in *.
     - destruct_address_eq; auto.
     - destruct_address_eq; auto; subst;
-        try (apply MCOption.some_inj in deployedA; subst);
-        try (apply MCOption.some_inj in deployedB; rewrite deployedB in *; clear deployedB);
+        try (apply MROption.some_inj in deployedA; subst);
+        try (apply MROption.some_inj in deployedB; rewrite deployedB in *; clear deployedB);
         try (rewrite undeployed_contract_no_in_calls by auto);
         try (eapply undeployed_contract_no_out_txs in not_deployed as no_txs; eauto;
               unfold outgoing_txs in no_txs; rewrite no_txs); cbn;

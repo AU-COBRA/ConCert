@@ -5,7 +5,7 @@ From ConCert.Embedding Require Import Ast.
 (** * Notations for the deep embedding *)
 
 (** Here we use "custom entries" - a new feature of
-    Coq allowing to define autonomous grammars *)
+    Rocq allowing to define autonomous grammars *)
 
 Import ListNotations.
 

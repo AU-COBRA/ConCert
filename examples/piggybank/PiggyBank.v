@@ -40,7 +40,7 @@ Section PiggyBankTypes.
   Definition Result : Type := result (State * list ActionBody) Error.
 
   (* begin hide *)
-  MetaCoq Run (make_setters State).
+  MetaRocq Run (make_setters State).
 
   Section Serialization.
     Global Instance piggyState_serializable : Serializable PiggyState :=

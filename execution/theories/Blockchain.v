@@ -332,7 +332,7 @@ Definition get_contract_interface
   Some {| contract_address := addr; send := ifc_send; |}.
 
 Section Semantics.
-MetaCoq Run (make_setters Chain).
+MetaRocq Run (make_setters Chain).
 
 Definition add_balance
            (addr : Address)
@@ -420,7 +420,7 @@ Proof.
   now rewrite env_eq.
 Qed.
 
-MetaCoq Run (make_setters Environment).
+MetaRocq Run (make_setters Environment).
 
 Definition transfer_balance (from to : Address) (amount : Amount) (env : Environment) :=
   env<|env_account_balances ::= add_balance to amount|>
@@ -717,7 +717,7 @@ Record ChainState :=
     chain_state_queue : list Action;
   }.
 
-MetaCoq Run (make_setters ChainState).
+MetaRocq Run (make_setters ChainState).
 
 Inductive ChainStep (prev_bstate : ChainState) (next_bstate : ChainState) :=
 | step_block :
@@ -1066,15 +1066,15 @@ Proof.
     | [H: Forall act_origin_is_eq_from _ |- _] => inversion H
     end; constructor; auto; destruct_address_eq; congruence.
   - (* Transfer step, just use IH *)
-    eapply list.Forall_cons; eauto.
+    eapply list_relations.Forall_cons; eauto.
   - (* Deploy step. First show that it is not to contract and then use IH. *)
     destruct_address_eq; try congruence.
-    eapply list.Forall_cons; eauto.
+    eapply list_relations.Forall_cons; eauto.
   - (* Call. Show that it holds for new actions as it is from *)
     (* another contract, and use IH for remaining. *)
-    apply list.Forall_app.
+    apply list_relations.Forall_app.
     assert (contract <> to_addr) by congruence.
-    split; [eapply new_acts_no_out_queue|eapply list.Forall_cons]; eauto.
+    split; [eapply new_acts_no_out_queue|eapply list_relations.Forall_cons]; eauto.
   - (* Invalid User Action *)
     now apply Forall_inv_tail in IHtrace.
   - (* Permutation *)

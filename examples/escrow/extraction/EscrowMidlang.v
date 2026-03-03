@@ -2,19 +2,19 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Monad.
 From ConCert.Execution Require OptionMonad.
-From ElmExtraction Require Import Common.
-From ElmExtraction Require Import ElmExtract.
-From MetaCoq.Erasure.Typed Require Import CertifyingInlining.
-From MetaCoq.Erasure.Typed Require Import Extraction.
-From MetaCoq.Erasure.Typed Require Import ResultMonad.
+From TypedExtraction Require Import Common.
+From TypedExtraction Require Import ElmExtract.
+From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
+From MetaRocq.Erasure.Typed Require Import Extraction.
+From MetaRocq.Erasure.Typed Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
-From ElmExtraction Require Import PrettyPrinterMonad.
+From TypedExtraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
-From MetaCoq.Common Require Import Kernames.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Common Require Import Kernames.
+From MetaRocq.Template Require Import All.
 From Stdlib Require Import List.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 
 
@@ -62,14 +62,14 @@ Definition extract_params :=
      template_transforms := [template_inline should_inline];
      pcuic_args :=
        {| optimize_prop_discr := true;
-          (* TODO: tmp, revert once https://github.com/MetaCoq/metacoq/pull/1030 is resolved *)
+          (* TODO: tmp, revert once https://github.com/MetaRocq/metarocq/pull/1030 is resolved *)
           extract_transforms := [Optimize.dearg_transform (fun _ => None) true false true true true] |} |}.
 
 Axiom extraction_chain_base : ChainBase.
 #[local]
 Existing Instance extraction_chain_base.
 
-MetaCoq Run (p <- tmQuoteRecTransp Escrow.receive false ;;
+MetaRocq Run (p <- tmQuoteRecTransp Escrow.receive false ;;
              Σ <- run_transforms p.1 extract_params;;
              mpath <- tmCurrentModPath tt;;
              Certifying.gen_defs_and_proofs (Ast.Env.declarations p.1) (Ast.Env.declarations Σ) mpath "_cert_pass"%bs (KernameSet.singleton <%% @Escrow.receive %%>);;
@@ -128,7 +128,7 @@ Definition midlang_prelude :=
     "current_slot _ = O"
   ].
 
-MetaCoq Run
+MetaRocq Run
         match escrow_extract with
         | Ok l => tmDefinition "escrow_env_extracted"%bs l
         | Err err => tmFail err
@@ -145,4 +145,4 @@ Definition result :=
   | Err err => tmFail err
   end.
 
-Redirect "midlang-extract/MidlangEscrow.midlang" MetaCoq Run result.
+Redirect "midlang-extract/MidlangEscrow.midlang" MetaRocq Run result.

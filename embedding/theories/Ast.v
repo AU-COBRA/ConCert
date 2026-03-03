@@ -1,12 +1,12 @@
 (** * λsmart language definition *)
-From MetaCoq.Template Require All.
+From MetaRocq.Template Require All.
 From Stdlib Require Import String.
 From Stdlib Require Import List.
 From ConCert.Utils Require Import Env.
 
 Import ListNotations.
 
-Module BasicTC := MetaCoq.Common.BasicAst.
+Module BasicTC := MetaRocq.Common.BasicAst.
 Import Ast.
 
 (** Aliases *)
@@ -27,13 +27,13 @@ Record pat := pConstr {pName : ename; pVars : list ename}.
 (** ** λsmart AST *)
 
 (** We have both named variables and de Bruijn indices.
-    Translation to MetaCoq requires indices, while named representation
+    Translation to MetaRocq requires indices, while named representation
     is what we might get from the integration API. We can define relations
     on type of expressions ensuring that either names are used, or indices,
     but not both at the same time. *)
 
 (** Note also that AST must be explicitly annotated with types.
-    This is required for the translation to MetaCoq. *)
+    This is required for the translation to MetaRocq. *)
 Inductive expr : Set :=
 | eRel       : nat -> expr (* de Bruijn index *)
 | eVar       : ename -> expr (* named variables *)
@@ -201,8 +201,8 @@ Fixpoint indexify_type (l : list (ename * nat)) (ty : type) : type :=
     tyApp (indexify_type l ty1) (indexify_type l ty2)
   | tyArr ty1 ty2 =>
     (* NOTE: we have to bump indices for the codomain,
-       since in Coq arrow also introduces a binder in a MetaCoq term.
-       So, this is purely an artifact of the translation to MetaCoq *)
+       since in Rocq arrow also introduces a binder in a MetaRocq term.
+       So, this is purely an artifact of the translation to MetaRocq *)
     (* tyArr (indexify_type l ty1) (indexify_type (bump_indices l 1) ty2) *)
     tyArr (indexify_type l ty1) (indexify_type l ty2)
   end.

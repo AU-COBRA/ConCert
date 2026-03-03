@@ -1,7 +1,7 @@
 {
     "problemMatcher": [
         {
-            "owner": "coq",
+            "owner": "rocq",
             "pattern": [
                 {
                     "regexp": "^File \"([^\"].*)\", line (\\d+), characters (\\d+)-(\\d+):$",

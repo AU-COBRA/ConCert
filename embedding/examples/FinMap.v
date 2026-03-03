@@ -3,7 +3,7 @@
 From Stdlib Require Import FMaps.
 From Stdlib Require Import String.
 Import ListNotations.
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 From ConCert.Embedding Require Import Ast.
 From ConCert.Embedding Require Import Notations.
@@ -12,7 +12,7 @@ From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Embedding Require Import EvalE.
 From ConCert.Embedding Require Import Utils.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import BaseTypes.
 Import StdLib.
 Open Scope list.
@@ -29,13 +29,13 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 (** ** The deep embedding of data structures for finite maps *)
 
 (** We generate names for inductives and constants (prefixed with a module path) *)
-MetaCoq Run
+MetaRocq Run
         (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp ["Maybe"; "Map"] "Acorn").
 
 (** And constructors (just names, no module path prefix) *)
-MetaCoq Run (mkNames "" ["Nothing"; "Just"; "MNil"; "MCons"] "Acorn").
+MetaRocq Run (mkNames "" ["Nothing"; "Just"; "MNil"; "MCons"] "Acorn").
 
 (** Now we can use [Maybe] as a name for a data type in
     our deep embedding. [Maybe] contains a string "MaybeAcorn" *)
@@ -45,13 +45,13 @@ MetaCoq Run (mkNames "" ["Nothing"; "Just"; "MNil"; "MCons"] "Acorn").
 
 
 (** Now, we define an AST (a deep embedding) for [MaybeAcorn] data type.
-    [MaybeAcorn] is the same as [option] of Coq and [Maybe] of Haskell.
+    [MaybeAcorn] is the same as [option] of Rocq and [Maybe] of Haskell.
     First, we define a new datatype without using notations *)
 
 Definition maybe_syn :=
   gdInd Maybe 1 [(Nothing, []); (Just, [(None,tyRel 0)])] false.
 
-MetaCoq Unquote Inductive (global_to_tc maybe_syn).
+MetaRocq Unquote Inductive (global_to_tc maybe_syn).
 
 (** Now, we define a type of finite maps using notations based on Custom Entries *)
 Definition map_syn :=
@@ -59,18 +59,18 @@ Definition map_syn :=
        MNil [_]
      | MCons [^1, ^0, (Map ^1 ^0), _] \].
 
-MetaCoq Unquote Inductive (global_to_tc map_syn).
+MetaRocq Unquote Inductive (global_to_tc map_syn).
 
 Definition Σ' :=
   Σ ++ [ maybe_syn; map_syn ].
 
 (** We generate string constants for variable names as
     well to make our examples look nicer *)
-MetaCoq Run
+MetaRocq Run
       (mkNames "" ["A"; "B"; "C"; "f"; "a";
                    "b"; "c"; "m"; "n"; "k";
                    "v"; "w"; "x"; "y"; "z";
-                   "lookup"; "add"] "_coq").
+                   "lookup"; "add"] "_rocq").
 
 Notation " ' x " := (eTy (tyVar x))
                     (in custom expr at level 1,
@@ -102,8 +102,8 @@ Definition lookup_syn :=
 
 (* Compute (indexify [] lookup_syn). *)
 
-(** Unquoting the [lookup_syn] to produce a Coq function *)
-MetaCoq Unquote Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
+(** Unquoting the [lookup_syn] to produce a Rocq function *)
+MetaRocq Unquote Definition lookup_map := (expr_to_tc Σ' (indexify [] lookup_syn)).
 
 (** AST for a function that adds an element to a map *)
 Definition add_map_syn :=
@@ -118,14 +118,14 @@ Definition add_map_syn :=
                        $MCons$Map 'A 'B k v z
                      else $MCons$Map 'A 'B x y (add z) : Map 'A 'B |].
 
-MetaCoq Unquote Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
+MetaRocq Unquote Definition add_map := (expr_to_tc Σ' (indexify [] add_map_syn)).
 
 (** ** Correctness *)
 
 (** We can prove correctness of "library" definitions like finite
-    maps by comparing them to Coq's standard library definitions *)
+    maps by comparing them to Rocq's standard library definitions *)
 
-(** Since Coq's [FMap] is a module, we fix the type of keys to be [nat] *)
+(** Since Rocq's [FMap] is a module, we fix the type of keys to be [nat] *)
 Module NatMap := FMapWeakList.Make Nat_as_OT.
 
 (** Conversion function from our type of finite maps to the one in the standard library *)
@@ -138,7 +138,7 @@ Fixpoint from_amap {A} (m : MapAcorn nat A) : NatMap.Raw.t A :=
 Import PeanoNat.Nat.
 
 (** Showing that [add] function on Acorn finite maps are behaves the same way
-    as one of the Coq's Stdlib implementations (up to converting the results) *)
+    as one of the Rocq's Stdlib implementations (up to converting the results) *)
 Lemma add_map_eq_stdlib {A : Set} k v m :
   NatMap.Raw.add k v (from_amap m) = from_amap (add_map _ A PeanoNat.Nat.eqb k v m).
 Proof.
@@ -170,7 +170,7 @@ Section MapEval.
                    | Suc b -> "eqb" a b))
      |].
 
-  MetaCoq Unquote Definition nat_eqb :=
+  MetaRocq Unquote Definition nat_eqb :=
     (expr_to_tc Σ' (indexify [] eqb_syn)).
 
   (** Showing that Acorn boolean equality is in fact the same as [Nat.eqb] *)

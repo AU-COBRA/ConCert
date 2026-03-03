@@ -15,9 +15,9 @@ From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 Import ListNotations.
 Import BaseTypes.
 Open Scope list.
@@ -25,11 +25,11 @@ Open Scope nat.
 
 (** ** Wrappers for some primitive types *)
 
-MetaCoq Run
+MetaRocq Run
          (mp_ <- tmCurrentModPath tt ;;
           let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
           mkNames mp ["address"; "time"; "ContractAddr";
-                      "UserAddr"; "Time" ; "Money"] "_coq").
+                      "UserAddr"; "Time" ; "Money"] "_rocq").
 
 
 Definition address_ty :=
@@ -37,32 +37,32 @@ Definition address_ty :=
       ContractAddr [Nat,_]
     | UserAddr [Nat, _] \].
 
-MetaCoq Unquote Inductive (global_to_tc address_ty).
+MetaRocq Unquote Inductive (global_to_tc address_ty).
 
 Definition time_ty :=
   [\ data time = Time [Nat,_] \].
 
-MetaCoq Unquote Inductive (global_to_tc time_ty).
+MetaRocq Unquote Inductive (global_to_tc time_ty).
 
 Definition money := to_string_name <% Z %>.
 
 
 (** Comparison for addresses and time *)
 
-Definition ltb_time (t1 t2 : time_coq) :=
-  let '(Time_coq n1) := t1 in
-    let '(Time_coq n2) := t2 in
+Definition ltb_time (t1 t2 : time_rocq) :=
+  let '(Time_rocq n1) := t1 in
+    let '(Time_rocq n2) := t2 in
     n1 <? n2.
 
-Definition leb_time (t1 t2 : time_coq) :=
-  let '(Time_coq n1) := t1 in
-  let '(Time_coq n2) := t2 in
+Definition leb_time (t1 t2 : time_rocq) :=
+  let '(Time_rocq n1) := t1 in
+  let '(Time_rocq n2) := t2 in
   n1 <=? n2.
 
-Definition eqb_addr (a1 a2 : address_coq) :=
+Definition eqb_addr (a1 a2 : address_rocq) :=
   match a1,a2 with
-  | ContractAddr_coq n1, ContractAddr_coq n2 => Nat.eqb n1 n2
-  | UserAddr_coq n1, UserAddr_coq n2 => Nat.eqb n1 n2
+  | ContractAddr_rocq n1, ContractAddr_rocq n2 => Nat.eqb n1 n2
+  | UserAddr_rocq n1, UserAddr_rocq n2 => Nat.eqb n1 n2
   | _, _ => false
   end.
 
@@ -110,36 +110,36 @@ Notation "'mkCallCtx' now sender sent_am bal " :=
 (** A simple representation of the call context *)
 
 (** current_time, sender_add, sent_amount, acc_balance *)
-Definition SimpleCallCtx : Set := time_coq × (address_coq × (Amount × Amount)).
+Definition SimpleCallCtx : Set := time_rocq × (address_rocq × (Amount × Amount)).
 
 (** These projections correspond to the notations above *)
-Definition sc_current_time (ctx : SimpleCallCtx) : time_coq := ctx.1.
-Definition sc_sender_addr (ctx : SimpleCallCtx) : address_coq := ctx.2.1.
+Definition sc_current_time (ctx : SimpleCallCtx) : time_rocq := ctx.1.
+Definition sc_sender_addr (ctx : SimpleCallCtx) : address_rocq := ctx.2.1.
 Definition sc_sent_amount (ctx : SimpleCallCtx) : Z := ctx.2.2.1.
 Definition sc_acc_balance (ctx : SimpleCallCtx) : Z := ctx.2.2.2.
 
 
-Definition is_contract (addr : address_coq) :=
+Definition is_contract (addr : address_rocq) :=
   match addr with
-  | ContractAddr_coq _ => true
-  | UserAddr_coq _ => false
+  | ContractAddr_rocq _ => true
+  | UserAddr_rocq _ => false
   end.
 
-Definition encode_addr (addr : address_coq) : nat + nat :=
+Definition encode_addr (addr : address_rocq) : nat + nat :=
   match addr with
-  | ContractAddr_coq x => inl x
-  | UserAddr_coq x => inr x
+  | ContractAddr_rocq x => inl x
+  | UserAddr_rocq x => inr x
   end.
 
-Definition decode_addr (addr : nat + nat) : address_coq :=
+Definition decode_addr (addr : nat + nat) : address_rocq :=
   match addr with
-  | inl x => ContractAddr_coq x
-  | inr x => UserAddr_coq x
+  | inl x => ContractAddr_rocq x
+  | inr x => UserAddr_rocq x
   end.
 
 
 Global Program Instance CB : ChainBase :=
-  build_chain_base address_coq eqb_addr _ _ _ _ is_contract.
+  build_chain_base address_rocq eqb_addr _ _ _ _ is_contract.
 Next Obligation.
   intros a b. destruct a,b; simpl.
   - destruct (n =? n0)%nat eqn:Heq.
@@ -165,8 +165,8 @@ Next Obligation.
   * intros i.
     destruct (d i).
     ** destruct s as [n | n].
-       exact (Some (ContractAddr_coq n)).
-       exact (Some (UserAddr_coq n)).
+       exact (Some (ContractAddr_rocq n)).
+       exact (Some (UserAddr_rocq n)).
     ** exact None.
   * cbn; intros addr.
     destruct addr;
@@ -182,8 +182,8 @@ Next Obligation.
   * intros i.
     destruct (d i) as [v | ].
     ** destruct v as [n | n].
-       exact (Some (ContractAddr_coq n)).
-       exact (Some (UserAddr_coq n)).
+       exact (Some (ContractAddr_rocq n)).
+       exact (Some (UserAddr_rocq n)).
     ** exact None.
   * cbn; intros addr.
     destruct addr;
@@ -195,7 +195,7 @@ Definition init_wrapper {setup storage}
            (ch : Chain)
            (ctx : ContractCallContext) : setup -> storage :=
   let simple_ctx :=
-      (Time_coq ch.(current_slot),
+      (Time_rocq ch.(current_slot),
        ((ctx.(ctx_from)),
         ((ctx.(ctx_amount), ctx.(ctx_contract_balance))))) in
     init simple_ctx.
@@ -209,21 +209,21 @@ Module Maps.
   Open Scope nat.
 
 
-  MetaCoq Run
+  MetaRocq Run
            (mp_ <- tmCurrentModPath tt ;;
             let mp := (Utils.string_of_modpath mp_ ++ "@")%string in
-            mkNames mp ["addr_map"] "_coq").
+            mkNames mp ["addr_map"] "_rocq").
 
   Definition addr_map_acorn :=
     [\ data addr_map =
           "mnil" [_]
         | "mcons" [address, money, addr_map,_] \].
 
-  MetaCoq Unquote Inductive (global_to_tc addr_map_acorn).
+  MetaRocq Unquote Inductive (global_to_tc addr_map_acorn).
 
-  Definition Map := to_string_name <% addr_map_coq %>.
+  Definition Map := to_string_name <% addr_map_rocq %>.
 
-  Fixpoint lookup_map (m : addr_map_coq) (key : address_coq) : option Z :=
+  Fixpoint lookup_map (m : addr_map_rocq) (key : address_rocq) : option Z :=
     match m with
     | mnil => None
     | mcons k v m' =>
@@ -231,7 +231,7 @@ Module Maps.
     end.
 
   (* Ported from FMapWeaklist of StdLib *)
-  Fixpoint add_map (k : address_coq) (x : Z) (s : addr_map_coq) : addr_map_coq :=
+  Fixpoint add_map (k : address_rocq) (x : Z) (s : addr_map_rocq) : addr_map_rocq :=
   match s with
    | mnil => mcons k x mnil
    | mcons k' y l => if eqb_addr k k' then mcons k x l else mcons k' y (add_map k x l)
@@ -251,13 +251,13 @@ Module Maps.
       * simpl. now rewrite Heq.
   Qed.
 
-  Fixpoint to_list (m : addr_map_coq) : list (address_coq * Z)%type :=
+  Fixpoint to_list (m : addr_map_rocq) : list (address_rocq * Z)%type :=
     match m with
     | mnil => nil
     | mcons k v tl => cons (k,v) (to_list tl)
     end.
 
-  Fixpoint of_list (l : list (address_coq * Z)) : addr_map_coq :=
+  Fixpoint of_list (l : list (address_rocq * Z)) : addr_map_rocq :=
     match l with
     | nil => mnil
     | cons (k,v) tl => mcons k v (of_list tl)
@@ -270,7 +270,7 @@ Module Maps.
   Proof. induction l as [ | x l']; simpl; auto.
          destruct x. simpl; congruence. Qed.
 
-  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_coq) : bool :=
+  Fixpoint map_forallb (p : Z -> bool)(m : addr_map_rocq) : bool :=
     match m with
     | mnil => true
     | mcons k v m' => p v && map_forallb p m'

@@ -23,7 +23,7 @@ jobs:
         with:
           ocaml-compiler: ${{env.OCAML_COMILER_VERSION}}
           opam-repositories: |
-            coq-released: https://coq.inria.fr/opam/released
+            rocq-released: https://rocq-prover.org/opam/released
             default: https://opam.ocaml.org
           opam-pin: false
       - name: Set up problem matcher

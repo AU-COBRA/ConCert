@@ -1,40 +1,40 @@
 all: theory
 .PHONY: all
 
-CoqMakefile: _CoqProject
-	coq_makefile -f _CoqProject -o CoqMakefile
+RocqMakefile: _RocqProject
+	rocq makefile -f _RocqProject -o RocqMakefile
 
-theory: CoqMakefile
-	+@make -f CoqMakefile
+theory: RocqMakefile
+	+@make -f RocqMakefile
 .PHONY: theory
 
-clean: CoqMakefile
-	+@make -f CoqMakefile clean
-	rm -f CoqMakefile
+clean: RocqMakefile
+	+@make -f RocqMakefile clean
+	rm -f RocqMakefile
 .PHONY: clean
 
-install: CoqMakefile
-	+@make -f CoqMakefile install
+install: RocqMakefile
+	+@make -f RocqMakefile install
 .PHONY: install
 
-uninstall: CoqMakefile
-	+@make -f CoqMakefile uninstall
+uninstall: RocqMakefile
+	+@make -f RocqMakefile uninstall
 .PHONY: uninstall
 
-vos: CoqMakefile
-	+@make -f CoqMakefile vos
+vos: RocqMakefile
+	+@make -f RocqMakefile vos
 
-quick: CoqMakefile
-	+@make -f CoqMakefile COQEXTRAFLAGS="-unset \"Universe Checking\"" vos
+quick: RocqMakefile
+	+@make -f RocqMakefile COQEXTRAFLAGS="-unset \"Universe Checking\"" vos
 
-# Forward most things to Coq makefile. Use 'force' to make this phony.
-%: CoqMakefile force
-	+@make -f CoqMakefile $@
+# Forward most things to Rocq makefile. Use 'force' to make this phony.
+%: RocqMakefile force
+	+@make -f RocqMakefile $@
 force: ;
 all: theory process-extraction-examples
 
 # Do not forward these files
-Makefile _CoqProject: ;
+Makefile _RocqProject: ;
 
 process-extraction-examples: theory
 	./process-extraction-examples.sh

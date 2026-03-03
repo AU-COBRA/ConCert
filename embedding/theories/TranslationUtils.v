@@ -4,14 +4,14 @@ From ConCert.Embedding Require Import PCUICTranslate.
 From ConCert.Embedding Require Import PCUICtoTemplate.
 From ConCert.Utils Require Import Env.
 #[warnings="-notation-incompatible-prefix"]
-From MetaCoq.Template Require Import All.
+From MetaRocq.Template Require Import All.
 
 From Stdlib Require Import String.
 From Stdlib Require Import Basics.
 From Stdlib Require Import List.
 
 
-Import MCMonadNotation.
+Import MRMonadNotation.
 
 Import ListNotations.
 
@@ -120,9 +120,9 @@ Fixpoint translateData_ (ps : env string) (es : list global_dec) : TemplateMonad
   | [] => tmPrint "Done."
   | e :: es' =>
     let e' := add_prefix_gd e ps in
-    coq_data <- tmEval lazy (global_to_tc e') ;;
-    (* tmPrint coq_data *)
-    tmMkInductive false coq_data;;
+    rocq_data <- tmEval lazy (global_to_tc e') ;;
+    (* tmPrint rocq_data *)
+    tmMkInductive false rocq_data;;
     translateData_ ps es'
   end.
 
@@ -142,11 +142,11 @@ Fixpoint translateDefs_ (ps : env string) (Σ : Ast.global_env) (es : list (stri
   match es with
   | [] => tmPrint "Done."
   | (name, e) :: es' =>
-    coq_expr <- tmEval lazy
+    rocq_expr <- tmEval lazy
                       (expr_to_tc Σ (reindexify 0 (add_prefix e ps))) ;;
-    (* tmPrint coq_expr;; *)
+    (* tmPrint rocq_expr;; *)
     print_nf ((add_prefix e ps));;
-    tmMkDefinition (TCString.of_string name) coq_expr;;
+    tmMkDefinition (TCString.of_string name) rocq_expr;;
     print_nf ("Unquoted: " ++ name)% string;;
     translateDefs_ ps Σ es'
   end.

@@ -1,0 +1,21 @@
+-arg -w -arg -notation-overridden
+-arg -w -arg -non-reversible-notation
+
+-R ../utils/theories ConCert.Utils
+-R ../execution/theories ConCert.Execution
+
+-Q theories ConCert.Extraction
+theories/CameLIGOExtract.v
+theories/CameLIGOPretty.v
+theories/Common.v
+theories/ConcordiumExtract.v
+theories/LiquidityExtract.v
+theories/LiquidityPretty.v
+theories/PrettyPrinterMonad.v
+theories/SpecializeChainBase.v
+
+-Q tests ConCert.Extraction.Tests
+-arg "-output-dir tests/extracted-code/"
+tests/CameLIGOExtractionTests.v
+tests/RecordExtractionLiquidityTests.v
+tests/NumLiteralTests.v
