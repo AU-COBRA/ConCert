@@ -86,6 +86,9 @@ nia.cache
 nlia.cache
 nra.cache
 
+## Dune
+_build/
+
 ## Editors
 
 ### VisualStudioCode ###

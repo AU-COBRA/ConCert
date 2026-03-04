@@ -1,0 +1,20 @@
+(rocq.theory
+  (name ConCert.Embedding)
+  (package rocq-concert)
+  (synopsis "A framework for smart contract verification in Rocq")
+  (modules :standard)
+  (flags
+    -w -notation-overridden
+    -w -non-reversible-notation
+  )
+  (theories
+    Stdlib
+    Ltac2
+    Equations
+    MetaRocq
+    ConCert.Utils
+    ConCert.Execution
+  )
+)
+
+(include_subdirs qualified)

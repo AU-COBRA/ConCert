@@ -1,0 +1,21 @@
+(rocq.theory
+  (name ConCert.Extraction.Tests)
+  (package rocq-concert)
+  (synopsis "A framework for smart contract verification in Rocq")
+  (modules :standard)
+  (flags
+    -w -notation-overridden
+    -w -non-reversible-notation
+    -output-dir extracted-code/
+  )
+  (theories
+    Stdlib
+    Ltac2
+    Equations
+    MetaRocq
+    TypedExtraction
+    ConCert.Utils
+    ConCert.Execution
+    ConCert.Extraction
+  )
+)

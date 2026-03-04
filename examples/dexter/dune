@@ -1,0 +1,31 @@
+(rocq.theory
+  (name ConCert.Examples.Dexter)
+  (package rocq-concert-examples)
+  (synopsis "A framework for smart contract verification in Rocq")
+  (modules :standard)
+  (flags
+    -w -notation-overridden
+    -w -non-reversible-notation
+    -output-dir ../../extraction/tests/extracted-code/
+  )
+  (theories
+    Stdlib
+    Ltac2
+    Equations
+    MetaRocq
+    TypedExtraction
+    stdpp
+    elpi
+    elpi_elpi
+    HB
+    mathcomp
+    SimpleIO
+    ExtLib
+    QuickChick
+    ConCert.Utils
+    ConCert.Execution
+    ConCert.Execution.Test
+    ConCert.Extraction
+    ConCert.Examples.EIP20
+  )
+)
