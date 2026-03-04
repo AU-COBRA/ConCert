@@ -1,0 +1,22 @@
+(rocq.theory
+  (name ConCert.Execution.Test)
+  (package rocq-concert)
+  (synopsis "A framework for smart contract verification in Rocq")
+  (modules :standard)
+  (theories
+    Stdlib
+    Ltac2
+    Equations
+    MetaRocq
+    stdpp
+    elpi
+    elpi_elpi
+    HB
+    mathcomp
+    SimpleIO
+    ExtLib
+    QuickChick
+    ConCert.Utils
+    ConCert.Execution
+  )
+)
