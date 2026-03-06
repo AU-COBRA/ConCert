@@ -1332,7 +1332,6 @@ Section Theories.
       destruct IH as (state & deployed_state & IH).
       rewrite outgoing_acts_after_block_nil; eauto.
       eapply contract_addr_format; eauto.
-      now constructor.
     - (* Action transfer *)
       destruct IH as (state & deployed_state & sum_eq).
       eexists.
@@ -1358,9 +1357,8 @@ Section Theories.
         rewrite outgoing_acts_after_deploy_nil; auto.
         rewrite queue_new.
         apply undeployed_contract_no_out_queue in not_deployed; auto.
-        * rewrite queue_prev in not_deployed.
-          now apply list_relations.list.Forall_cons in not_deployed.
-        * now constructor.
+        rewrite queue_prev in not_deployed.
+        now apply list_relations.list.Forall_cons in not_deployed.
       + (* Deploy other contract *)
         destruct IH as (state' & deployed_state' & sum_eq); auto.
         eexists.

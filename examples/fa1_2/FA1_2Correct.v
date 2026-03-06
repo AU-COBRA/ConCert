@@ -750,7 +750,6 @@ Section Theories.
         | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
         end.
         eapply no_self_calls; eauto.
-        now constructor.
   Qed.
 
   Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1160,7 +1159,6 @@ Section Theories.
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
       eapply no_self_calls; eauto.
-      now constructor.
   Qed.
 
 End Theories.

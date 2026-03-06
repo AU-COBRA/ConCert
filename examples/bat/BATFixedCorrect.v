@@ -1351,7 +1351,6 @@ Section Theories.
     - solve_facts.
       apply deployed_implies_constants_valid in deployed0; auto.
       now destruct_hyps.
-      now constructor.
   Qed.
 
   Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
@@ -1442,7 +1441,6 @@ Section Theories.
           now apply Z.ge_le, account_balance_nonnegative.
       + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
         eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 
@@ -1541,9 +1539,7 @@ Section Theories.
         rewrite deployed_cstate' in deployed_state0.
         inversion deployed_state0.
         now subst cstate'.
-        now constructor.
       + eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 
@@ -1595,7 +1591,6 @@ Section Theories.
       now apply Permutation.Permutation_nil in perm.
     - solve_facts.
       eapply bat_no_self_calls'; eauto.
-      now constructor.
   Qed.
 
 
@@ -1653,10 +1648,8 @@ Section Theories.
       split.
       * edestruct deployed_implies_constants_valid as
           (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _); eauto.
-        now constructor.
         easy.
       * eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 
@@ -1782,18 +1775,15 @@ Section Theories.
         (cstate' & deployed_state' & _ & _ & _ & exchange_rate_nonzero & _).
       + intros not_finalized from_not_batfund.
         edestruct token_balances_divisible as (cstate' & deployed_cstate' & ?); eauto.
-        now constructor.
         rewrite deployed_state0 in deployed_cstate'.
         inversion deployed_cstate'.
         now subst cstate'.
       + intros not_finalized from_not_batfund.
         edestruct no_init_supply_refund as (cstate' & deployed_cstate' & batfund_balance); eauto.
-        now constructor.
         rewrite deployed_state0 in deployed_cstate'.
         inversion deployed_cstate'.
         subst cstate'. clear deployed_cstate'.
         edestruct sum_balances_eq_total_supply as (cstate' & deployed_cstate' & sum_eq_total); eauto.
-        now constructor.
         rewrite deployed_state0 in deployed_cstate'.
         inversion deployed_cstate'.
         subst cstate'. clear deployed_cstate'.
@@ -1803,10 +1793,8 @@ Section Theories.
         now apply balance_le_sum_balances_ne.
       + intros.
         edestruct funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
-        now constructor.
         now apply no_acts.
       + eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 

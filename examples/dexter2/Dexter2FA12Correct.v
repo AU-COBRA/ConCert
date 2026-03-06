@@ -873,7 +873,6 @@ Section Theories.
         | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
         end.
         eapply no_self_calls; eauto.
-        now constructor.
   Qed.
 
   Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1343,14 +1342,12 @@ Section Theories.
     - solve_facts.
       split.
       + edestruct sum_balances_eq_total_supply as (? & ? & ?); eauto.
-        now constructor.
         easy.
       + rewrite deployed in *.
         match goal with
         | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
         end.
         eapply no_self_calls; eauto.
-        now constructor.
   Qed.
 
   Instance LqtFA12Token : LqtTokenInterface :=

@@ -268,7 +268,7 @@ Module WccdView <: CIS1View WccdTypes.
     Proof.
       split.
       + intros Hin. unfold get_owners in *.
-        unfold get_balance_opt,Cis1wccd.get_balance_opt.
+        unfold get_balance_opt,CIS1wccd.get_balance_opt.
         apply In_keys_In_elements_iff in Hin.
         destruct Hin as [a_st HH].
         exists a_st.(wccd_balance).
@@ -278,7 +278,7 @@ Module WccdView <: CIS1View WccdTypes.
       + intros Hex.
         destruct Hex as [b Hb].
         unfold get_owners, FMap.keys.
-        unfold get_balance_opt,Cis1wccd.get_balance_opt in *.
+        unfold get_balance_opt,CIS1wccd.get_balance_opt in *.
         destruct (AddressMap.find owner st) eqn:Heq; try congruence.
         unfold AddressMap.find in *.
         apply FMap.In_elements in Heq.

@@ -1360,7 +1360,6 @@ Section Theories.
     - solve_facts.
       apply deployed_implies_constants_valid in deployed0; eauto.
       now destruct_hyps.
-      now constructor.
   Qed.
 
   Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
@@ -1451,7 +1450,6 @@ Section Theories.
           now apply Z.ge_le, account_balance_nonnegative.
       + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
         eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 
@@ -1513,10 +1511,8 @@ Section Theories.
     - solve_facts.
       split.
       + eapply bat_no_self_calls'; eauto.
-        now constructor.
       + edestruct sum_balances_eq_total_supply as
           (? & ? & ?); eauto.
-        now constructor.
         easy.
   Qed.
 
@@ -1628,18 +1624,14 @@ Section Theories.
       + now apply Z.ge_le.
       + edestruct deployed_implies_constants_valid as
           (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
-        now constructor.
         easy.
       + edestruct sum_balances_eq_total_supply as
           (cstate' & deployed_state' & ?); eauto.
-        now constructor.
         easy.
       + intros.
         edestruct funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
-        now constructor.
         now apply no_acts.
       + eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 

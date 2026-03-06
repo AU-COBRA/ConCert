@@ -95,7 +95,7 @@ The BoardroomVoting smart contract is extracted to both
 ## CIS1
 A formalization of the [CIS1](https://proposals.concordium.software/CIS/cis-1.html) standard
 for the Concordium blockchain. It includes a [specification](cis1/CIS1Spec.v) of the standard and a verified
-[implementation](cis1/Cis1wccd.v) of the standard.
+[implementation](cis1/CIS1wccd.v) of the standard.
 
 ## Congress
 In [Congress.v](../examples/congress/Congress.v) we implement the _Congress_ contract, a

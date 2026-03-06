@@ -330,9 +330,7 @@ Section SafetyProperties.
       end.
       + rewrite address_eq_refl. intros state_intact.
         edestruct balance_on_chain' as (state1 & construct1 & balance); eauto.
-        now constructor.
         edestruct no_outgoing_actions_when_intact as (state2 & [construct2 act]); eauto.
-        now constructor.
         unfold contract_state in *.
         destruct (env_contract_states bstate_from to_addr); try discriminate.
         inversion construct1 as [some_s_is_state1]. inversion construct2 as [some_s_is_state2].
@@ -356,13 +354,12 @@ Section SafetyProperties.
         ** discriminate.
         * cbn. lia.
       + edestruct no_outgoing_actions_when_intact as (? & ?); eauto.
-        * now constructor.
-        * intros intact. destruct H.
-          unfold contract_state in *.
-          destruct (env_contract_states bstate_from to_addr); try discriminate.
-          inversion H as [s_is_some_x]. rewrite deployed_state0 in s_is_some_x.
-          inversion s_is_some_x as [cstate_eq_x].
-          now subst.
+        intros intact. destruct H.
+        unfold contract_state in *.
+        destruct (env_contract_states bstate_from to_addr); try discriminate.
+        inversion H as [s_is_some_x]. rewrite deployed_state0 in s_is_some_x.
+        inversion s_is_some_x as [cstate_eq_x].
+        now subst.
       + apply trace_reachable in from_reachable.
         pose proof (no_self_calls bstate_from to_addr ltac:(assumption) ltac:(assumption))
              as all.
