@@ -453,7 +453,7 @@ Section BATCommon.
     induction accounts; intros * is_address act HIn.
     - inversion HIn.
     - cbn in HIn.
-      apply list_relations.Forall_cons in is_address as [is_address is_address'].
+      apply list_relations.list.Forall_cons in is_address as [is_address is_address'].
       destruct_match in HIn.
       destruct HIn; subst.
       all: eauto.
@@ -467,7 +467,7 @@ Section BATCommon.
     - now cbn.
     - cbn.
       destruct_match; auto.
-      apply list_relations.Forall_cons.
+      apply list_relations.list.Forall_cons.
       destruct_and_split; auto.
       apply address_eq_refl.
   Qed.

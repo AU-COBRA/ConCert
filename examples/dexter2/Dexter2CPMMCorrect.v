@@ -993,21 +993,21 @@ Section Theories.
         end) (outgoing_acts bstate caddr)).
   Proof.
     contract_induction; intros; cbn in *; auto.
-    - now apply list_relations.Forall_cons in IH as [_ IH].
+    - now apply list_relations.list.Forall_cons in IH as [_ IH].
     - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
         try apply IH; auto;
-        rewrite ?list_relations.Forall_cons, ?list_relations.Forall_nil;
+        rewrite ?list_relations.list.Forall_cons, ?list_relations.list.Forall_nil;
         try easy.
     - destruct_message;
         rewrite_acts_correct;
         rewrite_state_eq;
         try (apply Forall_app; split);
-        apply list_relations.Forall_cons in IH as [? IH];
+        apply list_relations.list.Forall_cons in IH as [? IH];
         try apply IH; auto;
-        rewrite ?list_relations.Forall_cons, ?list_relations.Forall_nil;
+        rewrite ?list_relations.list.Forall_cons, ?list_relations.list.Forall_nil;
         try easy.
     - now rewrite <- perm.
     - solve_facts.
@@ -1030,7 +1030,7 @@ Section Theories.
     cbn in receive_some.
     destruct_message;
       rewrite_acts_correct;
-      rewrite ?list_relations.Forall_cons, list_relations.Forall_nil;
+      rewrite ?list_relations.list.Forall_cons, list_relations.list.Forall_nil;
       easy.
   Qed.
 
@@ -1136,8 +1136,8 @@ Section Theories.
     unfold no_transfers in no_transfer.
     assert (sum_zero : sumZ (fun act : ActionBody => act_body_amount act) (outgoing_acts bstate caddr) = 0%Z).
     - induction outgoing_acts; auto.
-      apply list_relations.Forall_cons in no_transfer as (no_transfer & no_transfers).
-      apply list_relations.Forall_cons in amount_zero as (amount_zero & amounts_zero).
+      apply list_relations.list.Forall_cons in no_transfer as (no_transfer & no_transfers).
+      apply list_relations.list.Forall_cons in amount_zero as (amount_zero & amounts_zero).
       destruct a; auto; cbn; rewrite IHl by auto;
         clear IHl no_transfers amounts_zero.
       + now destruct amount_zero as [-> | []].
@@ -1359,7 +1359,7 @@ Section Theories.
         rewrite queue_new.
         apply undeployed_contract_no_out_queue in not_deployed; auto.
         * rewrite queue_prev in not_deployed.
-          now apply list_relations.Forall_cons in not_deployed.
+          now apply list_relations.list.Forall_cons in not_deployed.
         * now constructor.
       + (* Deploy other contract *)
         destruct IH as (state' & deployed_state' & sum_eq); auto.
@@ -1400,7 +1400,7 @@ Section Theories.
           cbn;
           rewrite ?address_eq_refl;
           cbn;
-          rewrite ?list_relations.Forall_cons;
+          rewrite ?list_relations.list.Forall_cons;
           repeat split; try easy;
           rewrite_receive_is_some;
           try easy.
@@ -1465,7 +1465,7 @@ Section Theories.
     contract_induction;
       intros; auto.
     - cbn.
-      now apply list_relations.Forall_cons in IH as [].
+      now apply list_relations.list.Forall_cons in IH as [].
     - instantiate (CallFacts := fun _ _ state out_acts _ =>
         state.(lqtAddress) = null_address ->
           Forall (fun act_body =>
@@ -1484,7 +1484,7 @@ Section Theories.
         rewrite_state_eq;
         apply Forall_app;
         split; auto;
-        rewrite ?list_relations.Forall_cons, ?list_relations.Forall_nil;
+        rewrite ?list_relations.list.Forall_cons, ?list_relations.list.Forall_nil;
         try easy.
       + cbn.
         repeat split; auto.
@@ -1504,7 +1504,7 @@ Section Theories.
         destruct_match eqn:contradiction; auto.
         destruct m; auto.
         now apply deserialize_balance_of_ne_mint_or_burn in contradiction.
-    - apply list_relations.Forall_cons in IH as [].
+    - apply list_relations.list.Forall_cons in IH as [].
       unfold CallFacts in facts.
       cbn in receive_some.
       destruct_message;
@@ -1512,7 +1512,7 @@ Section Theories.
         rewrite_state_eq;
         apply Forall_app;
         split; auto;
-        rewrite ?list_relations.Forall_cons, ?list_relations.Forall_nil;
+        rewrite ?list_relations.list.Forall_cons, ?list_relations.list.Forall_nil;
         try easy.
       + cbn.
         repeat split; auto.
@@ -1559,7 +1559,7 @@ Section Theories.
     clear trace deployed deployed_state.
     induction outgoing_acts.
     - reflexivity.
-    - apply list_relations.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
+    - apply list_relations.list.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
       clear IHl.
       cbn.
       rewrite <- IH. clear IH.
@@ -1772,7 +1772,7 @@ Section Theories.
             clear deployed_state'.
             subst.
             destruct_address_eq; auto.
-            apply list_relations.Forall_cons.
+            apply list_relations.list.Forall_cons.
             now split.
          -- (* Action deploy *)
             rewrite_environment_equiv.
@@ -1783,7 +1783,7 @@ Section Theories.
               unfold outgoing_txs in not_deployed.
               rewrite not_deployed.
               destruct_address_eq; auto.
-              now apply list_relations.Forall_cons.
+              now apply list_relations.list.Forall_cons.
           --- (* Deploy other contract *)
               destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
               rewrite deployed_state in deployed_state'.
@@ -1791,7 +1791,7 @@ Section Theories.
               clear deployed_state'.
               subst.
               destruct_address_eq; auto.
-              now apply list_relations.Forall_cons.
+              now apply list_relations.list.Forall_cons.
          -- (* Action call *)
             destruct IHtrace as (state' & deployed_state' & sum_eq);
               try rewrite_environment_equiv; auto.
@@ -1891,7 +1891,7 @@ Section Theories.
               clear deployed_state'.
               subst.
               destruct_address_eq; auto.
-              apply list_relations.Forall_cons.
+              apply list_relations.list.Forall_cons.
               split; auto.
               cbn.
               edestruct outgoing_acts_all_mint_same_dest as (cstate & deployed_state' & out_acts_forall); eauto.
@@ -1937,7 +1937,7 @@ Section Theories.
     clear deployed deployed_state.
     induction (outgoing_txs trace caddr).
     - reflexivity.
-    - apply list_relations.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
+    - apply list_relations.list.Forall_cons in mint_or_burn_to_lqt_addr as [mint_or_burn_to_lqt_addr IH%IHl].
       clear IHl.
       cbn.
       rewrite <- IH. clear IH.

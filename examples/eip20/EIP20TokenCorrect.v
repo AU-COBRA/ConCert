@@ -157,7 +157,7 @@ Section Theories.
       | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add_existing; eauto
       | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => rewrite FMap.add_add
       | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => rewrite FMap.elements_add; eauto
-      | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
+      | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_eq
       | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter
       | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne; auto
       | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => rewrite FMap.find_partial_alter_ne
