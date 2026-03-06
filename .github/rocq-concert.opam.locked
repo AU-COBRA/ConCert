@@ -22,8 +22,8 @@ depends: [
   "rocq-metarocq-utils" {= "1.4+9.1"}
   "rocq-rust-extraction" {= "0.2.0"}
   "rocq-elm-extraction" {= "0.2.0"}
+  "rocq-stdpp" {= "1.13.0"}
   "coq-quickchick" {= "2.1.1"}
-  "coq-stdpp" {= "1.12.0"}
 ]
 build: [
   [make "core"]

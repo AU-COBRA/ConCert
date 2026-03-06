@@ -912,7 +912,7 @@ Section Theories.
       update_all.
       (* Now we know that the funding period is over or on its last slot and the funding minimum has been hit.
         So now we can add a new block containing a finalize call *)
-      add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list_relations.Forall_singleton, address_eq_refl.
+      add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
       (* The hypothesis "slot_hit" no longer holds so we have to update it manually before calling update_all *)
       update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
         (rewrite_environment_equiv; cbn; easy).
@@ -1069,7 +1069,7 @@ Section Theories.
         apply empty_queue_is_emptyable.
       + clear reward Hreward creator Hcreator.
         apply NoDup_cons_iff in accounts_unique as [accounts_unique accounts_unique'].
-        apply list_relations.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
+        apply list_relations.list.Forall_cons in accounts_not_contracts as [accounts_not_contracts accounts_not_contracts'].
         apply not_in_cons in bat_fund_not_in_accounts as [bat_fund_not_in_accounts bat_fund_not_in_accounts'].
 
         (* Check if funding goal was already hit *)
@@ -1254,7 +1254,7 @@ Section Theories.
           batfund_not_caddr
           ethfund_not_caddr.
 
-    add_block [(deploy_act setup BATFixed.contract creator)] 1%nat; eauto. apply list_relations.Forall_singleton, address_eq_refl.
+    add_block [(deploy_act setup BATFixed.contract creator)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
     update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
       (rewrite_environment_equiv; cbn; lia).
     update bstate with bstate0 in enough_balance_to_fund by

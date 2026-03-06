@@ -772,7 +772,7 @@ Section Theories.
     induction (outgoing_acts bstate caddr).
     - reflexivity.
     - cbn.
-      apply list_relations.Forall_cons in act_amount_zero as (act_amount_zero & acts_amount_zero).
+      apply list_relations.list.Forall_cons in act_amount_zero as (act_amount_zero & acts_amount_zero).
       rewrite act_amount_zero, Z.add_0_l.
       now apply IHl.
   Qed.
@@ -805,7 +805,7 @@ Section Theories.
       | H : FMap.find ?x _ = Some _ |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add_existing; eauto
       | |- context [ FMap.add ?x _ (FMap.add ?x _ _) ] => setoid_rewrite FMap.add_add
       | H : FMap.find ?x _ = None |- context [ FMap.elements (FMap.add ?x _ _) ] => setoid_rewrite FMap.elements_add; eauto
-      | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_delete
+      | |- context [ FMap.remove ?x (FMap.add ?x _ _) ] => rewrite fin_maps.delete_insert_eq
       | |- context [ FMap.find ?x (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter
       | H : ?x' <> ?x |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne; auto
       | H : ?x <> ?x' |- context [ FMap.find ?x' (FMap.partial_alter _ ?x _) ] => setoid_rewrite FMap.find_partial_alter_ne
@@ -868,12 +868,12 @@ Section Theories.
           * rewrite FMap.map_update_idemp.
             unfold FMap.update.
             apply maybe_sub_add in H1 as [[-> _] | ->].
-            -- now rewrite fin_maps.delete_notin.
+            -- now rewrite fin_maps.delete_id.
             -- FMap_simpl_step.
           * rewrite FMap.map_update_idemp.
             unfold FMap.update.
             apply maybe_sub_add in H1 as [[-> _] | ->].
-            -- now rewrite fin_maps.delete_notin.
+            -- now rewrite fin_maps.delete_id.
             -- FMap_simpl_step.
           * unfold FMap.update.
             edestruct maybe_cases as [[-> ?H] | [-> _]].
@@ -919,12 +919,12 @@ Section Theories.
             -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   rewrite <- N.add_0_r.
-                  rewrite fin_maps.delete_notin.
+                  rewrite fin_maps.delete_id.
                   2: FMap_simpl_step.
                   change 0 with ((fun '(_, v) => v) (from, 0)).
                   rewrite sumN_inv, fin_maps.map_to_list_delete; auto.
               --- rewrite N.sub_0_r.
-                  rewrite fin_maps.delete_notin.
+                  rewrite fin_maps.delete_id.
                   2: FMap_simpl_step.
                   FMap_simpl_step.
                   rewrite fin_maps.map_to_list_delete; auto.
@@ -952,7 +952,7 @@ Section Theories.
                   change 0 with ((fun '(_, v) => v) (to, 0)).
                   rewrite sumN_inv, fin_maps.map_to_list_delete.
                   2: FMap_simpl_step.
-                  rewrite fin_maps.delete_notin; auto.
+                  rewrite fin_maps.delete_id; auto.
               --- rewrite N.sub_0_r.
                   rewrite <- N.add_0_r.
                   change 0 with ((fun '(_, v) => v) (to, 0)).
@@ -966,7 +966,7 @@ Section Theories.
                   rewrite N.add_0_r.
                   rewrite fin_maps.map_to_list_delete.
                   2: FMap_simpl_step.
-                  rewrite fin_maps.delete_notin; auto.
+                  rewrite fin_maps.delete_id; auto.
               --- FMap_simpl_step.
                   2: FMap_simpl_step.
                   rewrite (sumN_split _ (to, value) (to, n)) by lia.
@@ -981,14 +981,14 @@ Section Theories.
             unfold FMap.update.
             edestruct maybe_cases as [[-> ->] | [-> _]].
             -- rewrite N.sub_0_r. cbn.
-               rewrite fin_maps.delete_notin.
+               rewrite fin_maps.delete_id.
                2: FMap_simpl_step.
-               rewrite fin_maps.delete_notin; auto.
+               rewrite fin_maps.delete_id; auto.
             -- edestruct maybe_cases as [[-> ?H] | [-> _]].
               --- rewrite N.sub_0_le in H3; apply N.le_antisymm in H3; auto; subst.
                   FMap_simpl_step.
                   2: FMap_simpl_step. cbn.
-                  rewrite fin_maps.delete_notin; auto.
+                  rewrite fin_maps.delete_id; auto.
               --- FMap_simpl_step.
                   2: FMap_simpl_step.
                   rewrite <- sumN_inv.

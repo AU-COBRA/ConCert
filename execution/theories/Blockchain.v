@@ -1066,15 +1066,15 @@ Proof.
     | [H: Forall act_origin_is_eq_from _ |- _] => inversion H
     end; constructor; auto; destruct_address_eq; congruence.
   - (* Transfer step, just use IH *)
-    eapply list_relations.Forall_cons; eauto.
+    eapply list_relations.list.Forall_cons; eauto.
   - (* Deploy step. First show that it is not to contract and then use IH. *)
     destruct_address_eq; try congruence.
-    eapply list_relations.Forall_cons; eauto.
+    eapply list_relations.list.Forall_cons; eauto.
   - (* Call. Show that it holds for new actions as it is from *)
     (* another contract, and use IH for remaining. *)
-    apply list_relations.Forall_app.
+    apply list_relations.list.Forall_app.
     assert (contract <> to_addr) by congruence.
-    split; [eapply new_acts_no_out_queue|eapply list_relations.Forall_cons]; eauto.
+    split; [eapply new_acts_no_out_queue|eapply list_relations.list.Forall_cons]; eauto.
   - (* Invalid User Action *)
     now apply Forall_inv_tail in IHtrace.
   - (* Permutation *)

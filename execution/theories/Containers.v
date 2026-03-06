@@ -67,7 +67,7 @@ Module FMap.
 
     Lemma find_add (k : K) (v : V) (m : FMap K V) :
       find k (add k v m) = Some v.
-    Proof. apply fin_maps.lookup_insert. Qed.
+    Proof. apply fin_maps.lookup_insert_eq. Qed.
 
     Lemma find_add_ne (k k' : K) (v : V) (m : FMap K V) :
       k <> k' -> find k' (add k v m) = find k' m.
@@ -75,7 +75,7 @@ Module FMap.
 
     Lemma find_partial_alter k f (m : FMap K V) :
       find k (partial_alter f k m) = f (find k m).
-    Proof. apply fin_maps.lookup_partial_alter. Qed.
+    Proof. apply fin_maps.lookup_partial_alter_eq. Qed.
 
     Lemma find_partial_alter_ne k k' f (m : FMap K V) :
       k <> k' ->
@@ -96,20 +96,20 @@ Module FMap.
 
     Lemma add_remove k v (m : FMap K V) :
       add k v (remove k m) = add k v m.
-    Proof. apply fin_maps.insert_delete_insert. Qed.
+    Proof. apply fin_maps.insert_delete_eq. Qed.
 
     Lemma add_add k v v' (m : FMap K V) :
       add k v (add k v' m) = add k v m.
-    Proof. apply fin_maps.insert_insert. Qed.
+    Proof. apply fin_maps.insert_insert_eq. Qed.
 
     Lemma remove_add k v (m : FMap K V) :
       find k m = None ->
       remove k (add k v m) = m.
-    Proof. apply fin_maps.delete_insert. Qed.
+    Proof. apply fin_maps.delete_insert_id. Qed.
 
     Lemma find_remove k (m : FMap K V) :
       find k (remove k m) = None.
-    Proof. apply fin_maps.lookup_delete. Qed.
+    Proof. apply fin_maps.lookup_delete_eq. Qed.
 
     Lemma find_remove_ne k k' (m : FMap K V) :
       k <> k' ->
@@ -119,7 +119,7 @@ Module FMap.
     Lemma add_commute (k k' : K) (v v' : V) (m : FMap K V) :
       k <> k' ->
       FMap.add k v (FMap.add k' v' m) = FMap.add k' v' (FMap.add k v m).
-    Proof. apply fin_maps.insert_commute. Qed.
+    Proof. apply fin_maps.insert_insert_ne. Qed.
 
     Lemma add_id k v (m : FMap K V) :
       find k m = Some v ->
@@ -140,7 +140,7 @@ Module FMap.
       + rewrite find_empty in find_some.
         congruence.
       + destruct (EqDecision0 k i) as [->|].
-        * rewrite fin_maps.insert_insert.
+        * rewrite fin_maps.insert_insert_eq.
           unfold keys.
           rewrite 2!fin_maps.map_to_list_insert by auto.
           cbn.
@@ -256,8 +256,8 @@ Module FMap.
       destruct m; cbn.
       - apply add_add.
       - apply add_remove.
-      - apply fin_maps.delete_insert_delete.
-      - apply fin_maps.delete_idemp.
+      - apply fin_maps.delete_insert_eq.
+      - apply fin_maps.delete_delete_eq.
     Qed.
 
     Lemma find_update_ne : forall (key1 key2 : K) (n : option V) (map : FMap K V),

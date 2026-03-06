@@ -27,7 +27,7 @@ depends: [
   "rocq-metarocq-erasure" {>= "1.4" & < "1.4.2~"}
   "rocq-rust-extraction" {= "0.2.0"}
   "rocq-elm-extraction" {= "0.2.0"}
-  "coq-stdpp" {>= "1.12.0" & <= "1.13~"}
+  "rocq-stdpp" {= "1.13.0"}
 ]
 
 build: [
