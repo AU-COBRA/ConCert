@@ -251,7 +251,7 @@ Section print_term.
       let ctx' := [{| decl_name := dname fdef; decl_body := None |}] in
       let fix_name := string_of_name (fdef.(dname)) in
       let (args, _) := Edecompose_lam (fdef.(dbody)) in
-      let ctx := List.rev (map vass args) in
+      let ctx := List.rev' (map vass args) in
       let sargs := print_uncurried "" (map (fun x => string_of_name x) args) in
       string_of_name fdef.(dname)
           ++ " " ++ sargs ++ " = "
@@ -433,7 +433,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
   Definition print_pat (Γ : context) (prefix : string)
                        (TT : env string) (ctor : string)
                        (infix : bool) (pt : list string * string) : string :=
-    let vars := List.rev pt.1 in
+    let vars := List.rev' pt.1 in
     if infix then
       concat (" " ++ ctor ++ " ") vars ++ " -> " ++ pt.2
     else
@@ -499,7 +499,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
                       " = " ++ print_term prefix FT TT Γ true false def ++ " in " ++ nl ++
                       print_term prefix FT TT (vdef (nNamed na') def :: Γ) true false body)
   | tApp f l =>
-    let apps := List.rev (app_args (print_term prefix FT TT Γ false false) t) in
+    let apps := List.rev' (app_args (print_term prefix FT TT Γ false false) t) in
     let (b,_) := decompose_app f in
     match b with
       (* if the variable corresponds to a fixpoint, we pack the arguments into a tuple *)
@@ -610,7 +610,7 @@ Definition get_record_projs (oib : ExAst.one_inductive_body) : list string :=
                  let ctx' := map vass br_ctx in
                  let nas' := fresh_string_names (ctx ++ ctx')%list br_ctx in
                  let b := print_term prefix FT TT (fst nas') false false br_body in
-                 (List.rev (snd nas'), b)%list in
+                 (List.rev' (snd nas'), b)%list in
 
         (* let fix print_branch Γ arity params br {struct br} := *)
         (*     match arity with *)
@@ -755,7 +755,7 @@ Definition print_init (prefix : string)
   let printed_targs_inner :=
       map (fun '(x,ty) => parens false ((BasicAst.string_of_name x) ^ " : " ^ ty)) targs_inner in
   let decl_inner := "inner " ++ concat " " printed_targs_inner in
-  let ctx := map (fun x => Build_context_decl x None) (List.rev args) in
+  let ctx := map (fun x => Build_context_decl x None) (List.rev' args) in
   let wrap t := "match " ++ t ++ " with Ok v -> v | Err e -> failwith e" in
   let let_inner :=
       "let " ++ decl_inner ++ " = "

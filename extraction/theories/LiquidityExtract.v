@@ -119,7 +119,7 @@ Definition printLiquidityDefs_
   eΣ <- extract_env should_inline seeds ignore_extract Σ ;;
   (* dependencies should be printed before the dependent definitions *)
   let projs := get_projections eΣ in
-  let ldef_list := List.rev (print_global_env prefix TT eΣ projs) in
+  let ldef_list := List.rev' (print_global_env prefix TT eΣ projs) in
   (* filtering empty strings corresponding to the ignored definitions *)
   let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
   match ExAst.lookup_env eΣ init with
@@ -260,7 +260,7 @@ Definition liquidity_extract_single
 
       let eΣ := filter (fun '(_,_,d) => negb (is_empty_type_decl d)) eΣ in
       (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env "" TT eΣ projs) in
+      let ldef_list := List.rev' (print_global_env "" TT eΣ projs) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let ldef_list := filter (negb ∘ (String.eqb "") ∘ snd) ldef_list in
       let defs := map snd ldef_list in

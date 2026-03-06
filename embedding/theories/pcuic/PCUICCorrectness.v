@@ -435,6 +435,7 @@ Proof.
         remember (fun x : val => t⟦ _ ⟧ _) as f.
         remember (fun x : string * expr => t⟦ snd x ⟧ Σ1) as h.
         remember (t⟦ p_es .[_] _⟧ _) as te3.
+        unfold rev' in He; rewrite <- rev_alt in He.
         assert (Hmap : map f (rev (skipn (ind_npars mib) l2)) =
                        map h (map (fun_prod id of_val_i)(rev (combine (pVars v2.1) (skipn (ind_npars mib) l2))))).
                { rewrite map_map.

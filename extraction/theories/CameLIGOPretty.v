@@ -455,7 +455,7 @@ Section PPTerm.
   Definition print_pat (TT : env string) (ind_kn : kername)
                        (ctor : string) (infix : bool)
                        (pt : list string * string) :=
-    let vars := rev (fst pt) in
+    let vars := rev' (fst pt) in
     if infix then
       String.concat (" " ++ ctor ++ " ") vars ++ " -> " ++ (snd pt)
     else
@@ -555,7 +555,7 @@ Section PPTerm.
                         " = " ++ print_term TT ctx ty_ctx true false def vala ++ " in " ++ nl ++
                         print_term TT (vdef (nNamed na') def :: ctx) ty_ctx true false body bodya)
     | tApp f l as t => fun '(bt, (fa, la)) =>
-      let apps := rev (app_args_annot (fun '(t; a) => print_term TT ctx ty_ctx false false t a) t (bt, (fa, la))) in
+      let apps := rev' (app_args_annot (fun '(t; a) => print_term TT ctx ty_ctx false false t a) t (bt, (fa, la))) in
       let '((b; ba),argas) := Edecompose_app_annot f fa in
       match apps with
       | [] => print_term TT ctx ty_ctx false true f fa
@@ -639,7 +639,7 @@ Section PPTerm.
             let ctx' := map vass br_ctx in
             let nas' := fresh_string_names (ctx ++ ctx')%list br_ctx in
             let b := print_term TT (fst nas') ty_ctx false false br_body a in
-            (List.rev (snd nas'), b)%list in
+            (List.rev' (snd nas'), b)%list in
 
       match brs with
       | [] => fun '(bt, (ta, trs)) => (parens false ("failwith 0 : " ^ print_box_type ty_ctx TT bt) ^ " (* absurd case *)")

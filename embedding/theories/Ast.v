@@ -177,7 +177,7 @@ Definition bump_indices (l : list (ename * nat)) (n : nat) :=
     the number is a position of the var counted from the end of the list.
     E.g. number_vars ["x"; "y"; "z"] = [("x", 2); ("y", 1); ("z", 0)] *)
 Definition number_vars (i : nat) (ns : list ename) : list (ename * nat) :=
-  combine ns (rev (seq i (length ns + i))).
+  combine ns (rev' (seq i (length ns + i))).
 
 Open Scope string.
 

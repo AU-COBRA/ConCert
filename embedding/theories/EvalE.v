@@ -365,7 +365,7 @@ Definition expr_eval_general : bool -> global_env -> nat -> env val -> expr -> r
               if Nat.eqb nparams #|params| then
                 pm_res <- match_pat c nparams ci vs bs;;
                 let '(var_assign, v) := pm_res in
-                eval n (List.app (List.rev var_assign) ρ) v
+                eval n (List.app (List.rev' var_assign) ρ) v
               else EvalError "Case: number of params doesn't match with the definition"
           | None => EvalError "No constructor or inductive found in the global environment"
             end

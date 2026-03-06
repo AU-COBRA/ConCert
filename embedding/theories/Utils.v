@@ -33,7 +33,7 @@ Definition modpath_of_string (s : string) : modpath :=
   let fpath_mod := StringExtra.str_split "#" s in
   let fpath := hd "" fpath_mod in
   let module := hd "" (tl fpath_mod) in
-  let fpath_items := map TCString.of_string (rev (StringExtra.str_split "/" fpath)) in
+  let fpath_items := map TCString.of_string (rev' (StringExtra.str_split "/" fpath)) in
   let mod_items := map TCString.of_string (StringExtra.str_split "." module) in
   let fp := MPfile fpath_items in
   if module =? "" then fp
@@ -55,7 +55,7 @@ Definition kername_of_string (s : string) : kername :=
     but we use different separators for different parts of the [kername] *)
 Notation s_to_bs := bytestring.String.of_string.
 Definition string_of_dirpath (dp : dirpath) : string :=
-  TCString.to_string (TCString.concat (s_to_bs "/") (rev dp)).
+  TCString.to_string (TCString.concat (s_to_bs "/") (rev' dp)).
 
 Fixpoint string_of_modpath (mp : modpath) : string :=
   match mp with
