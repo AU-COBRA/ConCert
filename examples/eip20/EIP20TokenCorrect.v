@@ -175,7 +175,7 @@ Section Theories.
     repeat match goal with
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
 
@@ -639,7 +639,7 @@ Section Theories.
     intros * reach deployed.
     apply (lift_outgoing_acts_nil contract); eauto.
     intros.
-    unfold Blockchain.receive in *.
+    unfold BlockchainBase.receive in *.
     now eapply EIP20_no_acts.
   Qed.
 
@@ -686,7 +686,7 @@ Section Theories.
 
       rewrite FMap.elements_empty. cbn. lia.
     - intros IH receive_some.
-      unfold Blockchain.receive in *.
+      unfold BlockchainBase.receive in *.
       cbn in *.
       destruct_message.
       + now erewrite try_transfer_preserves_balances_sum,

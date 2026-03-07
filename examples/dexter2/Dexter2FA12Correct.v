@@ -81,7 +81,7 @@ Section Theories.
     repeat match goal with
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive_lqt _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)
@@ -1208,7 +1208,7 @@ Section Theories.
       + now rewrite FMap.find_add in addr_some.
       + now rewrite FMap.find_add_ne in addr_some.
     - intros IH receive_some initial_pool_positive * addr_some.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       simpl in receive_some.
       destruct msg. destruct m.
       + destruct t.
@@ -1253,7 +1253,7 @@ Section Theories.
       erewrite init_allowances_correct in addr_some by eauto.
       now rewrite FMap.find_empty in addr_some.
     - intros IH receive_some * addr_some.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       simpl in receive_some.
       destruct msg. destruct m.
       + destruct t.
@@ -1315,7 +1315,7 @@ Section Theories.
         ctx_from ctx <> ctx_contract_address ctx).
       destruct facts as (balances_eq_total_supply & _).
       unfold callFrom in *.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       erewrite <- admin_constant; eauto.
       simpl in *.
       destruct msg. destruct m.

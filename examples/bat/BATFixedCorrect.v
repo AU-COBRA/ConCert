@@ -7,7 +7,6 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
@@ -16,6 +15,8 @@ From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATFixed.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Examples.EIP20 Require EIP20TokenCorrect.
+
+Import BuildUtils.
 
 
 
@@ -29,11 +30,11 @@ Section Theories.
 
   Ltac destruct_message :=
     repeat match goal with
-    | H : Blockchain.receive _ _ _ _ _ = Ok _ |- _ => unfold Blockchain.receive in H; cbn in H
+    | H : BlockchainBase.receive _ _ _ _ _ = Ok _ |- _ => unfold BlockchainBase.receive in H; cbn in H
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
     | msg : EIP20Token.Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)
@@ -827,7 +828,7 @@ Section Theories.
     apply (lift_contract_state_prop contract);
       intros *; auto; clear reach deployed bstate caddr.
     - intros ? init_some.
-      unfold Blockchain.init in *.
+      unfold BlockchainBase.init in *.
       now eapply init_isFinalized_correct.
     - intros IH receive_some ?.
       destruct_message;
@@ -1465,7 +1466,7 @@ Section Theories.
       contract_simpl. cbn.
       apply FMap.find_add.
     - intros IH receive_some not_finalized.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       cbn in receive_some.
       destruct msg. destruct m.
       + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
@@ -1617,7 +1618,7 @@ Section Theories.
         tokenExchangeRate state <> 0 /\
         ctx_from ctx <> ctx_contract_address ctx).
       destruct facts as (exchange_rate_nonzero & _).
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       cbn in receive_some.
       destruct msg. destruct m.
       + apply eip_only_changes_token_state in receive_some as finalize_unchanged.

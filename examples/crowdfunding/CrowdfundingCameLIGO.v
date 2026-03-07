@@ -50,9 +50,9 @@ Module Crowdfunding.
   Import CrowdfundingContract.Receive.
 
   (* We assume that there is a function converting addresses to [nat] *)
-  Parameter addr_to_nat : forall `{ChainBase}, Blockchain.Address -> nat.
+  Parameter addr_to_nat : forall `{ChainBase}, BlockchainBase.Address -> nat.
 
-  Definition to_simple_ctx_addr `{ChainBase} (addr : Blockchain.Address) : address_rocq :=
+  Definition to_simple_ctx_addr `{ChainBase} (addr : BlockchainBase.Address) : address_rocq :=
     if address_is_contract addr then ContractAddr_rocq (addr_to_nat addr) else
       UserAddr_rocq (addr_to_nat addr).
 

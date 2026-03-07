@@ -158,13 +158,13 @@ Section Theories.
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
     | msg : DexterMsg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ (Some (receive_total_supply_param _)) = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ (Some (receive_total_supply_param _)) = Ok _ |- _ => now contract_simpl
     | H : receive_cpmm _ _ _ (Some (receive_total_supply_param _)) = Ok _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_metadata_callback _)) = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ (Some (receive_metadata_callback _)) = Ok _ |- _ => now contract_simpl
     | H : receive_cpmm _ _ _ (Some (receive_metadata_callback _)) = Ok _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_is_operator _)) = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ (Some (receive_is_operator _)) = Ok _ |- _ => now contract_simpl
     | H : receive_cpmm _ _ _ (Some (receive_is_operator _)) = Ok _ |- _ => now contract_simpl
-    | H : Blockchain.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ (Some (receive_permissions_descriptor _)) = Ok _ |- _ => now contract_simpl
     | H : receive_cpmm _ _ _ (Some (receive_permissions_descriptor _)) = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)

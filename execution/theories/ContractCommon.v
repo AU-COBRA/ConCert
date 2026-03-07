@@ -132,10 +132,10 @@ Ltac contract_simpl_step receive init :=
   | |- context[receive] => try (unfold receive); cbn
   | H : context[init] |- _ => try (unfold init in H); cbn in H
   | |- context[init] => try (unfold init); cbn
-  | H : context[Blockchain.receive] |- _ => unfold Blockchain.receive in H; cbn in H
-  | |- context[Blockchain.receive] => unfold Blockchain.receive; cbn
-  | H : context[Blockchain.init] |- _ => unfold Blockchain.init in H; cbn in H
-  | |- context[Blockchain.init] => unfold Blockchain.init; cbn
+  | H : context[BlockchainBase.receive] |- _ => unfold BlockchainBase.receive in H; cbn in H
+  | |- context[BlockchainBase.receive] => unfold BlockchainBase.receive; cbn
+  | H : context[BlockchainBase.init] |- _ => unfold BlockchainBase.init in H; cbn in H
+  | |- context[BlockchainBase.init] => unfold BlockchainBase.init; cbn
   | p : (_ * list ActionBody) |- _ => destruct p
   | H : throwIf _ _ = @Err _ _ _ |- _ => destruct_throw_if H
   | H : throwIf _ _ = @Ok _ _ ?u |- _ => destruct_throw_if H

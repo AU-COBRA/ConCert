@@ -35,9 +35,9 @@ Definition get_chain_height (cb : ChainBuilder) : nat :=
 (* Check if an action is finalize *)
 Definition action_is_finalize (action : Action) : bool :=
   match action.(act_body) with
-  | Blockchain.act_transfer _ _ => false
-  | Blockchain.act_deploy _ _ _ => false
-  | Blockchain.act_call to _ msg =>
+  | BlockchainBase.act_transfer _ _ => false
+  | BlockchainBase.act_deploy _ _ _ => false
+  | BlockchainBase.act_call to _ msg =>
     if (address_eqb to contract_base_addr)
     then
       match @deserialize BATCommon.Msg _ msg with
@@ -52,9 +52,9 @@ Definition action_is_finalize (action : Action) : bool :=
 (* Check if an action is refund *)
 Definition action_is_refund (action : Action) : bool :=
   match action.(act_body) with
-  | Blockchain.act_transfer _ _ => false
-  | Blockchain.act_deploy _ _ _ => false
-  | Blockchain.act_call to _ msg =>
+  | BlockchainBase.act_transfer _ _ => false
+  | BlockchainBase.act_deploy _ _ _ => false
+  | BlockchainBase.act_call to _ msg =>
     if (address_eqb to contract_base_addr)
     then
       match @deserialize BATCommon.Msg _ msg with
@@ -70,7 +70,7 @@ Definition action_is_refund (action : Action) : bool :=
 Fixpoint get_last_funding_state {from to} (trace : ChainTrace from to)
                                 (default : ChainState) : ChainState :=
   match trace with
-  | ChainedList.snoc trace' (Blockchain.step_action _ _ act _ _ _ _ _ as step) =>
+  | ChainedList.snoc trace' (BlockchainBase.step_action _ _ act _ _ _ _ _ as step) =>
     if action_is_finalize act
     then
       fst (chainstep_states step)
@@ -190,7 +190,7 @@ Definition no_transfers_from_bat_fund (cs : ChainState) : bool :=
   | [] => true
   | act :: _ =>
     match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
+    | BlockchainBase.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (tokenMsg (EIP20Token.transfer _ _)) => address_neqb act.(act_from) batFund
       | Some (tokenMsg (EIP20Token.transfer_from from _ _)) => address_neqb from batFund
@@ -205,7 +205,7 @@ Definition no_batfund_create_tokens (cs : ChainState) : bool :=
   | [] => true
   | act :: _ =>
     match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
+    | BlockchainBase.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (create_tokens) => address_neqb act.(act_from) batFund
       | _ => true
@@ -219,7 +219,7 @@ Definition no_transfers_to_batfund (cs : ChainState) : bool :=
   | [] => true
   | act :: _ =>
     match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
+    | BlockchainBase.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (tokenMsg (EIP20Token.transfer to _)) =>
           address_neqb to batFund
@@ -246,7 +246,7 @@ Definition only_transfers_modulo_exhange_rate (cs : ChainState) : bool :=
   | [] => true
   | act :: _ =>
     match act.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
+    | BlockchainBase.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some (tokenMsg (EIP20Token.transfer _ amount)) =>
           N.eqb 0 (N.modulo amount exchangeRate_)

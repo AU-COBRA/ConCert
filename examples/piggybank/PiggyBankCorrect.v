@@ -11,7 +11,7 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import BuildUtils.
+Import BuildUtils.
 
 From Stdlib Require Import List. Import ListNotations.
 From Stdlib Require Import ZArith.

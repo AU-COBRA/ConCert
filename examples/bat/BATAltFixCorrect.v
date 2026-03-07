@@ -7,7 +7,6 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
@@ -16,6 +15,8 @@ From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATAltFix.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Examples.EIP20 Require EIP20TokenCorrect.
+
+Import BuildUtils.
 
 
 
@@ -29,11 +30,11 @@ Section Theories.
 
   Ltac destruct_message :=
     repeat match goal with
-    | H : Blockchain.receive _ _ _ _ _ = Ok _ |- _ => unfold Blockchain.receive in H; cbn in H
+    | H : BlockchainBase.receive _ _ _ _ _ = Ok _ |- _ => unfold BlockchainBase.receive in H; cbn in H
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
     | msg : EIP20Token.Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)
@@ -742,7 +743,7 @@ Section Theories.
         apply balance_le_sum_balances.
     - contract_induction; intros;
         only 1: instantiate (CallFacts := fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
-        unfold Blockchain.receive in *; eauto.
+        unfold BlockchainBase.receive in *; eauto.
       + now apply init_preserves_balances_sum in init_some.
       + solve_facts.
         now apply deployed_implies_constants_valid in deployed0 as [].
@@ -849,7 +850,7 @@ Section Theories.
     apply (lift_contract_state_prop contract);
       intros *; auto; clear reach deployed bstate caddr.
     - intros ? init_some.
-      unfold Blockchain.init in *.
+      unfold BlockchainBase.init in *.
       now eapply init_isFinalized_correct.
     - intros IH receive_some ?.
       destruct_message;
@@ -949,7 +950,7 @@ Section Theories.
         now apply account_balance_nonnegative.
       + (* Prove that receive action returns Some *)
         edestruct (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
-        * unfold Blockchain.receive.
+        * unfold BlockchainBase.receive.
           rewrite receive_some.
           now contract_simpl.
         * easy.

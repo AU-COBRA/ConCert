@@ -113,7 +113,7 @@ End Wrappers.
 Definition cf_contract : Contract Setup Msg_rocq State_rocq unit :=
   build_contract wrapped_init wrapped_receive.
 
-Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_rocq :=
+Definition cf_state (env : Environment) (address : BlockchainBase.Address) : option State_rocq :=
   match (env_contract_states env address) with
   | Some sv => deserialize sv
   | None => None

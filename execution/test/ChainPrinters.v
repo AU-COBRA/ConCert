@@ -259,7 +259,7 @@ Instance showChainTraceI
       match trace with
       | snoc trace' step =>
       match step with
-      | Blockchain.step_block _ _ _ _ _ _ _ _ =>
+      | BlockchainBase.step_block _ _ _ _ _ _ _ _ =>
           let '(_, next_bstate) := chainstep_states step in
           showChainTrace trace' ++ nl ++
           "Block " ++ show next_bstate.(current_slot) ++ " [" ++ nl ++
