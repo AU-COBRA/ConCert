@@ -37,10 +37,10 @@ Section ContractInduction.
 
   Lemma contract_induction
         {Setup Msg State Error : Type}
-      `{Serializable Setup}
-      `{Serializable Msg}
-      `{Serializable State}
-      `{Serializable Error}
+       `{Serializable Setup}
+       `{Serializable Msg}
+       `{Serializable State}
+       `{Serializable Error}
         (contract : Contract Setup Msg State Error)
         (AddBlockFacts :
           forall (chain_height : nat) (current_slot : nat) (finalized_height : nat)
@@ -596,6 +596,12 @@ Ltac contract_induction :=
                                 (cstate : State) (outgoing_actions : list ActionBody)
                                 (inc_calls : option (list (ContractCallInfo Msg))), Prop);
        apply (contract_induction _ AddBlockFacts DeployFacts CallFacts);
+       [|clear DeployFacts CallFacts
+        |clear AddBlockFacts CallFacts
+        |clear AddBlockFacts DeployFacts CallFacts
+        |clear AddBlockFacts DeployFacts
+        |clear AddBlockFacts DeployFacts
+        |clear AddBlockFacts DeployFacts CallFacts];
        cbv [P]; clear P; cycle 1; clear dependent bstate; clear dependent caddr).
 
 Global Notation "'Please' 'prove' 'your' 'facts'" :=
