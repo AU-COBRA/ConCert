@@ -2058,26 +2058,26 @@ Section Theories.
     - reflexivity.
   Qed.
 
-  Lemma deserialize_lqt_token_msg_right_inverse : forall x (y : Dexter2FA12.Msg),
+  Lemma deserialize_lqt_token_msg_sound : forall x (y : Dexter2FA12.Msg),
     (forall x' (y' : Address), deserialize x' = Some y' -> x' = serialize y') ->
     deserialize x = Some y ->
     x = serialize y.
   Proof.
-    intros * address_right_inverse deser_some.
+    intros * address_sound deser_some.
     Transparent deserialize serialize.
     cbn in *.
-    Local Hint Resolve deserialize_nat_right_inverse
-                       deserialize_N_right_inverse
-                       deserialize_int_right_inverse
-                       deserialize_unit_right_inverse
-                       deserialize_serialized_value_right_inverse : deser.
+    Local Hint Resolve deserialize_nat_sound
+                       deserialize_N_sound
+                       deserialize_Z_sound
+                       deserialize_unit_sound
+                       deserialize_SerializedValue_sound : deser.
     repeat (try match goal with
     | H : match _ with Some _ => _ | None => _ end = Some _ |- _ = _ => let H2 := fresh "H" in destruct_match eqn:H2 in H; [| discriminate]
     | H : match ?x with 0%nat => _ | S _ => _ end = Some _ |- _ = _ => destruct x; [| try discriminate]
     | H : (let (_, _) := ?p in _) = Some _ |- _ = _ => destruct p
     | H : Some _ = Some _ |- _ = _ => inversion_clear H
-    | H : extract_ser_value _ _ = @Some (interp_type ser_unit) ?i |- _ = _ => apply deserialize_unit_right_inverse in H as ->; destruct i
-    | H : @deserialize_product _ _ _ _ _ = Some _ |- _ = _ => apply deserialize_product_right_inverse in H as ->; try clear H
+    | H : extract_ser_value _ _ = @Some (interp_type ser_unit) ?i |- _ = _ => apply deserialize_unit_sound in H as ->; destruct i
+    | H : @deserialize_product _ _ _ _ _ = Some _ |- _ = _ => apply deserialize_product_sound in H as ->; try clear H
     | |- forall _ _, _ -> _ => intros * deser_some; cbn in *
     end; auto with deser).
     Opaque deserialize serialize.
@@ -2126,7 +2126,7 @@ Section Theories.
       specialize incomming_eq_outgoing as incoming_eq.
       edestruct incoming_eq as (? & inc_acts_lqt' & calls_eq);
         [| apply deployed_main | apply deployed_lqt |].
-      - intros. eapply deserialize_lqt_token_msg_right_inverse; auto.
+      - intros. eapply deserialize_lqt_token_msg_sound; auto.
       - setoid_rewrite inc_acts_lqt in inc_acts_lqt'.
         inversion inc_acts_lqt'.
         subst. clear inc_acts_lqt'.

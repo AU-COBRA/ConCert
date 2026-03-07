@@ -16,7 +16,7 @@ Import ListNotations.
 
 Local Transparent deserialize serialize.
 
-Lemma deserialize_unit_right_inverse : forall x (y : unit),
+Lemma deserialize_unit_sound : forall x (y : unit),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
@@ -26,7 +26,17 @@ Proof.
     now inversion_clear deser_some.
 Qed.
 
-Lemma deserialize_int_right_inverse : forall x (y : Z),
+Instance SerializableSound_unit : SerializableSound unit.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_unit_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_Z_sound : forall x (y : Z),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
@@ -36,7 +46,17 @@ Proof.
     now inversion_clear deser_some.
 Qed.
 
-Lemma deserialize_bool_right_inverse : forall x (y : bool),
+Instance SerializableSound_Z : SerializableSound Z.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_Z_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_bool_sound : forall x (y : bool),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
@@ -46,12 +66,22 @@ Proof.
     now inversion_clear deser_some.
 Qed.
 
-Lemma deserialize_nat_right_inverse : forall x (y : nat),
+Instance SerializableSound_bool : SerializableSound bool.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_bool_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_nat_sound : forall x (y : nat),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
   intros * deser_some.
-  apply deserialize_int_right_inverse.
+  apply deserialize_Z_sound.
   cbn in *.
   destruct extract_ser_value;
     try discriminate.
@@ -63,12 +93,22 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma deserialize_N_right_inverse : forall x (y : N),
+Instance SerializableSound_nat : SerializableSound nat.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_nat_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_N_sound : forall x (y : N),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
   intros * deser_some.
-  apply deserialize_int_right_inverse.
+  apply deserialize_Z_sound.
   cbn in *.
   destruct extract_ser_value;
     try discriminate.
@@ -80,12 +120,22 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma deserialize_positive_right_inverse : forall x (y : positive),
+Instance SerializableSound_N : SerializableSound N.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_N_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_positive_sound : forall x (y : positive),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
   intros * deser_some.
-  apply deserialize_int_right_inverse.
+  apply deserialize_Z_sound.
   cbn in *.
   destruct extract_ser_value;
     try discriminate.
@@ -97,7 +147,17 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma deserialize_serialized_value_right_inverse : forall x (y : SerializedValue),
+Instance SerializableSound_positive : SerializableSound positive.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_positive_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_SerializedValue_sound : forall x (y : SerializedValue),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
@@ -105,8 +165,20 @@ Proof.
   now inversion deser_some.
 Qed.
 
-Lemma deserialize_sum_right_inverse : forall {A B : Type} `{Serializable A} `{Serializable B}
-                                              x (y : A + B),
+Instance SerializableSound_SerializedValue : SerializableSound SerializedValue.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_SerializedValue_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_sum_sound {A B : Type}
+                           `{Serializable A}
+                           `{Serializable B}
+                            : forall x (y : A + B),
   (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
   (forall x' (y' : B), deserialize x' = Some y' -> x' = serialize y') ->
   deserialize x = Some y ->
@@ -131,8 +203,33 @@ Proof.
     reflexivity.
 Qed.
 
-Lemma deserialize_product_right_inverse : forall {A B : Type} `{Serializable A} `{Serializable B}
-                                              x (y : A * B),
+Instance SerializableSound_sum {A B : Type}
+                              `{SerializableSound A}
+                              `{SerializableSound B}
+                               : SerializableSound (A + B).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  inversion H2 as [HsoundB].
+  apply deserialize_sum_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundB in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_product_sound {A B : Type}
+                               `{Serializable A}
+                               `{Serializable B}
+                                : forall x (y : A * B),
   (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
   (forall x' (y' : B), deserialize x' = Some y' -> x' = serialize y') ->
   deserialize x = Some y ->
@@ -156,7 +253,32 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma deserialize_list_right_inverse : forall {A : Type} `{Serializable A} (l : list A) x,
+Instance SerializableSound_product {A B : Type}
+                                  `{SerializableSound A}
+                                  `{SerializableSound B}
+                                   : SerializableSound (A * B).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  inversion H2 as [HsoundB].
+  apply deserialize_product_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundB in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_list_sound {A : Type}
+                            `{Serializable A}
+                             : forall (l : list A) x,
   (forall x' (l' : A), deserialize x' = Some l' -> x' = serialize l') ->
   deserialize x = Some l ->
   x = serialize l.
@@ -194,16 +316,34 @@ Proof.
     reflexivity.
 Qed.
 
+Instance SerializableSound_list {A : Type}
+                               `{SerializableSound A}
+                                : SerializableSound (list A).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  apply deserialize_list_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
 
-Lemma deserialize_option_right_inverse : forall {A : Type} `{Serializable A} x (y : option A),
+
+Lemma deserialize_option_sound {A : Type}
+                              `{Serializable A}
+                               : forall x (y : option A),
   (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
   deserialize x = Some y ->
   x = serialize y.
 Proof.
-  intros * H deser_some.
-  specialize deserialize_unit_right_inverse as H1.
-  apply deserialize_sum_right_inverse; auto.
-  clear H H1.
+  intros * HsoundA deser_some.
+  specialize deserialize_unit_sound as Hunit.
+  apply deserialize_sum_sound; auto.
+  clear HsoundA Hunit.
   cbn in *.
   destruct deserialize_sum;
     try discriminate.
@@ -213,12 +353,29 @@ Proof.
   now destruct u.
 Qed.
 
-Lemma deserialize_ascii_right_inverse : forall x (y : ascii),
+Instance SerializableSound_option {A : Type}
+                                 `{SerializableSound A}
+                                  : SerializableSound (option A).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  apply deserialize_option_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_ascii_sound : forall x (y : ascii),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
   intros * deser_some.
-  apply deserialize_N_right_inverse.
+  apply deserialize_N_sound.
   unfold deserialize, ascii_serializable in deser_some.
   destruct deserialize;
     try discriminate.
@@ -229,19 +386,38 @@ Proof.
   now rewrite N_ascii_embedding.
 Qed.
 
-Lemma deserialize_string_right_inverse : forall x (y : string),
+Instance SerializableSound_ascii : SerializableSound ascii.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_ascii_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_string_sound : forall x (y : string),
   deserialize x = Some y ->
   x = serialize y.
 Proof.
   intros * deser_some.
-  specialize deserialize_ascii_right_inverse as H.
-  apply deserialize_list_right_inverse; auto.
+  specialize deserialize_ascii_sound as H.
+  apply deserialize_list_sound; auto.
   clear H.
   cbn in *.
   destruct deserialize_list;
     try discriminate.
   inversion_clear deser_some.
   rewrite list_ascii_of_string_of_list_ascii.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_string : SerializableSound string.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_string_sound in H.
+  rewrite H.
   reflexivity.
 Qed.
 
