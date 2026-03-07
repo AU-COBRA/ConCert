@@ -74,7 +74,25 @@ Class Serializable (ty : Type) :=
     deserialize_serialize x : deserialize (serialize x) = Some x;
   }.
 
-Global Opaque serialize deserialize deserialize_serialize.
+Class SerializableComplete (ty : Type) `{Serializable ty} :=
+  {
+    complete e : deserialize (serialize e) = Some e;
+  }.
+
+Class SerializableSound (ty : Type) `{Serializable ty} :=
+  {
+    sound e a : deserialize (e) = Some a -> serialize a = e;
+  }.
+
+Global Opaque serialize deserialize deserialize_serialize complete sound.
+
+#[export]
+Instance SerializableComplete_Serializable {A} `{Serializable A} : SerializableComplete A.
+Proof.
+  constructor.
+  destruct H as [? ? compl].
+  exact compl.
+Qed.
 
 Lemma serialize_injective {T : Type} `{Serializable T} x y :
   serialize x = serialize y ->
