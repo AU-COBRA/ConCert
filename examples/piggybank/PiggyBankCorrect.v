@@ -431,7 +431,7 @@ Section SafetyProperties.
     empty_queue H; destruct H as (cstate & contract_deployed & contract_state);
       (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
       only 3: destruct (address_eqdec caddr to_addr);
-      try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+      try (now eexists; rewrite_environment_equiv in *; repeat split; eauto;
           cbn; destruct_address_eq; try easy).
     - (* Prove that H is preserved after calls to the contract *)
       subst.
@@ -445,7 +445,7 @@ Section SafetyProperties.
       setoid_rewrite deserialize_serialize in serialize_prev_state.
       inversion serialize_prev_state. subst.
       exists new_state'.
-      rewrite_environment_equiv; cbn; repeat split; eauto;
+      rewrite_environment_equiv in *; cbn; repeat split; eauto;
       cbn; destruct_address_eq; try easy.
     - update_all.
       (* Check if piggybank is already smashed *)
@@ -507,7 +507,7 @@ Section SafetyProperties.
           -- lia.
           -- admit.
           -- update (env_account_balances bstate caddr = 0) in balance.
-              { rewrite_environment_equiv. cbn. rewrite address_eq_refl.
+              { rewrite_environment_equiv in *. cbn. rewrite address_eq_refl.
                 destruct_address_eq.
                 admit.
                 lia.

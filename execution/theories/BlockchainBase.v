@@ -989,5 +989,15 @@ Ltac destruct_action_eval :=
 
 Ltac rewrite_environment_equiv :=
   match goal with
+  | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq
+  end.
+
+Tactic Notation "rewrite_environment_equiv" "in" hyp(H) :=
+  match goal with
+  | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq in H
+  end.
+
+Tactic Notation "rewrite_environment_equiv" "in" "*" :=
+  match goal with
   | [eq: EnvironmentEquiv _ _ |- _] => rewrite eq in *
   end.

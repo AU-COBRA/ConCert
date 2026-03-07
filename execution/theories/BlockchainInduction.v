@@ -252,15 +252,15 @@ Section ContractInduction.
     specialize (IH ltac:(auto) ltac:(auto)).
     specialize (establish_facts mid to ltac:(auto) ltac:(auto) tag_facts).
     destruct_chain_step;
-      [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv; cbn in *| |].
+      [|clear add_block_case; destruct_action_eval; rewrite_environment_equiv in *; cbn in *| |].
     - (* New block *)
       clear init_case recursive_call_case nonrecursive_call_case permute_queue_case.
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       specialize_hypotheses.
       cbn in *.
       destruct IH as (depinfo' & cstate' & inc_calls' & -> & ? & -> & ?).
       exists depinfo', cstate', inc_calls'.
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       repeat split; auto.
       inversion valid_header.
       cbn in *.
@@ -275,7 +275,7 @@ Section ContractInduction.
       specialize_hypotheses.
       destruct IH as (depinfo' & cstate' & inc_calls' & -> & ? & -> & ?).
       exists depinfo', cstate', inc_calls'.
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       repeat split; auto.
       rewrite (address_eq_sym from_addr) in *.
       cbn in *.
@@ -317,7 +317,7 @@ Section ContractInduction.
         exists (build_deployment_info origin from_addr amount setup_strong),
               result_strong,
               [].
-        rewrite_environment_equiv; cbn.
+        rewrite_environment_equiv in *; cbn.
 
         rewrite address_eq_refl.
         cbn.
@@ -351,7 +351,7 @@ Section ContractInduction.
         specialize_hypotheses.
         destruct IH as (depinfo & cstate & inc_calls & -> & ? & -> & ?).
         exists depinfo, cstate, inc_calls.
-        rewrite_environment_equiv; cbn.
+        rewrite_environment_equiv in *; cbn.
         rewrite address_eq_ne by auto.
         repeat split; auto.
         rewrite (address_eq_sym caddr).
@@ -396,7 +396,7 @@ Section ContractInduction.
         replace prev_state_strong with cstate in * by congruence; clear prev_state_strong.
         exists depinfo, resp_state_strong.
         exists (build_call_info origin from_addr amount msg_strong :: inc_calls).
-        rewrite_environment_equiv.
+        rewrite_environment_equiv in *.
         cbn.
         rewrite address_eq_refl.
         cbn.
@@ -445,7 +445,7 @@ Section ContractInduction.
           apply case; auto.
       + (* Call to other contract *)
         exists depinfo, cstate, inc_calls.
-        rewrite_environment_equiv.
+        rewrite_environment_equiv in *.
         rewrite filter_false.
         cbn.
         rewrite address_eq_ne by auto.
@@ -466,10 +466,10 @@ Section ContractInduction.
           fold (outgoing_txs trace caddr).
           auto.
     - (* Invalid User Action *)
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH); auto.
       exists depinfo, cstate, inc_calls.
-      repeat split; try rewrite_environment_equiv; auto.
+      repeat split; try rewrite_environment_equiv in *; auto.
       assert (outgoing_acts_eq : outgoing_acts mid caddr = outgoing_acts to caddr).
       { unfold outgoing_acts.
         setoid_rewrite queue_new.
@@ -483,11 +483,11 @@ Section ContractInduction.
       cbn.
       now fold (outgoing_txs trace caddr).
     - (* Permutation *)
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       specialize_hypotheses.
       destruct IH as (depinfo & cstate & inc_calls & ? & ? & ? & IH).
       exists depinfo, cstate, inc_calls.
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       cbn.
       repeat split; auto.
       unfold outgoing_acts in *.

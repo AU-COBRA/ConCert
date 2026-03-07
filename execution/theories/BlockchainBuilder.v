@@ -119,7 +119,7 @@ Module BuildUtils.
     | H := context [if (_ =? ?to)%address then _ else _],
       H2 : Environment |- _ =>
       assert (new_to_balance_eq : env_account_balances H2 to = H);
-      [ try rewrite_environment_equiv; cbn; unfold H; destruct_address_eq; try congruence; lia |
+      [ try rewrite_environment_equiv in *; cbn; unfold H; destruct_address_eq; try congruence; lia |
       now rewrite <- new_to_balance_eq in *]
     end.
 
@@ -354,7 +354,7 @@ Module BuildUtils.
     split; eauto.
     do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
     - now apply finalized_heigh_chain_height.
-    - rewrite_environment_equiv. cbn. lia.
+    - rewrite_environment_equiv in *. cbn. lia.
   Qed.
 
   (* Lemma showing that there exists a future ChainState with the
@@ -382,7 +382,7 @@ Module BuildUtils.
       do 3 try split; only 9: apply env_eq; eauto; cbn; try lia.
       + now apply finalized_heigh_chain_height.
       + apply Nat.sub_0_le in slot_hit.
-        rewrite_environment_equiv. cbn. lia.
+        rewrite_environment_equiv in *. cbn. lia.
     - specialize (forward_time_exact bstate reward creator slot) as
         (bstate' & header & reach' & header_valid & slot_hit' & queue' & env_eq); eauto.
       lia.
@@ -648,13 +648,13 @@ Module BuildUtils.
     | H : reachable_through bstate1 bstate2 |- _ =>
         update (reachable bstate2) in H
     | H : env_contracts bstate1.(chain_state_env) _ = Some _ |- _ =>
-        update bstate1 with bstate2 in H by (now rewrite_environment_equiv)
+        update bstate1 with bstate2 in H by (now rewrite_environment_equiv in *)
     | H : env_contract_states bstate1.(chain_state_env) _ = Some _ |- _ =>
-        update bstate1 with bstate2 in H by (now rewrite_environment_equiv)
+        update bstate1 with bstate2 in H by (now rewrite_environment_equiv in *)
     | H : context [ bstate1 ] |- _ =>
       match type of H with
       | EnvironmentEquiv _ _ => fail 1
-      | _ => update bstate1 with bstate2 in H by (try (rewrite_environment_equiv; cbn; easy))
+      | _ => update bstate1 with bstate2 in H by (try (rewrite_environment_equiv in *; cbn; easy))
       end
     end;
     only_on_match ltac:(progress update_chainstate bstate1 bstate2).

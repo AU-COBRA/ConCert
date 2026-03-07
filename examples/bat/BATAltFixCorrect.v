@@ -900,7 +900,7 @@ Section Theories.
     empty_queue H; destruct H as (cstate & contract_deployed & contract_state & creation_min & fund_deposit_not_contract);
       (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
       only 3: destruct (address_eqdec caddr to_addr);
-      try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+      try (now eexists; rewrite_environment_equiv in *; repeat split; eauto;
           cbn; destruct_address_eq; try easy).
     - (* Prove that H is preserved after calls to the contract *)
       clear amount_nonnegative enough_balance reward Hreward creator Hcreator
@@ -921,7 +921,7 @@ Section Theories.
       | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       exists new_state'.
-      rewrite_environment_equiv; cbn; repeat split; eauto;
+      rewrite_environment_equiv in *; cbn; repeat split; eauto;
       cbn; destruct_address_eq; try easy.
       eapply N.le_trans; eauto.
     - update_all.
@@ -939,7 +939,7 @@ Section Theories.
       add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
       (* The hypothesis "slot_hit" no longer holds, so we have to update it manually before calling update_all *)
       update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
-        (rewrite_environment_equiv; cbn; easy).
+        (rewrite_environment_equiv in *; cbn; easy).
       update_all.
       clear reward Hreward creator Hcreator.
 
@@ -957,7 +957,7 @@ Section Theories.
       + cbn in *.
         clear contract_state slot_hit creation_min.
         update_all;
-          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv in *; cbn; destruct_address_eq; try easy)|].
         (* Finally we need to evaluate the new transfer action that finalize produced *)
         evaluate_transfer; try easy.
         * (* Prove that the transfer is nonnegative *)
@@ -973,7 +973,7 @@ Section Theories.
           rewrite queue.
           split; try apply empty_queue_is_emptyable.
           eexists.
-          now repeat split; try (rewrite_environment_equiv; cbn; eauto).
+          now repeat split; try (rewrite_environment_equiv in *; cbn; eauto).
   Qed.
 
   (** Prove that it is always possible to reach a state where the token is finalized if there
@@ -1010,10 +1010,10 @@ Section Theories.
       only 3: destruct (address_eqdec caddr to_addr);
       try now exists cstate;
           repeat split; eauto;
-            try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq));
+            try (rewrite_environment_equiv in *; cbn; (easy || now destruct_address_eq));
           eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
           eapply spendable_consume_act; eauto;
-            intros; rewrite_environment_equiv; subst; (try destruct msg);
+            intros; rewrite_environment_equiv in *; subst; (try destruct msg);
             cbn; destruct_address_eq; try easy; lia.
     - (* Prove that H is preserved after calls to the contract *)
       clear enough_balance reward Hreward creator Hcreator empty reach'
@@ -1035,13 +1035,13 @@ Section Theories.
       end.
       eexists new_state'.
       repeat split; eauto;
-        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+        try (rewrite_environment_equiv in *; cbn; (easy || now destruct_address_eq)).
       eapply N.le_trans in enough_balance_to_fund; [| apply N.sub_le_mono_l, total_supply_increasing].
       eapply N.le_trans.
       apply enough_balance_to_fund.
       apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
       eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst; destruct msg;
+        intros; rewrite_environment_equiv in *; subst; destruct msg;
         cbn; destruct_address_eq; try easy; lia.
     - (* Update goal and eliminate all occurrences of old ChainState *)
       update_all.
@@ -1059,19 +1059,19 @@ Section Theories.
         only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | apply create_token_acts_origin_correct |].
       (* Prove that the funding period is still not over *)
       update ((current_slot bstate0) <= (fundingEnd cstate))%nat in funding_period_not_over by
-        (rewrite_environment_equiv; cbn; lia).
+        (rewrite_environment_equiv in *; cbn; lia).
       (* Prove that the environment in the new ChainState is correct *)
       update (setter_from_getter_Environment_env_account_balances
                 (fun _ : Address -> Amount => add_balance creator reward (env_account_balances bstate)) bstate)
         with bstate0.(chain_state_env) in queue0 by
-        (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv).
+        (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv in *).
       (* Prove that there is still enough balance in accounts to hit funding goal *)
       update bstate with bstate0 in enough_balance_to_fund.
       { eapply N.le_trans; eauto.
         apply N.mul_le_mono_r, Z2N.inj_le;
           try now apply total_balance_positive.
         apply (total_balance_le bstate).
-        intros. rewrite_environment_equiv. cbn.
+        intros. rewrite_environment_equiv in *. cbn.
         destruct_address_eq; lia.
       }
       update_all.
@@ -1131,12 +1131,12 @@ Section Theories.
               now apply try_create_tokens_amount_correct in receive_some.
             - (* Apply induction hypothesis *)
               edestruct IHaccounts with (bstate0 := bstate) (cstate := cstate) as
-                (bstate_new & reach_new & emptyable_new & H); eauto; try (rewrite_environment_equiv; eauto).
+                (bstate_new & reach_new & emptyable_new & H); eauto; try (rewrite_environment_equiv in *; eauto).
               + rewrite queue.
                 apply create_token_acts_eq.
-                intros. now rewrite_environment_equiv.
+                intros. now rewrite_environment_equiv in *.
               + rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
-                erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv).
+                erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv in *).
                 lia.
           }
 
@@ -1196,14 +1196,14 @@ Section Theories.
             edestruct IHaccounts as (bstate_new & reach_new & emptyable_new & H);
               clear IHaccounts accounts_not_contracts balance_positive queue0 tokens_left_to_fund p can_hit_fund_min;
               only 10: (rewrite deployed_state; eauto);
-              try (rewrite_environment_equiv; eauto);
+              try (rewrite_environment_equiv in *; eauto);
               cbn; try rewrite Z2N.inj_min, N2Z.id;
               clear deployed_state contract_deployed funding_period_started funding_period_not_over
                     fund_deposit_not_contract finalized contract_state.
           --- (* Prove that the queues of the two ChainStates are equivalent *)
               rewrite queue, N.sub_add_distr.
               apply create_token_acts_eq.
-              intros. rewrite_environment_equiv. cbn. now destruct_address_eq.
+              intros. rewrite_environment_equiv in *. cbn. now destruct_address_eq.
           --- (* Prove that there still is enough balance to hit funding goal *)
               clear queue accounts_not_contracts'.
               edestruct N.min_dec.
@@ -1217,7 +1217,7 @@ Section Theories.
                 now apply N_le_div_mul.
             ---- rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
                 erewrite (total_balance_eq _ bstate0) by
-                  (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
+                  (intros; rewrite_environment_equiv in *; cbn; now destruct_address_eq).
                 apply N.le_sub_le_add_r in enough_balance_to_fund.
                 rewrite <- N.sub_add_distr in enough_balance_to_fund.
                 eapply N.le_trans; [| apply enough_balance_to_fund].
@@ -1269,11 +1269,11 @@ Section Theories.
 
     add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
     update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
-      (rewrite_environment_equiv; cbn; lia).
+      (rewrite_environment_equiv in *; cbn; lia).
     update bstate with bstate0 in enough_balance_to_fund by
       (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
       unfold spendable_balance, pending_usage; rewrite queue, bstate_queue; apply sumZ_le;
-      intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+      intros; rewrite_environment_equiv in *; cbn; destruct_address_eq; try lia).
     update_all.
 
     deploy_contract BATAltFix.contract; eauto; try lia;
@@ -1304,7 +1304,7 @@ Section Theories.
     end.
     update bstate0 with bstate in enough_balance_to_fund by
       (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
-      eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; subst; cbn; destruct_address_eq; try easy; lia).
+      eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv in *; subst; cbn; destruct_address_eq; try easy; lia).
     clear dependent trace.
     update_all.
 
@@ -1313,7 +1313,7 @@ Section Theories.
       (inversion header_valid;
       eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
       unfold spendable_balance, pending_usage; rewrite queue, queue0; apply sumZ_le;
-      intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+      intros; rewrite_environment_equiv in *; cbn; destruct_address_eq; try lia).
     clear funding_period_not_started.
     update_all.
 

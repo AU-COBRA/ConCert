@@ -35,7 +35,7 @@ Section ActionEvaluationFacts.
   Proof.
     destruct eval; cbn; rewrite_environment_equiv; cbn;
       destruct_address_eq; lia.
-  Qed. (* TODO: slow *)
+  Qed.
 
   Lemma account_balance_post_to :
     eval_from eval <> eval_to eval ->
@@ -75,29 +75,25 @@ Section ActionEvaluationFacts.
   Proof.
     destruct eval; rewrite_environment_equiv; auto.
   Qed.
-  (* TODO: slow *)
 
   Lemma current_slot_post_action :
     current_slot post = current_slot pre.
   Proof.
     destruct eval; rewrite_environment_equiv; auto.
   Qed.
-  (* TODO: slow *)
 
   Lemma finalized_height_post_action :
     finalized_height post = finalized_height pre.
   Proof.
     destruct eval; rewrite_environment_equiv; auto.
   Qed.
-  (* TODO: slow *)
 
   Lemma contracts_post_pre_none contract :
     env_contracts post contract = None ->
     env_contracts pre contract = None.
   Proof.
     intros H.
-    destruct eval; rewrite_environment_equiv; auto.
-    (* TODO: slow *)
+    destruct eval; rewrite_environment_equiv in H; auto.
     cbn in *.
     destruct_address_eq; congruence.
   Qed.
@@ -364,8 +360,8 @@ Section TraceFacts.
     induction trace; rewrite eq in *; clear eq.
     - cbn in *; congruence.
     - destruct_chain_step;
-        try now rewrite_environment_equiv.
-      + destruct_action_eval; rewrite_environment_equiv; cbn in *;
+        try now rewrite_environment_equiv in *.
+      + destruct_action_eval; rewrite_environment_equiv in *; cbn in *;
           destruct_address_eq; subst; auto.
   Qed.
 
@@ -396,7 +392,7 @@ Section TraceFacts.
     induction trace;
       intros undeployed; rewrite eq in *; clear eq; cbn; auto.
     destruct_chain_step; [|destruct_action_eval| |];
-      try rewrite_environment_equiv;
+      try rewrite_environment_equiv in *;
       repeat
         match goal with
         | [H: chain_state_queue _ = _ |- _] => rewrite H in *; clear H
@@ -441,7 +437,7 @@ Section TraceFacts.
   Proof.
     intros is_contract undeployed.
     remember empty_state; induction trace; subst; cbn; auto.
-    destruct_chain_step; try now rewrite_environment_equiv.
+    destruct_chain_step; try now rewrite_environment_equiv in *.
     - (* In these steps we will use that the queue did not contain txs to the contract. *)
       subst.
       cbn.
@@ -455,7 +451,7 @@ Section TraceFacts.
         end.
       inversion_clear Hqueue.
       destruct act;
-      destruct_action_eval; rewrite_environment_equiv;
+      destruct_action_eval; rewrite_environment_equiv in *;
         subst;
         cbn in *;
         destruct_address_eq;
@@ -471,8 +467,8 @@ Section TraceFacts.
   Proof.
     intros is_contract undeployed.
     remember empty_state; induction trace; subst; cbn; auto.
-    destruct_chain_step; try now rewrite_environment_equiv.
-    - destruct_action_eval; rewrite_environment_equiv;
+    destruct_chain_step; try now rewrite_environment_equiv in *.
+    - destruct_action_eval; rewrite_environment_equiv in *;
         cbn in *;
         destruct_address_eq; auto; subst; congruence.
   Qed.
@@ -486,8 +482,8 @@ Section TraceFacts.
     env_contracts to caddr <> None.
   Proof.
     remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *; try tauto.
-    destruct_chain_step; try now rewrite_environment_equiv.
-    - destruct_action_eval; rewrite_environment_equiv; auto.
+    destruct_chain_step; try now rewrite_environment_equiv in *.
+    - destruct_action_eval; rewrite_environment_equiv in *; auto.
       (* Deploy *)
       cbn in *.
       rewrite (address_eq_sym caddr).
@@ -564,9 +560,9 @@ Section TraceFacts.
 
     remember empty_state; induction trace as [|? ? ? ? IH]; subst; cbn in *;
       try tauto.
-    destruct_chain_step; cbn in *; try now rewrite_environment_equiv.
+    destruct_chain_step; cbn in *; try now rewrite_environment_equiv in *.
     - (* Evaluation *)
-      destruct_action_eval; cbn in *; rewrite_environment_equiv.
+      destruct_action_eval; cbn in *; rewrite_environment_equiv in *.
       + (* Transfer *)
         destruct_address_eq; auto.
         subst.
@@ -629,8 +625,8 @@ Section TraceFacts.
     unfold incoming_calls.
     intros undeployed.
     remember empty_state; induction trace; subst; cbn in *; auto.
-    destruct_chain_step; try now rewrite_environment_equiv.
-    - destruct_action_eval; rewrite_environment_equiv;
+    destruct_chain_step; try now rewrite_environment_equiv in *.
+    - destruct_action_eval; rewrite_environment_equiv in *;
         cbn in *;
         destruct_address_eq; auto; subst; congruence.
   Qed.
@@ -649,20 +645,20 @@ Section TraceFacts.
     induction trace; [|destruct_chain_step].
     - subst. cbn. lia.
     - (* Block *)
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       cbn.
       fold (created_blocks trace addr).
       rewrite IHtrace by auto.
       destruct_address_eq; subst; cbn; lia.
     - (* Step *)
       cbn.
-      destruct_action_eval; cbn; rewrite_environment_equiv; cbn.
+      destruct_action_eval; cbn; rewrite_environment_equiv in *; cbn.
       all: fold (created_blocks trace addr); rewrite IHtrace by auto.
       all: destruct_address_eq; cbn; lia.
     - (* Invalid User Action *)
-      now rewrite_environment_equiv.
+      now rewrite_environment_equiv in *.
     - (* Permutation *)
-      now rewrite_environment_equiv.
+      now rewrite_environment_equiv in *.
   Qed.
 
   Lemma contract_no_created_blocks (state : ChainState)
@@ -704,7 +700,7 @@ Section TraceFacts.
     specialize (IHtrace eq_refl).
     destruct_chain_step.
     - (* New block *)
-      rewrite_environment_equiv.
+      rewrite_environment_equiv in *.
       cbn.
       inversion valid_header.
       destruct_address_eq; lia.
@@ -714,9 +710,9 @@ Section TraceFacts.
       pose proof (eval_amount_le_account_balance eval).
       destruct_address_eq; subst; cbn in *; lia.
     - (* Invalid User Action *)
-      now rewrite_environment_equiv.
+      now rewrite_environment_equiv in *.
     - (* Permutation *)
-      now rewrite_environment_equiv.
+      now rewrite_environment_equiv in *.
   Qed.
 
   Lemma deployed_contract_state_typed {Setup Msg State Error : Type}
@@ -738,9 +734,9 @@ Section TraceFacts.
     unfold contract_state in *.
     (* Show that eq is a contradiction. *)
     remember empty_state; induction trace; subst; cbn in *; try congruence.
-    destruct_chain_step; try now rewrite_environment_equiv.
+    destruct_chain_step; try now rewrite_environment_equiv in *.
     - (* Action evaluation *)
-      destruct_action_eval; subst; rewrite_environment_equiv; cbn in *.
+      destruct_action_eval; subst; rewrite_environment_equiv in *; cbn in *.
       + (* Transfer, use IH *)
         auto.
       + (* Deployment *)
@@ -801,7 +797,7 @@ Section TraceFacts.
     - auto.
     - destruct_chain_step;
       try destruct_action_eval;
-      rewrite_environment_equiv;
+      rewrite_environment_equiv in *;
       auto.
       now inversion valid_header.
   Qed.
@@ -822,7 +818,7 @@ Section TraceFacts.
     - discriminate.
     - destruct_chain_step;
         only 2: destruct_action_eval;
-        rewrite_environment_equiv;
+        rewrite_environment_equiv in *;
         setoid_rewrite env_eq; cbn in *;
         destruct_address_eq; now subst.
   Qed.
@@ -910,7 +906,7 @@ Section TraceFacts.
     - auto.
     - destruct_chain_step;
       try destruct_action_eval;
-      rewrite_environment_equiv;
+      rewrite_environment_equiv in *;
       auto.
       + inversion valid_header. cbn.
         rewrite valid_height.
@@ -971,7 +967,7 @@ Section TraceFacts.
         assumption.
         subst. now apply trace_reachable.
       + subst.
-        rewrite_environment_equiv. cbn.
+        rewrite_environment_equiv in *. cbn.
         destruct_address_eq; subst; try contradiction.
         lia.
         specialize (account_balance_nonnegative _ to_addr (trace_reachable trace)).
@@ -1043,7 +1039,7 @@ Section ReachableThroughFacts.
     - assumption.
     - destruct_chain_step;
         only 2: destruct_action_eval;
-        rewrite_environment_equiv; cbn;
+        rewrite_environment_equiv in *; cbn;
         destruct_address_eq; subst; try easy.
       now rewrite IH in not_deployed by assumption.
   Qed.
@@ -1063,7 +1059,7 @@ Section ReachableThroughFacts.
     - now eexists.
     - destruct_chain_step;
         only 2: destruct_action_eval;
-        try rewrite_environment_equiv;
+        try rewrite_environment_equiv in *;
         try setoid_rewrite env_eq;
         cbn in *;
         destruct_address_eq; now subst.
@@ -1079,7 +1075,7 @@ Section ReachableThroughFacts.
     - apply Nat.le_refl.
     - destruct_chain_step;
       try destruct_action_eval;
-      rewrite_environment_equiv; cbn; auto.
+      rewrite_environment_equiv in *; cbn; auto.
       + now inversion valid_header.
   Qed.
 
@@ -1093,7 +1089,7 @@ Section ReachableThroughFacts.
     - apply Nat.le_refl.
     - destruct_chain_step;
       try destruct_action_eval;
-      rewrite_environment_equiv; cbn; auto.
+      rewrite_environment_equiv in *; cbn; auto.
       + now inversion valid_header.
   Qed.
 
@@ -1107,7 +1103,7 @@ Section ReachableThroughFacts.
     - apply Nat.le_refl.
     - destruct_chain_step;
       try destruct_action_eval;
-      rewrite_environment_equiv; cbn; auto.
+      rewrite_environment_equiv in *; cbn; auto.
       + now inversion valid_header.
   Qed.
 

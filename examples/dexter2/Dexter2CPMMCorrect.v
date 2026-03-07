@@ -1591,7 +1591,7 @@ Section Theories.
         * (* Step block *)
           intros.
           destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
+              try rewrite_environment_equiv in *; auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           inversion deployed_state'.
@@ -1599,7 +1599,7 @@ Section Theories.
         * destruct_action_eval.
          -- (* Action transfer *)
             destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
+              try rewrite_environment_equiv in *; auto.
             cbn in *.
             rewrite deployed_state in deployed_state'.
             inversion deployed_state'.
@@ -1610,7 +1610,7 @@ Section Theories.
             apply Forall_cons; auto.
             now inversion lqtAddr.
          -- (* Action deploy *)
-            rewrite_environment_equiv.
+            rewrite_environment_equiv in *.
             cbn in *.
             intros lqtAddr.
             destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
@@ -1631,7 +1631,7 @@ Section Theories.
               now inversion lqtAddr.
          -- (* Action call *)
             destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
+              try rewrite_environment_equiv in *; auto.
             cbn in *.
             intros lqtAddr.
             destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
@@ -1708,7 +1708,7 @@ Section Theories.
         * (* Invalid action *)
           intros lqtAddr.
           destruct IHtrace as (state' & deployed_state' & sum_eq);
-            try rewrite_environment_equiv; auto.
+            try rewrite_environment_equiv in *; auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           inversion deployed_state'.
@@ -1751,7 +1751,7 @@ Section Theories.
         split; auto.
         destruct_chain_step.
         * (* Step block *)
-          rewrite_environment_equiv.
+          rewrite_environment_equiv in *.
           destruct IHtrace as (state' & deployed_state' & sum_eq); auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
@@ -1759,7 +1759,7 @@ Section Theories.
         * destruct_action_eval.
          -- (* Action transfer *)
             destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
+              try rewrite_environment_equiv in *; auto.
             cbn in *.
             rewrite deployed_state in deployed_state'.
             inversion deployed_state'.
@@ -1769,7 +1769,7 @@ Section Theories.
             apply list_relations.list.Forall_cons.
             now split.
          -- (* Action deploy *)
-            rewrite_environment_equiv.
+            rewrite_environment_equiv in *.
             cbn in *.
             destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
           --- (* Deploy contract *)
@@ -1788,7 +1788,7 @@ Section Theories.
               now apply list_relations.list.Forall_cons.
          -- (* Action call *)
             destruct IHtrace as (state' & deployed_state' & sum_eq);
-              try rewrite_environment_equiv; auto.
+              try rewrite_environment_equiv in *; auto.
             cbn in *.
             destruct (address_eqb_spec caddr to_addr) as [<-|]; auto.
           --- (* Call contract *)
@@ -1902,7 +1902,7 @@ Section Theories.
               now destruct msg.
         * (* Invalid action *)
           destruct IHtrace as (state' & deployed_state' & sum_eq);
-            try rewrite_environment_equiv; auto.
+            try rewrite_environment_equiv in *; auto.
           cbn in *.
           rewrite deployed_state in deployed_state'.
           now inversion deployed_state'.
