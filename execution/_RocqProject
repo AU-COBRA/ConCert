@@ -2,6 +2,7 @@
 
 -R theories ConCert.Execution
 theories/BlockchainBase.v
+theories/BlockchainTheories.v
 theories/Blockchain.v
 theories/BoundedN.v
 theories/BuildUtils.v
