@@ -16,6 +16,7 @@ theories/Monad.v
 theories/OptionMonad.v
 theories/ResultMonad.v
 theories/ContractMonads.v
+theories/SerializableBase.v
 theories/Serializable.v
 theories/ContractCommon.v
 
