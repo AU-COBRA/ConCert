@@ -12,7 +12,7 @@ From Stdlib Require Import List.
 Import MRMonadNotation.
 
 #[local]
-Parameter (cb : Blockchain.ChainBase).
+Parameter (cb : BlockchainBase.ChainBase).
 #[local]
 Existing Instance cb.
 

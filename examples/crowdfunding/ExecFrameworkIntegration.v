@@ -23,10 +23,13 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
+Import DeriveSer.
 
 Open Scope list.
 
 Import AcornBlockchain CrowdfundingContract CrowdfundingProperties.
+
+
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
@@ -69,11 +72,9 @@ Section Serialize.
     now autorewrite with hints.
   Defined.
 
-  Global Instance State_serializable : Serializable State_rocq :=
-    Derive Serializable State_rocq_rect<mkState_rocq>.
+  Global Instance State_serializable : Serializable State_rocq := Derive Ser.
 
-  Global Instance Msg_serializable : Serializable Msg_rocq :=
-    Derive Serializable Msg_rocq_rect<Donate_rocq, GetFunds_rocq, Claim_rocq>.
+  Global Instance Msg_serializable : Serializable Msg_rocq := Derive Ser.
 
 End Serialize.
 
@@ -113,7 +114,7 @@ End Wrappers.
 Definition cf_contract : Contract Setup Msg_rocq State_rocq unit :=
   build_contract wrapped_init wrapped_receive.
 
-Definition cf_state (env : Environment) (address : Blockchain.Address) : option State_rocq :=
+Definition cf_state (env : Environment) (address : BlockchainBase.Address) : option State_rocq :=
   match (env_contract_states env address) with
   | Some sv => deserialize sv
   | None => None
@@ -166,8 +167,7 @@ Proof.
   contract_induction; intros; cbn in *; auto.
   - intro before_deadline.
     apply IH.
-    instantiate (AddBlockFacts := fun _ old_slot _ _ new_slot _ => new_slot > old_slot);
-      subst AddBlockFacts; cbn in facts.
+    set_block_facts (fun _ old_slot _ _ new_slot _ => new_slot > old_slot).
     unfold deadline_passed in *. unfold is_true in *.
     rewrite Bool.negb_true_iff in *. propify. lia.
   - intros before_deadline.
@@ -175,12 +175,8 @@ Proof.
     reflexivity.
   - eauto using Hreceive.
   - eauto using Hreceive.
-  - instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst; cbn in *.
-    destruct_chain_step; auto.
-    + inversion valid_header; lia.
-    + destruct eval; auto.
+  - solve_facts.
+    inversion valid_header; lia.
 Qed.
 
 (** ** Contract balance in the local state consistent with the sum of individual contributions *)
@@ -222,12 +218,7 @@ Proof.
       as [[resp_state resp_acts]| ] eqn:Hreceive; tryfalse.
     cbn in *.
     now replace new_state with fin by congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
+  - solve_facts.
 Qed.
 
 Lemma undeployed_balance_0 (bstate : ChainState) addr :
@@ -287,12 +278,7 @@ Proof.
     split; auto.
     eauto using receive_only_transfer.
   - now rewrite <- perm.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
+  - solve_facts.
 Qed.
 
 Local Open Scope nat.
@@ -356,12 +342,8 @@ Proof.
     destruct (Receive.receive _ _ _ _) as [[resp_state resp_acts]| ]; tryfalse.
     cbn in *.
     now replace fin with new_state in * by congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    unset_all; subst; cbn in *.
-    destruct step; auto.
-    destruct a; auto.
-    intros; lia.
+  - solve_facts.
+    lia.
 Qed.
 
 Lemma cf_transfer_cases {sch sctx msg init fin acts} :
@@ -420,8 +402,7 @@ Proof.
   contract_induction; intros; cbn in *; auto.
   - inversion_clear init_some.
     cbn.
-    instantiate (DeployFacts := fun _ ctx => ctx_amount ctx >= 0);
-      subst DeployFacts; cbn in *.
+    set_deploy_facts (fun _ ctx => ctx_amount ctx >= 0).
     lia.
   - lia.
   - destruct msg as [msg| ]; tryfalse.
@@ -431,11 +412,10 @@ Proof.
     replace s with new_state in * by congruence.
     replace new_acts with (map to_action_body l) in * by congruence.
 
-    instantiate (CallFacts := fun _ ctx cstate _ _ => ctx_amount ctx >= 0 /\
+    set_call_facts (fun _ ctx cstate _ _ => ctx_amount ctx >= 0 /\
                                         consistent_balance cstate /\
-                                        donations_non_neg cstate);
-      subst CallFacts; cbn in *.
-    destruct facts as [Hamt_non_neg [Hconsistent Hpos]].
+                                        donations_non_neg cstate)
+      as (Hamt_non_neg & Hconsistent & Hpos).
     specialize (cf_transfer_cases Hpos Hconsistent Hreceive) as cf_cases.
     clear receive_some Hreceive.
     destruct cf_cases as [H | [H | H]].
@@ -476,13 +456,8 @@ Proof.
       destruct H as [? [? [? ?]]]; subst; cbn in *.
       lia.
   - now rewrite <- perm.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True);
-      unset_all; subst; cbn in *.
-    destruct step; auto.
-    destruct a; auto.
-    intros.
-    apply trace_reachable in from_reachable.
-    split; eauto.
+  - solve_facts.
+    repeat split; eauto.
 Qed.
 
 Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}

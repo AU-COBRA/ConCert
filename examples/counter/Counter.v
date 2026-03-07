@@ -11,8 +11,11 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
+Import DeriveSer.
 
 Open Scope Z.
+
+
 
 (** ** Definition *)
 Section Counter.
@@ -85,12 +88,12 @@ Section Counter.
     |}.
 
   Section Serialization.
-    (** Deriving the [Serializable] instances for the state and for the messages *)
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<Inc, Dec>.
+    (** Deriving the [Serializable] instances for the state and for the messages *)
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   (** The counter contract *)
@@ -181,24 +184,18 @@ Section SafetyProperties.
         always returns an empty list of actions. We instantiate the [CallFacts]
         predicate with the assumption that the from-address is not equal to the
         contract address. We will be asked to prove this goal later. *)
-      instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
-        subst CallFacts; cbn in *; congruence.
+      set_call_facts (fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
+        congruence.
     + (* we asked to prove additional assumptions we might have made.
       Since we instantiated only [CallFacts], we instantiate other assumptions
       with a trivial proposition *)
-      instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      unset_all; subst; cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-      cbn. intros cstate Hc Hstate.
+      solve_facts.
       (* we use the fact that [counter_receive] doesn't return any actions *)
       assert ((outgoing_acts bstate_from to_addr) = []) as Hempty.
       { apply lift_outgoing_acts_nil with (contract := counter_contract); eauto.
-        now constructor.
         intros. eapply (receive_produces_no_calls (chain := chain) (ctx := ctx)); eauto. apply H. }
       unfold outgoing_acts in *. rewrite queue_prev in *.
-      subst act; cbn in Hempty.
+      cbn in Hempty.
       now destruct_address_eq.
   Qed.
 

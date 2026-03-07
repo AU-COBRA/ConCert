@@ -7,15 +7,17 @@ From ConCert.Utils Require Import Automation.
 From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Execution Require Import Blockchain.
-From ConCert.Execution Require Import BuildUtils.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
+From ConCert.Execution Require Import ContractProperties.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Examples.BAT Require Import BATCommon.
 From ConCert.Examples.BAT Require Import BATAltFix.
 From ConCert.Examples.EIP20 Require EIP20Token.
 From ConCert.Examples.EIP20 Require EIP20TokenCorrect.
+
+Import BuildUtils.
 
 
 
@@ -29,11 +31,11 @@ Section Theories.
 
   Ltac destruct_message :=
     repeat match goal with
-    | H : Blockchain.receive _ _ _ _ _ = Ok _ |- _ => unfold Blockchain.receive in H; cbn in H
+    | H : BlockchainBase.receive _ _ _ _ _ = Ok _ |- _ => unfold BlockchainBase.receive in H; cbn in H
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
     | msg : EIP20Token.Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)
@@ -741,8 +743,8 @@ Section Theories.
         now apply N.Div0.mod_le.
         apply balance_le_sum_balances.
     - contract_induction; intros;
-        only 1: instantiate (CallFacts := fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
-        unfold Blockchain.receive in *; eauto.
+        try set_call_facts (fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
+        unfold BlockchainBase.receive in *; eauto.
       + now apply init_preserves_balances_sum in init_some.
       + solve_facts.
         now apply deployed_implies_constants_valid in deployed0 as [].
@@ -849,7 +851,7 @@ Section Theories.
     apply (lift_contract_state_prop contract);
       intros *; auto; clear reach deployed bstate caddr.
     - intros ? init_some.
-      unfold Blockchain.init in *.
+      unfold BlockchainBase.init in *.
       now eapply init_isFinalized_correct.
     - intros IH receive_some ?.
       destruct_message;
@@ -899,7 +901,7 @@ Section Theories.
     empty_queue H; destruct H as (cstate & contract_deployed & contract_state & creation_min & fund_deposit_not_contract);
       (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
       only 3: destruct (address_eqdec caddr to_addr);
-      try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+      try (now eexists; rewrite_environment_equiv in *; repeat split; eauto;
           cbn; destruct_address_eq; try easy).
     - (* Prove that H is preserved after calls to the contract *)
       clear amount_nonnegative enough_balance reward Hreward creator Hcreator
@@ -920,7 +922,7 @@ Section Theories.
       | H : _ prev_state' = _ new_state' |- _=> rewrite H in *; clear H
       end.
       exists new_state'.
-      rewrite_environment_equiv; cbn; repeat split; eauto;
+      rewrite_environment_equiv in *; cbn; repeat split; eauto;
       cbn; destruct_address_eq; try easy.
       eapply N.le_trans; eauto.
     - update_all.
@@ -938,7 +940,7 @@ Section Theories.
       add_block [(finalize_act cstate caddr)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
       (* The hypothesis "slot_hit" no longer holds, so we have to update it manually before calling update_all *)
       update (S (fundingEnd cstate) <= current_slot bstate0)%nat in slot_hit by
-        (rewrite_environment_equiv; cbn; easy).
+        (rewrite_environment_equiv in *; cbn; easy).
       update_all.
       clear reward Hreward creator Hcreator.
 
@@ -949,14 +951,14 @@ Section Theories.
         now apply account_balance_nonnegative.
       + (* Prove that receive action returns Some *)
         edestruct (try_finalize_is_some cstate bstate0) as ((new_cstate & new_act & receive_some) & _); cycle 1.
-        * unfold Blockchain.receive.
+        * unfold BlockchainBase.receive.
           rewrite receive_some.
           now contract_simpl.
         * easy.
       + cbn in *.
         clear contract_state slot_hit creation_min.
         update_all;
-          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv; cbn; destruct_address_eq; try easy)|].
+          [rewrite queue0; do 3 f_equal; repeat (rewrite_environment_equiv in *; cbn; destruct_address_eq; try easy)|].
         (* Finally we need to evaluate the new transfer action that finalize produced *)
         evaluate_transfer; try easy.
         * (* Prove that the transfer is nonnegative *)
@@ -972,7 +974,7 @@ Section Theories.
           rewrite queue.
           split; try apply empty_queue_is_emptyable.
           eexists.
-          now repeat split; try (rewrite_environment_equiv; cbn; eauto).
+          now repeat split; try (rewrite_environment_equiv in *; cbn; eauto).
   Qed.
 
   (** Prove that it is always possible to reach a state where the token is finalized if there
@@ -1009,10 +1011,10 @@ Section Theories.
       only 3: destruct (address_eqdec caddr to_addr);
       try now exists cstate;
           repeat split; eauto;
-            try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq));
+            try (rewrite_environment_equiv in *; cbn; (easy || now destruct_address_eq));
           eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
           eapply spendable_consume_act; eauto;
-            intros; rewrite_environment_equiv; subst; (try destruct msg);
+            intros; rewrite_environment_equiv in *; subst; (try destruct msg);
             cbn; destruct_address_eq; try easy; lia.
     - (* Prove that H is preserved after calls to the contract *)
       clear enough_balance reward Hreward creator Hcreator empty reach'
@@ -1034,13 +1036,13 @@ Section Theories.
       end.
       eexists new_state'.
       repeat split; eauto;
-        try (rewrite_environment_equiv; cbn; (easy || now destruct_address_eq)).
+        try (rewrite_environment_equiv in *; cbn; (easy || now destruct_address_eq)).
       eapply N.le_trans in enough_balance_to_fund; [| apply N.sub_le_mono_l, total_supply_increasing].
       eapply N.le_trans.
       apply enough_balance_to_fund.
       apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive.
       eapply spendable_consume_act; eauto;
-        intros; rewrite_environment_equiv; subst; destruct msg;
+        intros; rewrite_environment_equiv in *; subst; destruct msg;
         cbn; destruct_address_eq; try easy; lia.
     - (* Update goal and eliminate all occurrences of old ChainState *)
       update_all.
@@ -1058,19 +1060,19 @@ Section Theories.
         only 1: apply Hcreator; eauto; [now apply All_Forall.In_Forall, create_token_acts_is_account | apply create_token_acts_origin_correct |].
       (* Prove that the funding period is still not over *)
       update ((current_slot bstate0) <= (fundingEnd cstate))%nat in funding_period_not_over by
-        (rewrite_environment_equiv; cbn; lia).
+        (rewrite_environment_equiv in *; cbn; lia).
       (* Prove that the environment in the new ChainState is correct *)
       update (setter_from_getter_Environment_env_account_balances
                 (fun _ : Address -> Amount => add_balance creator reward (env_account_balances bstate)) bstate)
         with bstate0.(chain_state_env) in queue0 by
-        (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv).
+        (rewrite queue0; apply create_token_acts_eq; intros; now rewrite_environment_equiv in *).
       (* Prove that there is still enough balance in accounts to hit funding goal *)
       update bstate with bstate0 in enough_balance_to_fund.
       { eapply N.le_trans; eauto.
         apply N.mul_le_mono_r, Z2N.inj_le;
           try now apply total_balance_positive.
         apply (total_balance_le bstate).
-        intros. rewrite_environment_equiv. cbn.
+        intros. rewrite_environment_equiv in *. cbn.
         destruct_address_eq; lia.
       }
       update_all.
@@ -1130,12 +1132,12 @@ Section Theories.
               now apply try_create_tokens_amount_correct in receive_some.
             - (* Apply induction hypothesis *)
               edestruct IHaccounts with (bstate0 := bstate) (cstate := cstate) as
-                (bstate_new & reach_new & emptyable_new & H); eauto; try (rewrite_environment_equiv; eauto).
+                (bstate_new & reach_new & emptyable_new & H); eauto; try (rewrite_environment_equiv in *; eauto).
               + rewrite queue.
                 apply create_token_acts_eq.
-                intros. now rewrite_environment_equiv.
+                intros. now rewrite_environment_equiv in *.
               + rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
-                erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv).
+                erewrite (total_balance_eq _ bstate0) by (intros; now rewrite_environment_equiv in *).
                 lia.
           }
 
@@ -1195,14 +1197,14 @@ Section Theories.
             edestruct IHaccounts as (bstate_new & reach_new & emptyable_new & H);
               clear IHaccounts accounts_not_contracts balance_positive queue0 tokens_left_to_fund p can_hit_fund_min;
               only 10: (rewrite deployed_state; eauto);
-              try (rewrite_environment_equiv; eauto);
+              try (rewrite_environment_equiv in *; eauto);
               cbn; try rewrite Z2N.inj_min, N2Z.id;
               clear deployed_state contract_deployed funding_period_started funding_period_not_over
                     fund_deposit_not_contract finalized contract_state.
           --- (* Prove that the queues of the two ChainStates are equivalent *)
               rewrite queue, N.sub_add_distr.
               apply create_token_acts_eq.
-              intros. rewrite_environment_equiv. cbn. now destruct_address_eq.
+              intros. rewrite_environment_equiv in *. cbn. now destruct_address_eq.
           --- (* Prove that there still is enough balance to hit funding goal *)
               clear queue accounts_not_contracts'.
               edestruct N.min_dec.
@@ -1216,7 +1218,7 @@ Section Theories.
                 now apply N_le_div_mul.
             ---- rewrite total_balance_distr, N.add_comm in enough_balance_to_fund; eauto.
                 erewrite (total_balance_eq _ bstate0) by
-                  (intros; rewrite_environment_equiv; cbn; now destruct_address_eq).
+                  (intros; rewrite_environment_equiv in *; cbn; now destruct_address_eq).
                 apply N.le_sub_le_add_r in enough_balance_to_fund.
                 rewrite <- N.sub_add_distr in enough_balance_to_fund.
                 eapply N.le_trans; [| apply enough_balance_to_fund].
@@ -1268,11 +1270,11 @@ Section Theories.
 
     add_block [(deploy_act setup BATAltFix.contract creator)] 1%nat; eauto. apply list_relations.list.Forall_singleton, address_eq_refl.
     update ((current_slot bstate0) < _fundingStart setup)%nat in funding_period_not_started by
-      (rewrite_environment_equiv; cbn; lia).
+      (rewrite_environment_equiv in *; cbn; lia).
     update bstate with bstate0 in enough_balance_to_fund by
       (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
       unfold spendable_balance, pending_usage; rewrite queue, bstate_queue; apply sumZ_le;
-      intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+      intros; rewrite_environment_equiv in *; cbn; destruct_address_eq; try lia).
     update_all.
 
     deploy_contract BATAltFix.contract; eauto; try lia;
@@ -1303,7 +1305,7 @@ Section Theories.
     end.
     update bstate0 with bstate in enough_balance_to_fund by
       (eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
-      eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv; subst; cbn; destruct_address_eq; try easy; lia).
+      eapply spendable_consume_act; eauto; intros; rewrite_environment_equiv in *; subst; cbn; destruct_address_eq; try easy; lia).
     clear dependent trace.
     update_all.
 
@@ -1312,7 +1314,7 @@ Section Theories.
       (inversion header_valid;
       eapply N.le_trans; [apply enough_balance_to_fund | apply N.mul_le_mono_r, Z2N.inj_le; try now apply spendable_balance_positive];
       unfold spendable_balance, pending_usage; rewrite queue, queue0; apply sumZ_le;
-      intros; rewrite_environment_equiv; cbn; destruct_address_eq; try lia).
+      intros; rewrite_environment_equiv in *; cbn; destruct_address_eq; try lia).
     clear funding_period_not_started.
     update_all.
 
@@ -1327,20 +1329,15 @@ Section Theories.
   (** ** BAToken outgoing acts facts *)
 
   (** BAToken never calls itself *)
-  Lemma bat_no_self_calls bstate caddr :
-    reachable bstate ->
-    env_contracts bstate caddr = Some (contract : WeakContract) ->
-    Forall (fun act_body =>
-      match act_body with
-      | act_transfer to _ => (to =? caddr)%address = false
-      | _ => False
-      end) (outgoing_acts bstate caddr).
+  Lemma bat_nonrecursive :
+    NonRecursive contract.
   Proof.
+    unfold NonRecursive.
     contract_induction; intros; auto.
     - now inversion IH.
     - apply Forall_app; split; auto.
       clear IH.
-      instantiate (CallFacts := fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
+      set_call_facts (fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
       destruct_message;
         try now erewrite eip20_new_acts_correct by eauto.
       + now contract_simpl.
@@ -1353,41 +1350,15 @@ Section Theories.
     - inversion_clear IH as [|? ? head_not_me tail_not_me].
       apply Forall_app; split; auto.
       clear tail_not_me.
-      destruct head; try contradiction.
-      destruct action_facts as [? _].
+      destruct head; try contradiction;
       now destruct_address_eq.
     - now rewrite <- perm.
     - solve_facts.
       apply deployed_implies_constants_valid in deployed0; eauto.
       now destruct_hyps.
-      now constructor.
   Qed.
 
-  Lemma bat_no_self_calls' : forall bstate origin from_addr to_addr amount msg acts,
-    reachable bstate ->
-    env_contracts bstate to_addr = Some (contract : WeakContract) ->
-    chain_state_queue bstate = {|
-      act_origin := origin;
-      act_from := from_addr;
-      act_body :=
-        match msg with
-        | Some msg => act_call to_addr amount msg
-        | None => act_transfer to_addr amount
-        end
-    |} :: acts ->
-    from_addr <> to_addr.
-  Proof.
-    intros * reach deployed queue.
-    apply bat_no_self_calls in deployed as no_self_calls; auto.
-    unfold outgoing_acts in no_self_calls.
-    rewrite queue in no_self_calls.
-    cbn in no_self_calls.
-    destruct_address_eq; auto.
-    inversion_clear no_self_calls as [|? ? hd _].
-    destruct msg.
-    * congruence.
-    * now rewrite address_eq_refl in hd.
-  Qed.
+  Local Hint Resolve bat_nonrecursive : core.
 
   (** BAToken only produces transfer acts *)
   Lemma outgoing_acts_are_transfers : forall bstate caddr,
@@ -1419,12 +1390,10 @@ Section Theories.
     env_contracts bstate caddr = Some (contract : WeakContract) ->
     Forall (fun act_body => 0 <= act_body_amount act_body)%Z (outgoing_acts bstate caddr).
   Proof.
-    contract_induction; intros; auto.
+    nonrecursive_contract_induction; intros; auto.
     - now inversion IH.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
-        (0 <= (ctx_contract_balance ctx))%Z /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (contract_balance_positive & _).
+    - set_call_facts (fun _ ctx _ _ _ =>
+        (0 <= (ctx_contract_balance ctx))%Z).
       destruct_message;
         (* m = EIP msg *)
         try now (apply eip20_new_acts_correct in receive_some; subst).
@@ -1440,18 +1409,13 @@ Section Theories.
         subst.
         constructor; auto.
         apply N2Z.is_nonneg.
-    - now destruct facts.
     - eapply forall_respects_permutation; eauto.
     - solve_facts.
-      split.
-      + (* Prove call fact: 0 <= ctx_contract_balance ctx *)
-        destruct_address_eq; subst; try easy.
-        * lia.
-        * apply Z.add_nonneg_nonneg; try lia.
-          now apply Z.ge_le, account_balance_nonnegative.
-      + (* Prove call fact: ctx_from ctx <> ctx_contract_address ctx *)
-        eapply bat_no_self_calls'; eauto.
-        now constructor.
+      (* Prove call fact: 0 <= ctx_contract_balance ctx *)
+      destruct_address_eq; subst; try easy.
+      + lia.
+      + apply Z.add_nonneg_nonneg; try lia.
+        now apply Z.ge_le, account_balance_nonnegative.
   Qed.
 
 
@@ -1467,13 +1431,11 @@ Section Theories.
           ((current_slot bstate <= fundingEnd cstate)%nat \/ tokenCreationMin cstate <= total_supply cstate) ->
           outgoing_acts bstate caddr = []).
   Proof.
-    contract_induction; intros; auto; try rename H into not_finalized.
+    nonrecursive_contract_induction; intros; auto; try rename H into not_finalized.
     - specialize (IH not_finalized).
       discriminate.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
-          ctx_from ctx <> ctx_contract_address ctx /\
+    - set_call_facts (fun _ ctx state _ _ =>
           total_supply state = sum_balances state).
-      destruct facts as (_ & supply_eq_sum_balances).
       destruct_message;
         try (
           apply eip_only_changes_token_state in receive_some as finalized_unchanged;
@@ -1505,19 +1467,14 @@ Section Theories.
           cbn in goal_hit.
           eapply N.le_trans with (n := tokenCreationMin prev_state) (p := total_supply prev_state) in goal_hit; try lia.
           apply N_sub_add_mod.
-          rewrite supply_eq_sum_balances.
+          rewrite facts.
           apply balance_le_sum_balances.
-    - now destruct facts.
     - apply IH in not_finalized. subst.
       now apply Permutation.Permutation_nil in perm.
     - solve_facts.
-      split.
-      + eapply bat_no_self_calls'; eauto.
-        now constructor.
-      + edestruct sum_balances_eq_total_supply as
-          (? & ? & ?); eauto.
-        now constructor.
-        easy.
+      edestruct sum_balances_eq_total_supply as
+        (? & ? & ?); eauto.
+      easy.
   Qed.
 
 
@@ -1537,7 +1494,7 @@ Section Theories.
   Proof.
     intros *.
     unfold effective_balance.
-    contract_induction; intros; auto; try destruct IH as [IH_finalized IH_funding].
+    nonrecursive_contract_induction; intros; auto; try destruct IH as [IH_finalized IH_funding].
     - cbn in *.
       destruct_match in init_some; try congruence.
       inversion init_some. cbn.
@@ -1548,19 +1505,18 @@ Section Theories.
       split; intros.
       + now rewrite <- IH_finalized by assumption.
       + now rewrite <- IH_funding by assumption.
-    - instantiate (CallFacts := fun chain ctx state out_acts _ =>
+    - set_call_facts (fun chain ctx state out_acts _ =>
         (0 <= ctx_amount ctx)%Z /\
         tokenExchangeRate state <> 0 /\
         total_supply state = sum_balances state /\
         (isFinalized state = false /\
                 ((current_slot chain <= fundingEnd state)%nat \/
-                tokenCreationMin state <= total_supply state) -> out_acts = []) /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive &
-                        exchange_rate_nonzero &
-                        supply_eq_sum_balances &
-                        funding_no_outgoing_acts & _).
-      clear CallFacts AddBlockFacts DeployFacts tag prev_inc_calls prev_out_txs.
+                tokenCreationMin state <= total_supply state) -> out_acts = []))
+         as (ctx_amount_positive &
+             exchange_rate_nonzero &
+             supply_eq_sum_balances &
+             funding_no_outgoing_acts).
+      clear tag prev_inc_calls prev_out_txs.
       destruct msg. destruct m.
       + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
         apply eip20_new_acts_correct in receive_some as no_new_acts.
@@ -1621,25 +1577,19 @@ Section Theories.
           rewrite <- Z.sub_sub_distr, <- N2Z.inj_sub, <- N2Z.inj_sub; auto.
             all: now eapply N.le_trans.
       + now contract_simpl.
-    - now destruct facts.
     - now erewrite sumZ_permutation in IH_finalized, IH_funding by eauto.
     - solve_facts.
       destruct_and_split.
       + now apply Z.ge_le.
       + edestruct deployed_implies_constants_valid as
           (cstate' & deployed_state' & _ & _ & exchange_rate_nonzero & _ & _); eauto.
-        now constructor.
         easy.
       + edestruct sum_balances_eq_total_supply as
           (cstate' & deployed_state' & ?); eauto.
-        now constructor.
         easy.
       + intros.
         edestruct funding_period_no_acts as (cstate' & deployed_state' & no_acts); eauto.
-        now constructor.
         now apply no_acts.
-      + eapply bat_no_self_calls'; eauto.
-        now constructor.
   Qed.
 
 
@@ -1712,7 +1662,7 @@ Section Theories.
         replace (env_account_balances (set_contract_state to new_state (transfer_balance caddr to amount bstate)) to)
           with (((env_account_balances bstate to) + amount)%Z).
         * apply receive_some.
-        * apply bat_no_self_calls in deployed; auto.
+        * apply bat_nonrecursive in deployed; auto.
           eapply Forall_forall in deployed; eauto.
           cbn in *.
           destruct_address_eq; easy.

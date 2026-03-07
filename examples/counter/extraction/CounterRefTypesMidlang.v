@@ -32,7 +32,7 @@ Definition midlang_translation_map :=
   (<%% @ctx_from %%>, "from");
   (<%% @Chain %%>, "ConCertChain");
   (<%% @ContractCallContext %%>, "ConCertCallContext");
-  (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
+  (<%% @ConCert.Execution.BlockchainBase.ActionBody %%>, "ConCertAction");
   (<%% @ChainBase %%>, "ChainBaseWTF");
   (<%% @ctx_contract_address %%>, "contract_address")].
 

@@ -49,7 +49,7 @@ Theorem boardroom_voting_correct
       SignupOrderAssumption pks index inc_calls ->
 
       (* ..and that the correct number of people register *)
-      (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
+      (finish_registration_by (setup cstate) < BlockchainBase.current_slot bstate ->
        length pks = length (signups inc_calls)) ->
 
       (* then if we have not tallied yet, the result is none *)
@@ -73,8 +73,8 @@ Fixpoint MsgAssumption
          (calls : list (ContractCallInfo Msg)) : Prop :=
   match calls with
   | call :: calls =>
-    let caller := Blockchain.call_from call in
-    match Blockchain.call_msg call with
+    let caller := BlockchainBase.call_from call in
+    match BlockchainBase.call_msg call with
     | Some (signup pk as m) => m = make_signup_msg (sks caller)
     | Some (submit_vote _ _ as m) =>
       m = make_vote_msg pks (index caller) (sks caller) (svs caller)
@@ -95,7 +95,7 @@ The BoardroomVoting smart contract is extracted to both
 ## CIS1
 A formalization of the [CIS1](https://proposals.concordium.software/CIS/cis-1.html) standard
 for the Concordium blockchain. It includes a [specification](cis1/CIS1Spec.v) of the standard and a verified
-[implementation](cis1/Cis1wccd.v) of the standard.
+[implementation](cis1/CIS1wccd.v) of the standard.
 
 ## Congress
 In [Congress.v](../examples/congress/Congress.v) we implement the _Congress_ contract, a

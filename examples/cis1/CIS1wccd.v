@@ -18,6 +18,8 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import Extras.
 
 Import ListNotations.
+Import DeriveSer.
+
 
 
 Definition requireTrue (cond : bool) :=
@@ -71,17 +73,13 @@ Section WccdToken.
 
   Section Serialization.
 
-    Global Instance OpUpdateKind_serializable : Serializable OpUpdateKind :=
-      Derive Serializable OpUpdateKind_rect <opAdd, opDelete>.
+    Global Instance OpUpdateKind_serializable : Serializable OpUpdateKind := Derive Ser.
 
-    Global Instance state_serializable : Serializable AddressState :=
-      Derive Serializable AddressState_rect <Build_AddressState>.
+    Global Instance state_serializable : Serializable AddressState := Derive Ser.
 
-    Global Instance wccd_transfer_params_serializable : Serializable wccd_transfer_params :=
-      Derive Serializable wccd_transfer_params_rect <Build_wccd_transfer_params>.
+    Global Instance wccd_transfer_params_serializable : Serializable wccd_transfer_params := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <wccd_msg_transfer, wccd_msg_balanceOf, wccd_msg_updateOperator, wccd_msg_mint, wccd_msg_burn>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
   End Serialization.
 
@@ -268,7 +266,7 @@ Module WccdView <: CIS1View WccdTypes.
     Proof.
       split.
       + intros Hin. unfold get_owners in *.
-        unfold get_balance_opt,Cis1wccd.get_balance_opt.
+        unfold get_balance_opt,CIS1wccd.get_balance_opt.
         apply In_keys_In_elements_iff in Hin.
         destruct Hin as [a_st HH].
         exists a_st.(wccd_balance).
@@ -278,7 +276,7 @@ Module WccdView <: CIS1View WccdTypes.
       + intros Hex.
         destruct Hex as [b Hb].
         unfold get_owners, FMap.keys.
-        unfold get_balance_opt,Cis1wccd.get_balance_opt in *.
+        unfold get_balance_opt,CIS1wccd.get_balance_opt in *.
         destruct (AddressMap.find owner st) eqn:Heq; try congruence.
         unfold AddressMap.find in *.
         apply FMap.In_elements in Heq.

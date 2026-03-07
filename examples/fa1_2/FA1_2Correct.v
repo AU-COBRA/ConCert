@@ -70,7 +70,7 @@ Section Theories.
     repeat match goal with
     | msg : option Msg |- _ => destruct msg
     | msg : Msg |- _ => destruct msg
-    | H : Blockchain.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
+    | H : BlockchainBase.receive _ _ _ _ None = Ok _ |- _ => now contract_simpl
     | H : receive _ _ _ None = Ok _ |- _ => now contract_simpl
     end.
   (* end hide *)
@@ -709,8 +709,7 @@ Section Theories.
       /\ deploy_info.(deployment_amount) = 0%Z.
   Proof.
     contract_induction; intros; auto.
-    - instantiate (DeployFacts := fun _ ctx => (0 <= ctx_amount ctx)%Z).
-      unfold DeployFacts in facts.
+    - set_deploy_facts (fun _ ctx => (0 <= ctx_amount ctx)%Z).
       contract_simpl.
       now propify.
     - solve_facts.
@@ -731,9 +730,9 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
-        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive & _).
+    - set_call_facts (fun _ ctx _ _ _ =>
+        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx)
+        as (ctx_amount_positive & _).
       simpl in *.
       apply contract_not_payable in receive_some as not_payable.
       apply new_acts_amount_zero in receive_some as amount_zero_new_acts.
@@ -750,7 +749,6 @@ Section Theories.
         | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
         end.
         eapply no_self_calls; eauto.
-        now constructor.
   Qed.
 
   Lemma contract_balance_bound : forall bstate caddr (trace : ChainTrace empty_state bstate),
@@ -1042,14 +1040,14 @@ Section Theories.
     apply (lift_dep_info_contract_state_prop contract);
       auto; intros *; clear deployed trace bstate caddr.
     - intros init_some initial_pool_positive * addr_some.
-      unfold Blockchain.init in *.
+      unfold BlockchainBase.init in *.
       erewrite init_balances_correct in addr_some; eauto.
       cbn in *.
       destruct (address_eqb_spec addr (lqt_provider setup)) as [<-| addr_ne] in addr_some.
       + now rewrite FMap.find_add in addr_some.
       + now rewrite FMap.find_add_ne in addr_some.
     - intros IH receive_some initial_pool_positive * addr_some.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       simpl in receive_some.
       destruct msg. destruct m.
       + destruct t.
@@ -1083,11 +1081,11 @@ Section Theories.
     intros * reach deployed.
     apply (lift_contract_state_prop contract);
       intros *; auto; clear reach deployed bstate caddr.
-    - intros init_some * addr_some. unfold Blockchain.init in *.
+    - intros init_some * addr_some. unfold BlockchainBase.init in *.
       erewrite init_allowances_correct in addr_some by eauto.
       now rewrite FMap.find_empty in addr_some.
     - intros IH receive_some * addr_some.
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       simpl in receive_some.
       destruct msg. destruct m.
       + destruct t.
@@ -1140,11 +1138,11 @@ Section Theories.
   Proof.
     contract_induction;
       intros; auto.
-    - cbn. unfold Blockchain.init in *.
+    - cbn. unfold BlockchainBase.init in *.
       now erewrite init_total_supply_correct by eauto.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
         ctx_from ctx <> ctx_contract_address ctx).
-      unfold Blockchain.receive in receive_some.
+      unfold BlockchainBase.receive in receive_some.
       simpl in *.
       destruct msg. destruct m.
       + erewrite <- try_transfer_preserves_total_supply; eauto.
@@ -1160,7 +1158,6 @@ Section Theories.
       | H : Some ?x = Some _ |- _ => inversion H; subst x; clear H
       end.
       eapply no_self_calls; eauto.
-      now constructor.
   Qed.
 
 End Theories.

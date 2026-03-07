@@ -194,7 +194,7 @@ Section LocalBlockchain.
       EnvironmentEquiv lc env ->
       EnvironmentEquiv
         (transfer_balance from to amount lc)
-        (Blockchain.transfer_balance from to amount env).
+        (BlockchainBase.transfer_balance from to amount env).
     Proof.
       intros <-.
       apply build_env_equiv; auto.
@@ -212,7 +212,7 @@ Section LocalBlockchain.
       EnvironmentEquiv lc env ->
       EnvironmentEquiv
         (set_contract_state addr state lc)
-        (Blockchain.set_contract_state addr state env).
+        (BlockchainBase.set_contract_state addr state env).
     Proof.
       intros <-.
       apply build_env_equiv; auto.
@@ -228,7 +228,7 @@ Section LocalBlockchain.
       EnvironmentEquiv lc env ->
       EnvironmentEquiv
         (add_contract addr wc lc)
-        (Blockchain.add_contract addr wc env).
+        (BlockchainBase.add_contract addr wc env).
     Proof.
       intros <-.
       apply build_env_equiv; auto.
@@ -468,13 +468,13 @@ Section LocalBlockchain.
     EnvironmentEquiv lc env ->
     EnvironmentEquiv
       (add_new_block header lc)
-      (Blockchain.add_new_block_to_env header env).
+      (BlockchainBase.add_new_block_to_env header env).
   Proof.
     intros eq.
     apply build_env_equiv; try apply eq; auto.
     intros addr.
     cbn.
-    unfold Blockchain.add_balance.
+    unfold BlockchainBase.add_balance.
     destruct_address_eq.
     - subst. rewrite FMap.find_partial_alter.
       cbn.

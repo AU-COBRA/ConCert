@@ -175,7 +175,7 @@ Section ChainBaseSpecialization.
                                         ty <- specialize_type f "branch context" Γty remove decl_ty;;
                                         ret (l0 ++ [mkdecl decl.(decl_name) decl.(decl_body) ty], none :: Γ1))%list
                                      ctx ([],Γ);;
-                           let s_ctx := rev s_ctx in
+                           let s_ctx := rev' s_ctx in
                            t <- f (repeat none #|s_ctx| ++ Γ)%list t;; ret (mk_branch s_ctx t)) brs;;
         let npars := if contains (inductive_mind ind) specialized then npars - 1 else npars in
         ret (tCase (mk_case_info ind npars relevance) pr' disc brs)
@@ -257,7 +257,7 @@ Section ChainBaseSpecialization.
                  cst_relevance := cst_relevance cst|})
 
     | InductiveDecl mib =>
-      let params := rev (ind_params mib) in
+      let params := rev' (ind_params mib) in
       let remove := match params with
                     | {| decl_type := tInd ind _ |} :: _ =>
                       eq_kername (inductive_mind ind) ChainBase_kername
@@ -284,7 +284,7 @@ Section ChainBaseSpecialization.
                         go
                         (if remove then tl params else params)
                         ([], if remove then [replace] else []);;
-      let params := rev params in
+      let params := rev' params in
       let go oib :=
           type <- specialize_type (specialize_term specialized) (string_of_kername (kn.1, ind_name oib)) [] remove (ind_type oib);;
           (* Context with all mutually inductive types added,
@@ -362,7 +362,7 @@ Fixpoint specialize_env_rev (Σ : global_declarations)
       '(_, newΣ_rev) <- monad_fold_left go Σ ([], []);;
       ret ((name, decl)
               :: (axiomatized_ChainBase_kername, axiomatized_ChainBase_decl)
-              :: rev newΣ_rev)
+              :: rev' newΣ_rev)
     else
       Σ <- specialize_env_rev Σ Σprint;;
       ret ((name, decl) :: Σ)
@@ -370,5 +370,5 @@ Fixpoint specialize_env_rev (Σ : global_declarations)
 
 (* TODO: There are many reverses here, we should improve this. *)
 Definition specialize_ChainBase_env (Σ : global_env) : result global_env string :=
-  Σrev <- specialize_env_rev (List.rev (declarations Σ)) (empty_ext Σ);;
-  ret (mk_global_env (universes Σ) (List.rev Σrev) (retroknowledge Σ)).
+  Σrev <- specialize_env_rev (List.rev' (declarations Σ)) (empty_ext Σ);;
+  ret (mk_global_env (universes Σ) (List.rev' Σrev) (retroknowledge Σ)).

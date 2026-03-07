@@ -10,6 +10,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 
+Import DeriveSer.
+
 
 
 Section FA2Token.
@@ -80,48 +82,23 @@ Section FA2Token.
 
   Section Serialization.
 
-    Global Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
     Global Instance FA2ReceiverMsg_serializable {Msg : Type}
                                                 `{Serializable Msg}
-                                                : Serializable (@FA2ReceiverMsg Msg) :=
-      Derive Serializable (@FA2ReceiverMsg_rect Msg) <
-        (@receive_balance_of_param Msg),
-        (@receive_total_supply_param Msg),
-        (@receive_metadata_callback Msg),
-        (@receive_is_operator Msg),
-        (@receive_permissions_descriptor Msg),
-        (@other_msg Msg)>.
+                                                : Serializable (@FA2ReceiverMsg Msg) := Derive Ser.
 
     Global Instance FA2TransferHook_serializable {Msg : Type}
                                                 `{Serializable Msg}
-                                                : Serializable (@FA2TransferHook Msg) :=
-      Derive Serializable (@FA2TransferHook_rect Msg) <
-        (@transfer_hook Msg),
-        (@hook_other_msg Msg)>.
+                                                : Serializable (@FA2TransferHook Msg) := Derive Ser.
 
-    Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) :=
-      callback_serializable.
+    Global Instance callback_permissions_descriptor_serializable : Serializable (callback permissions_descriptor) := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <
-        msg_transfer,
-        msg_set_transfer_hook,
-        msg_receive_hook_transfer,
-        msg_balance_of,
-        msg_total_supply,
-        msg_token_metadata,
-        msg_permissions_descriptor,
-        msg_update_operators,
-        msg_is_operator,
-        msg_create_tokens>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
-    Global Instance TokenLedger_serializable : Serializable TokenLedger :=
-      Derive Serializable TokenLedger_rect <build_token_ledger>.
+    Global Instance TokenLedger_serializable : Serializable TokenLedger := Derive Ser.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
 

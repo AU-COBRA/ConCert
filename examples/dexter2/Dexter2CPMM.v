@@ -23,6 +23,8 @@ From ConCert.Examples.Dexter2 Require Import Dexter2FA12.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List. Import ListNotations.
 
+Import DeriveSer.
+
 
 
 (** * Contract types *)
@@ -551,49 +553,29 @@ Module DSInstances <: Dexter2Serializable.
       NOTE: we use [<:] to make the definitions transparent, so the
       implementation details can be revealed, if needed *)
   (* begin hide *)
-  Global Instance add_liquidity_param_serializable `{ChainBase} : Serializable add_liquidity_param :=
-    Derive Serializable add_liquidity_param_rect <build_add_liquidity_param>.
+  Global Instance add_liquidity_param_serializable `{ChainBase} : Serializable add_liquidity_param := Derive Ser.
 
-  Global Instance remove_liquidity_param_serializable `{ChainBase} : Serializable remove_liquidity_param :=
-    Derive Serializable remove_liquidity_param_rect <build_remove_liquidity_param>.
+  Global Instance remove_liquidity_param_serializable `{ChainBase} : Serializable remove_liquidity_param := Derive Ser.
 
-  Global Instance xtz_to_token_param_serializable `{ChainBase} : Serializable xtz_to_token_param :=
-    Derive Serializable xtz_to_token_param_rect <build_xtz_to_token_param>.
+  Global Instance xtz_to_token_param_serializable `{ChainBase} : Serializable xtz_to_token_param := Derive Ser.
 
-  Global Instance token_to_xtz_param_serializable `{ChainBase} : Serializable token_to_xtz_param :=
-    Derive Serializable token_to_xtz_param_rect <build_token_to_xtz_param>.
+  Global Instance token_to_xtz_param_serializable `{ChainBase} : Serializable token_to_xtz_param := Derive Ser.
 
-  Global Instance set_baker_param_serializable `{ChainBase} : Serializable set_baker_param :=
-    Derive Serializable set_baker_param_rect <build_set_baker_param>.
+  Global Instance set_baker_param_serializable `{ChainBase} : Serializable set_baker_param := Derive Ser.
 
-  Global Instance token_to_token_param_serializable `{ChainBase} : Serializable token_to_token_param :=
-    Derive Serializable token_to_token_param_rect <build_token_to_token_param>.
+  Global Instance token_to_token_param_serializable `{ChainBase} : Serializable token_to_token_param := Derive Ser.
 
-  Global Instance DexterMsg_serializable `{ChainBase} : Serializable DexterMsg :=
-      Derive Serializable DexterMsg_rect <AddLiquidity,
-                                          RemoveLiquidity,
-                                          XtzToToken,
-                                          TokenToXtz,
-                                          SetBaker,
-                                          SetManager,
-                                          SetLqtAddress,
-                                          UpdateTokenPool,
-                                          TokenToToken>.
+  Global Instance DexterMsg_serializable `{ChainBase} : Serializable DexterMsg := Derive Ser.
 
-  Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg :=
-    D2LqtSInstances.msg_serializable.
+  Global Instance Dexter2FA12_Msg_serialize `{ChainBase} : Serializable Dexter2FA12.Msg := Derive Ser.
 
-  Global Instance setup_serializable `{ChainBase} : Serializable Setup :=
-    Derive Serializable Setup_rect <build_setup>.
+  Global Instance setup_serializable `{ChainBase} : Serializable Setup := Derive Ser.
 
-  Global Instance ClientMsg_serializable `{ChainBase} : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg) :=
-      @FA2Token.FA2ReceiverMsg_serializable _ _ _.
+  Global Instance ClientMsg_serializable `{ChainBase} : Serializable (@FA2Token.FA2ReceiverMsg _ DexterMsg) := Derive Ser.
 
-  Global Instance state_serializable `{ChainBase} : Serializable State :=
-    Derive Serializable State_rect <build_state>.
+  Global Instance state_serializable `{ChainBase} : Serializable State := Derive Ser.
 
-  Global Instance FA2Token_Msg_serializable `{ChainBase} : Serializable FA2Token.Msg :=
-    FA2Token.msg_serializable.
+  Global Instance FA2Token_Msg_serializable `{ChainBase} : Serializable FA2Token.Msg := Derive Ser.
 
   (* end hide *)
 End DSInstances.

@@ -11,7 +11,7 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
-From ConCert.Execution Require Import BuildUtils.
+Import BuildUtils.
 
 From Stdlib Require Import List. Import ListNotations.
 From Stdlib Require Import ZArith.
@@ -272,9 +272,9 @@ Section SafetyProperties.
       + unfold is_smashed in Esmash.
         cbn. now subst.
       + destruct new_state. inversion H1. rewrite <- H5 in H. discriminate H.
-    - instantiate (CallFacts := fun _ ctx prev_state queue _ =>
+    - set_call_facts (fun _ ctx prev_state queue _ =>
       ctx_from ctx <> ctx_contract_address ctx).
-      now destruct fact.
+      now destruct head.
     - specialize (IH H). rewrite IH in perm.
       now eapply Permutation.Permutation_nil in perm.
     - solve_facts.
@@ -314,11 +314,11 @@ Section SafetyProperties.
       inversion receive_some.
       + unfold is_smashed in Esmash. destruct prev_state, new_state.
         inversion H1. cbn in *. now subst.
-      + instantiate (CallFacts := fun _ ctx prev_state queue _ =>
-        (prev_state.(piggyState) = Intact -> ctx_contract_balance ctx - ctx_amount ctx = balance prev_state) /\
-        (prev_state.(piggyState) = Intact -> queue = [])
-        /\ ctx_from ctx <> ctx_contract_address ctx).
-        destruct facts as [Hamount [Hqueue _]].
+      + set_call_facts (fun _ ctx prev_state queue _ =>
+          (prev_state.(piggyState) = Intact -> ctx_contract_balance ctx - ctx_amount ctx = balance prev_state) /\
+          (prev_state.(piggyState) = Intact -> queue = [])
+          /\ ctx_from ctx <> ctx_contract_address ctx)
+          as (Hamount & Hqueue & _).
         unfold is_smashed in Esmash. destruct prev_state.(piggyState) eqn:Estate; try discriminate.
         rewrite Hqueue, <- Hamount; try reflexivity. cbn. lia.
     - now destruct facts.
@@ -330,9 +330,7 @@ Section SafetyProperties.
       end.
       + rewrite address_eq_refl. intros state_intact.
         edestruct balance_on_chain' as (state1 & construct1 & balance); eauto.
-        now constructor.
         edestruct no_outgoing_actions_when_intact as (state2 & [construct2 act]); eauto.
-        now constructor.
         unfold contract_state in *.
         destruct (env_contract_states bstate_from to_addr); try discriminate.
         inversion construct1 as [some_s_is_state1]. inversion construct2 as [some_s_is_state2].
@@ -356,13 +354,12 @@ Section SafetyProperties.
         ** discriminate.
         * cbn. lia.
       + edestruct no_outgoing_actions_when_intact as (? & ?); eauto.
-        * now constructor.
-        * intros intact. destruct H.
-          unfold contract_state in *.
-          destruct (env_contract_states bstate_from to_addr); try discriminate.
-          inversion H as [s_is_some_x]. rewrite deployed_state0 in s_is_some_x.
-          inversion s_is_some_x as [cstate_eq_x].
-          now subst.
+        intros intact. destruct H.
+        unfold contract_state in *.
+        destruct (env_contract_states bstate_from to_addr); try discriminate.
+        inversion H as [s_is_some_x]. rewrite deployed_state0 in s_is_some_x.
+        inversion s_is_some_x as [cstate_eq_x].
+        now subst.
       + apply trace_reachable in from_reachable.
         pose proof (no_self_calls bstate_from to_addr ltac:(assumption) ltac:(assumption))
              as all.
@@ -434,7 +431,7 @@ Section SafetyProperties.
     empty_queue H; destruct H as (cstate & contract_deployed & contract_state);
       (* Prove that H is preserved after transfers, discarding invalid actions, calling other contracts and deploying contracts *)
       only 3: destruct (address_eqdec caddr to_addr);
-      try (now eexists; rewrite_environment_equiv; repeat split; eauto;
+      try (now eexists; rewrite_environment_equiv in *; repeat split; eauto;
           cbn; destruct_address_eq; try easy).
     - (* Prove that H is preserved after calls to the contract *)
       subst.
@@ -448,7 +445,7 @@ Section SafetyProperties.
       setoid_rewrite deserialize_serialize in serialize_prev_state.
       inversion serialize_prev_state. subst.
       exists new_state'.
-      rewrite_environment_equiv; cbn; repeat split; eauto;
+      rewrite_environment_equiv in *; cbn; repeat split; eauto;
       cbn; destruct_address_eq; try easy.
     - update_all.
       (* Check if piggybank is already smashed *)
@@ -510,7 +507,7 @@ Section SafetyProperties.
           -- lia.
           -- admit.
           -- update (env_account_balances bstate caddr = 0) in balance.
-              { rewrite_environment_equiv. cbn. rewrite address_eq_refl.
+              { rewrite_environment_equiv in *. cbn. rewrite address_eq_refl.
                 destruct_address_eq.
                 admit.
                 lia.

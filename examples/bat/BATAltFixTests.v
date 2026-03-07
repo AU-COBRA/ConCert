@@ -313,7 +313,7 @@ Definition post_finalize_update_correct (chain : Chain) (cctx : ContractCallCont
                                         (msg : Msg) (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
   (* finalize should produce a transfer action *)
-  | (Some (new_state, [Blockchain.act_transfer to amount]), finalize) =>
+  | (Some (new_state, [BlockchainBase.act_transfer to amount]), finalize) =>
     let contract_balance := cctx.(ctx_contract_balance) in
     (* If finalize returns some then if the token should be finalized *)
     let is_finalized_correct := Bool.eqb new_state.(isFinalized) true in
@@ -400,7 +400,7 @@ Definition post_refund_update_correct (chain : Chain) (cctx : ContractCallContex
                                       (old_state : State) (msg : Msg)
                                       (result_opt : option (State * list ActionBody)) :=
   match (result_opt, msg) with
-  | (Some (new_state, [Blockchain.act_transfer to amount]), refund) =>
+  | (Some (new_state, [BlockchainBase.act_transfer to amount]), refund) =>
     let from := cctx.(ctx_from) in
     let contract_balance := cctx.(ctx_contract_balance) in
     let from_bal_old := with_default 0 (FMap.find from (balances old_state)) in
@@ -925,7 +925,7 @@ Definition can_only_finalize_once :=
   let blocks cb := trace_states_step_block (builder_trace cb) in
   let is_finalize action :=
     match action.(act_body) with
-    | Blockchain.act_call _ _ ser_msg =>
+    | BlockchainBase.act_call _ _ ser_msg =>
       match @deserialize Msg _ ser_msg with
       | Some finalize => 1
       | _ => 0

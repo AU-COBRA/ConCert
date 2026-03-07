@@ -16,6 +16,7 @@ From ConCert.Examples.BoardroomVoting Require Import Egcd.
 From ConCert.Examples.BoardroomVoting Require Import Euler.
 
 Import ListNotations.
+Import DeriveSer.
 
 
 
@@ -128,17 +129,15 @@ Module BoardroomVoting (Params : BoardroomParams).
   (* end hide *)
 
   Section Serialization.
-    Global Instance Setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect<build_setup>.
 
-    Global Instance VoterInfo_serializable : Serializable VoterInfo :=
-      Derive Serializable VoterInfo_rect<build_voter_info>.
+    Global Instance Setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
+    Global Instance VoterInfo_serializable : Serializable VoterInfo := Derive Ser.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<signup, commit_to_vote, submit_vote, tally_votes>.
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   Definition encodeA : A -> positive := countable.encode.
@@ -361,8 +360,8 @@ Module BoardroomVoting (Params : BoardroomParams).
             (calls : list (ContractCallInfo Msg)) : Prop :=
       match calls with
       | call :: calls =>
-        let party := parties (Blockchain.call_from call) in
-        match Blockchain.call_msg call with
+        let party := parties (BlockchainBase.call_from call) in
+        match BlockchainBase.call_msg call with
         | Some (signup pk prf as m) => m = make_signup_msg (svi_sk party) (svi_sk_r party)
                                                           (svi_index party)
         | Some (submit_vote _ _ as m) =>
@@ -381,8 +380,8 @@ Module BoardroomVoting (Params : BoardroomParams).
 
     Definition signups (calls : list (ContractCallInfo Msg)) : list (Address * A) :=
       (* reverse the signups since the calls will have the last one at the head *)
-      rev (map_option (fun call => match Blockchain.call_msg call with
-                                  | Some (signup pk prf) => Some (Blockchain.call_from call, pk)
+      rev (map_option (fun call => match BlockchainBase.call_msg call with
+                                  | Some (signup pk prf) => Some (BlockchainBase.call_from call, pk)
                                   | _ => None
                                   end) calls).
 

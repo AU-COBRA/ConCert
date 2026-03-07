@@ -40,7 +40,7 @@ Definition midlang_translation_map :=
         (<%% @ctx_amount %%>, "ctx_amount");
         (<%% @Chain %%>, "ConCertChain");
         (<%% @ContractCallContext %%>, "ConCertCallContext");
-        (<%% @ConCert.Execution.Blockchain.ActionBody %%>, "ConCertAction");
+        (<%% @ConCert.Execution.BlockchainBase.ActionBody %%>, "ConCertAction");
         (<%% @ChainBase %%>, "ChainBaseWTF");
         (<%% @Amount %%>,"Z")].
 

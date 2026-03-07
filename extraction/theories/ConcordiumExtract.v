@@ -212,7 +212,7 @@ Definition remap_ActionBody : remapped_inductive :=
   |}.
 
 Definition remap_blockchain_inductives : list (inductive * remapped_inductive) :=
-  [ (<! Serializable.SerializedValue !>, remap_SerializedValue);
+  [ (<! SerializableBase.SerializedValue !>, remap_SerializedValue);
     (<! @ActionBody !>, remap_ActionBody)
   ].
 

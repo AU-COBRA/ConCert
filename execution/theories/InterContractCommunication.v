@@ -213,7 +213,7 @@ Section InterContractCommunication.
       (filter (txCallTo caddrB) (outgoing_txs trace caddrA)) =
       map (contract_call_info_to_tx caddrB) (filter (callFrom caddrA) inc_calls).
   Proof.
-    intros * deserialize_right_inverse deployedA deployedB.
+    intros * deserialize_sound deployedA deployedB.
     trace_induction; cbn in *.
     - destruct_address_eq; auto.
     - destruct_address_eq; auto; subst;
@@ -248,7 +248,7 @@ Section InterContractCommunication.
           rewrite <- IH.
           unfold contract_call_info_to_tx. cbn.
           do 4 f_equal.
-          now apply deserialize_right_inverse.
+          now apply deserialize_sound.
         * unfold callFrom in *; cbn.
           rewrite !address_eq_refl.
           cbn.

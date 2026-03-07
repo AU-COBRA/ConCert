@@ -149,7 +149,7 @@ Lemma step_circulation {prev next} (step : ChainStep prev next) :
   | _ => circulation prev
   end%Z.
 Proof.
-  destruct_chain_step; try rewrite_environment_equiv.
+  destruct_chain_step; try rewrite_environment_equiv in *.
   - (* New block *)
     now rewrite circulation_add_new_block.
   - (* New action *)

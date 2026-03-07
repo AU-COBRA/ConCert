@@ -64,7 +64,7 @@ Definition etrans_branch (params : list type)(bs : list (pat * term))
                       (combine (fst pt_e).(pVars) (map type_to_term tys)) in
         {| bcontext := bctx ;
            bbody := snd pt_e|}
-        (* (List.length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (rev tparams) vars_tys) *)
+        (* (List.length (fst pt_e).(pVars), pat_to_lam (snd pt_e) (rev' tparams) vars_tys) *)
       else
         {| bcontext := [];
            bbody := tVar (TCString.of_string (nm ++ ": arity does not match"))%string |}
@@ -147,7 +147,7 @@ Definition mkArrows_rec (ind_name : ename) (nparam : nat) :=
   fix rec (n : nat) (proj_tys : list (option ename * type)) :=
   match proj_tys with
   | [] => (* this is a return type of the constructor *)
-    mkApps (tRel (n + nparam)) (map tRel (rev (seq n nparam)))
+    mkApps (tRel (n + nparam)) (map tRel (rev' (seq n nparam)))
   | (proj, ty) :: tys' =>
     let res :=
         match ty with

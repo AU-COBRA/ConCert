@@ -1,0 +1,424 @@
+From ConCert.Execution Require Import Monad.
+From ConCert.Execution Require Import OptionMonad.
+From ConCert.Execution Require Import Containers.
+From ConCert.Execution Require Import BoundedN.
+From ConCert.Execution Require Import SerializableBase.
+From ConCert.Execution Require Import SerializableInstances.
+From Stdlib Require Import Ascii.
+From Stdlib Require Import List.
+From Stdlib Require Import Psatz.
+From Stdlib Require Import String.
+From Stdlib Require Import ZArith.
+
+Import ListNotations.
+
+
+
+Local Transparent deserialize serialize.
+
+Lemma deserialize_unit_sound : forall x (y : unit),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
+
+Instance SerializableSound_unit : SerializableSound unit.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_unit_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_Z_sound : forall x (y : Z),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
+
+Instance SerializableSound_Z : SerializableSound Z.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_Z_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_bool_sound : forall x (y : bool),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  destruct x as [ty val].
+  destruct ty;
+    now inversion_clear deser_some.
+Qed.
+
+Instance SerializableSound_bool : SerializableSound bool.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_bool_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_nat_sound : forall x (y : nat),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  apply deserialize_Z_sound.
+  cbn in *.
+  destruct extract_ser_value;
+    try discriminate.
+  destruct (i <? 0)%Z eqn:H;
+    try discriminate.
+  apply Z.ltb_ge in H.
+  inversion_clear deser_some.
+  rewrite Z2Nat.id by assumption.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_nat : SerializableSound nat.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_nat_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_N_sound : forall x (y : N),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  apply deserialize_Z_sound.
+  cbn in *.
+  destruct extract_ser_value;
+    try discriminate.
+  destruct (i <? 0)%Z eqn:H;
+    try discriminate.
+  apply Z.ltb_ge in H.
+  inversion_clear deser_some.
+  rewrite Z2N.id by assumption.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_N : SerializableSound N.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_N_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_positive_sound : forall x (y : positive),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  apply deserialize_Z_sound.
+  cbn in *.
+  destruct extract_ser_value;
+    try discriminate.
+  destruct (0 <? i)%Z eqn:H;
+    try discriminate.
+  apply Z.ltb_lt in H.
+  inversion_clear deser_some.
+  rewrite Z2Pos.id by assumption.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_positive : SerializableSound positive.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_positive_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_SerializedValue_sound : forall x (y : SerializedValue),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  now inversion deser_some.
+Qed.
+
+Instance SerializableSound_SerializedValue : SerializableSound SerializedValue.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_SerializedValue_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_sum_sound {A B : Type}
+                           `{Serializable A}
+                           `{Serializable B}
+                            : forall x (y : A + B),
+  (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
+  (forall x' (y' : B), deserialize x' = Some y' -> x' = serialize y') ->
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  cbn.
+  unfold serialize_sum, deserialize_sum in *.
+  destruct x as [ty val].
+  intros * HA HB deser_some.
+  destruct ty;
+    try discriminate.
+  destruct ty1;
+    try discriminate.
+  destruct val.
+  destruct i; cbn in *;
+    destruct deserialize eqn:deser_a_some;
+    try discriminate;
+    inversion_clear deser_some.
+  - apply HA in deser_a_some as <-.
+    reflexivity.
+  - apply HB in deser_a_some as <-.
+    reflexivity.
+Qed.
+
+Instance SerializableSound_sum {A B : Type}
+                              `{SerializableSound A}
+                              `{SerializableSound B}
+                               : SerializableSound (A + B).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  inversion H2 as [HsoundB].
+  apply deserialize_sum_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundB in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_product_sound {A B : Type}
+                               `{Serializable A}
+                               `{Serializable B}
+                                : forall x (y : A * B),
+  (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
+  (forall x' (y' : B), deserialize x' = Some y' -> x' = serialize y') ->
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  cbn.
+  unfold serialize_product, deserialize_product.
+  destruct x as [ty val].
+  intros * HA HB deser_some.
+  destruct ty;
+    try discriminate.
+  destruct val.
+  cbn in *.
+  destruct deserialize eqn:deser_a_some in deser_some;
+    try discriminate.
+  destruct deserialize eqn:deser_b_some in deser_some;
+    try discriminate.
+  inversion_clear deser_some.
+  apply HA in deser_a_some as <-.
+  apply HB in deser_b_some as <-.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_product {A B : Type}
+                                  `{SerializableSound A}
+                                  `{SerializableSound B}
+                                   : SerializableSound (A * B).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  inversion H2 as [HsoundB].
+  apply deserialize_product_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundB in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_list_sound {A : Type}
+                            `{Serializable A}
+                             : forall (l : list A) x,
+  (forall x' (l' : A), deserialize x' = Some l' -> x' = serialize l') ->
+  deserialize x = Some l ->
+  x = serialize l.
+Proof.
+  cbn.
+  (* unfold serialize_list, deserialize_list. *)
+  destruct x as [ty val]. cbn.
+  generalize dependent ty.
+  induction l as [| hd tl IHl];
+    intros * HA deser_some;
+    cbn.
+  -
+    destruct ty;
+      try discriminate;
+      destruct val;
+      auto.
+    repeat match goal with
+    | H : match ?x with | Some _ => _ | None => _ end = _ |- _ => destruct x
+    end;
+    discriminate.
+  - destruct ty;
+      try discriminate.
+    destruct val.
+    destruct deserialize eqn:deser_hd_some in deser_some;
+      try discriminate.
+    match goal with
+    | H : match ?x with | Some _ => _ | None => _ end = _ |- _ => destruct x eqn:H1
+    end;
+    try discriminate.
+    inversion deser_some. subst.
+    apply HA in deser_hd_some as <-.
+    apply IHl in H1; auto.
+    unfold serialize_list in H1.
+    rewrite <- H1.
+    reflexivity.
+Qed.
+
+Instance SerializableSound_list {A : Type}
+                               `{SerializableSound A}
+                                : SerializableSound (list A).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  apply deserialize_list_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_option_sound {A : Type}
+                              `{Serializable A}
+                               : forall x (y : option A),
+  (forall x' (y' : A), deserialize x' = Some y' -> x' = serialize y') ->
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * HsoundA deser_some.
+  specialize deserialize_unit_sound as Hunit.
+  apply deserialize_sum_sound; auto.
+  clear HsoundA Hunit.
+  cbn in *.
+  destruct deserialize_sum;
+    try discriminate.
+  destruct s;
+    inversion_clear deser_some;
+    auto.
+  now destruct u.
+Qed.
+
+Instance SerializableSound_option {A : Type}
+                                 `{SerializableSound A}
+                                  : SerializableSound (option A).
+Proof.
+  constructor.
+  intros e a Hdes.
+  inversion H0 as [HsoundA].
+  apply deserialize_option_sound in Hdes.
+  - rewrite Hdes.
+    reflexivity.
+  - intros * Hdes'.
+    apply HsoundA in Hdes'.
+    rewrite Hdes'.
+    reflexivity.
+Qed.
+
+
+Lemma deserialize_ascii_sound : forall x (y : ascii),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  apply deserialize_N_sound.
+  unfold deserialize, ascii_serializable in deser_some.
+  destruct deserialize;
+    try discriminate.
+  cbn in *.
+  destruct (n <? 256)%N eqn:H;
+    inversion_clear deser_some.
+  apply N.ltb_lt in H.
+  now rewrite N_ascii_embedding.
+Qed.
+
+Instance SerializableSound_ascii : SerializableSound ascii.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_ascii_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+
+Lemma deserialize_string_sound : forall x (y : string),
+  deserialize x = Some y ->
+  x = serialize y.
+Proof.
+  intros * deser_some.
+  specialize deserialize_ascii_sound as H.
+  apply deserialize_list_sound; auto.
+  clear H.
+  cbn in *.
+  destruct deserialize_list;
+    try discriminate.
+  inversion_clear deser_some.
+  rewrite list_ascii_of_string_of_list_ascii.
+  reflexivity.
+Qed.
+
+Instance SerializableSound_string : SerializableSound string.
+Proof.
+  constructor.
+  intros.
+  apply deserialize_string_sound in H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+Local Opaque deserialize serialize.

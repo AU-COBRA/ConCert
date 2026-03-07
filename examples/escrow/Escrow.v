@@ -23,6 +23,8 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Utils Require Import RecordUpdate.
 
+Import DeriveSer.
+
 
 
 Section Escrow.
@@ -68,17 +70,15 @@ Section Escrow.
   (* end hide *)
 
   Section Serialization.
-    Global Instance Setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect<build_setup>.
 
-    Global Instance NextStep_serializable : Serializable NextStep :=
-      Derive Serializable NextStep_rect<buyer_commit, buyer_confirm, withdrawals, no_next_step>.
+    Global Instance Setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
+    Global Instance NextStep_serializable : Serializable NextStep := Derive Ser.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<commit_money, confirm_item_received, withdraw>.
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   Open Scope Z.

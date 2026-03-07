@@ -53,6 +53,9 @@ From Stdlib Require Import ZArith.
 
 Import ListNotations.
 Import RemoveProperties.
+Import DeriveSer.
+
+
 
 (** * General types *)
 
@@ -105,10 +108,7 @@ Module ReceiveHook (cis1_types : CIS1Types).
   | CIS1_receiver_other_msg : Msg -> CIS1ReceiverMsg Msg.
 
   (* begin hide *)
-  Global Instance CIS1ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} `{cb : ChainBase} : Serializable (@CIS1ReceiverMsg Msg serMsg _) :=
-    Derive Serializable (@CIS1ReceiverMsg_rect Msg serMsg cb) <
-      (@CIS1_receiver_receive_hook Msg serMsg cb),
-      (@CIS1_receiver_other_msg Msg serMsg cb)>.
+  Global Instance CIS1ReceiverMsg_serializable {Msg : Type} `{serMsg : Serializable Msg} `{cb : ChainBase} : Serializable (@CIS1ReceiverMsg Msg serMsg _) := Derive Ser.
   (* end hide *)
 End ReceiveHook.
 

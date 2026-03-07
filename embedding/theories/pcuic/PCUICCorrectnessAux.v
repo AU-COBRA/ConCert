@@ -1464,6 +1464,7 @@ Proof.
     assert (Hok_constr : ge_val_ok Σ (vConstr i _ l1))
       by now eapply IHn with (e := e).
     simpl in Hok_constr. destruct (resolve_constr Σ i e0) eqn:Hres'; tryfalse.
+    unfold rev' in He; rewrite <- rev_alt in He.
     assert (Hok_l2 :
               AllEnv (fun x => ge_val_ok Σ x = true) (rev (combine (pVars pt) (skipn n0 l1)))).
     { apply All_rev. simpl in Hok_constr. apply forallb_Forall in Hok_constr. simpl in *.
@@ -1720,7 +1721,7 @@ Proof.
     assert (ty_expr_env_ok (exprs ρ) 0 e = true) by now eapply eval_ty_expr_env_ok.
     assert (Hok_constr : val_ok Σ (vConstr i e0 l1)) by (eapply IHn with (ρ := ρ)(e := e); eauto).
     inversion Hok_constr; subst; clear Hok_constr.
-
+    unfold rev' in He; rewrite <- rev_alt in He.
     assert (Hok_l2 : env_ok Σ (rev (combine (pVars pt) (skipn n1 l1)))).
     { apply rev_env_ok; apply All_env_ok; eauto; eapply All_skipn; eauto. }
 

@@ -6,6 +6,9 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import Containers.
 From ConCert.Execution Require Import Serializable.
 
+Import DeriveSer.
+
+
 
 Section FA2Interface.
   Context {BaseTypes : ChainBase}.
@@ -112,55 +115,39 @@ Section FA2Interface.
   End Setters.
 
   Section Serialization.
-    Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) :=
-    Derive Serializable (callback_rect A) <(Build_callback A)>.
 
-    Global Instance transfer_destination_serializable : Serializable transfer_destination :=
-      Derive Serializable transfer_destination_rect<build_transfer_destination>.
+    Instance callback_serializable {A : Type} `{serA : Serializable A} : Serializable (callback A) := Derive Ser.
 
-    Global Instance transfer_serializable : Serializable transfer :=
-      Derive Serializable transfer_rect <build_transfer>.
+    Global Instance transfer_destination_serializable : Serializable transfer_destination := Derive Ser.
 
-    Global Instance balance_of_request_serializable : Serializable balance_of_request :=
-      Derive Serializable balance_of_request_rect <Build_balance_of_request>.
+    Global Instance transfer_serializable : Serializable transfer := Derive Ser.
 
-    Global Instance balance_of_response_serializable : Serializable balance_of_response :=
-      Derive Serializable balance_of_response_rect <Build_balance_of_response>.
+    Global Instance balance_of_request_serializable : Serializable balance_of_request := Derive Ser.
 
-    Instance bal_of_param_callback_serializable : Serializable (callback (list balance_of_response)) :=
-      Derive Serializable (callback_rect (list balance_of_response)) <(Build_callback (list balance_of_response))>.
+    Global Instance balance_of_response_serializable : Serializable balance_of_response := Derive Ser.
 
-    Global Instance balance_of_param_serializable : Serializable balance_of_param :=
-      Derive Serializable balance_of_param_rect <Build_balance_of_param>.
+    Instance bal_of_param_callback_serializable : Serializable (callback (list balance_of_response)) := Derive Ser.
 
-    Global Instance token_metadata_serializable : Serializable token_metadata :=
-      Derive Serializable token_metadata_rect <Build_token_metadata>.
+    Global Instance balance_of_param_serializable : Serializable balance_of_param := Derive Ser.
 
-    Instance metadata_callback_serializable : Serializable (callback (list token_metadata)) :=
-      Derive Serializable (callback_rect (list token_metadata)) <(Build_callback (list token_metadata))>.
+    Global Instance token_metadata_serializable : Serializable token_metadata := Derive Ser.
 
-    Global Instance operator_param_serializable : Serializable operator_param :=
-      Derive Serializable operator_param_rect <Build_operator_param>.
+    Instance metadata_callback_serializable : Serializable (callback (list token_metadata)) := Derive Ser.
 
-    Global Instance update_operator_serializable : Serializable update_operator :=
-      Derive Serializable update_operator_rect <add_operator, remove_operator>.
+    Global Instance operator_param_serializable : Serializable operator_param := Derive Ser.
 
-    Global Instance transfer_destination_descriptor_serializable : Serializable transfer_destination_descriptor :=
-    Derive Serializable transfer_destination_descriptor_rect <Build_transfer_destination_descriptor>.
+    Global Instance update_operator_serializable : Serializable update_operator := Derive Ser.
 
-    Global Instance transfer_descriptor_serializable : Serializable transfer_descriptor :=
-      Derive Serializable transfer_descriptor_rect <Build_transfer_descriptor>.
+    Global Instance transfer_destination_descriptor_serializable : Serializable transfer_destination_descriptor := Derive Ser.
 
-    Global Instance transfer_descriptor_param_serializable : Serializable transfer_descriptor_param :=
-      Derive Serializable transfer_descriptor_param_rect <Build_transfer_descriptor_param>.
+    Global Instance transfer_descriptor_serializable : Serializable transfer_descriptor := Derive Ser.
 
-    Global Instance fa2_token_receiver_serializable : Serializable fa2_token_receiver :=
-      Derive Serializable fa2_token_receiver_rect <tokens_received>.
+    Global Instance transfer_descriptor_param_serializable : Serializable transfer_descriptor_param := Derive Ser.
 
-    Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender :=
-      Derive Serializable fa2_token_sender_rect <tokens_sent>.
+    Global Instance fa2_token_receiver_serializable : Serializable fa2_token_receiver := Derive Ser.
 
-    Instance transfer_descriptor_param_callback_serializable : Serializable (callback transfer_descriptor_param) :=
-      Derive Serializable (callback_rect transfer_descriptor_param) <(Build_callback transfer_descriptor_param)>.
+    Global Instance fa2_token_sender_serializable : Serializable fa2_token_sender := Derive Ser.
+
+    Instance transfer_descriptor_param_callback_serializable : Serializable (callback transfer_descriptor_param) := Derive Ser.
   End Serialization.
 End FA2Interface.

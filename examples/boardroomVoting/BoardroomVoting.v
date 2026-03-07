@@ -15,6 +15,8 @@ From ConCert.Execution Require Import ContractMonads.
 From ConCert.Execution Require Import ContractCommon. Import AddressMap.
 From ConCert.Examples.BoardroomVoting Require Import BoardroomMath.
 
+Import DeriveSer.
+
 
 
 Module Type BoardroomParams.
@@ -85,17 +87,15 @@ Module BoardroomVoting (Params : BoardroomParams).
   (* end hide *)
 
   Section Serialization.
-    Global Instance Setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect<build_setup>.
 
-    Global Instance VoterInfo_serializable : Serializable VoterInfo :=
-      Derive Serializable VoterInfo_rect<build_voter_info>.
+    Global Instance Setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
+    Global Instance VoterInfo_serializable : Serializable VoterInfo := Derive Ser.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<signup, commit_to_vote, submit_vote, tally_votes>.
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   Local Open Scope broom.
@@ -292,8 +292,8 @@ Module BoardroomVoting (Params : BoardroomParams).
             (calls : list (ContractCallInfo Msg)) : Prop :=
       match calls with
       | call :: calls =>
-        let party := parties (Blockchain.call_from call) in
-        match Blockchain.call_msg call with
+        let party := parties (BlockchainBase.call_from call) in
+        match BlockchainBase.call_msg call with
         | Some (signup pk prf as m) => m = make_signup_msg (svi_sk party) (svi_sk_r party)
                                                           (svi_index party)
         | Some (submit_vote _ _ as m) =>
@@ -312,8 +312,8 @@ Module BoardroomVoting (Params : BoardroomParams).
 
     Definition signups (calls : list (ContractCallInfo Msg)) : list (Address * A) :=
       (* reverse the signups since the calls will have the last one at the head *)
-      rev (map_option (fun call => match Blockchain.call_msg call with
-                                  | Some (signup pk prf) => Some (Blockchain.call_from call, pk)
+      rev (map_option (fun call => match BlockchainBase.call_msg call with
+                                  | Some (signup pk prf) => Some (BlockchainBase.call_from call, pk)
                                   | _ => None
                                   end) calls).
 
@@ -498,7 +498,7 @@ Module BoardroomVoting (Params : BoardroomParams).
     Local Set Keyed Unification.
 
     Definition has_tallied (calls : list (ContractCallInfo Msg)) : bool :=
-      existsb (fun c => match Blockchain.call_msg c with
+      existsb (fun c => match BlockchainBase.call_msg c with
                         | Some tally_votes => true
                         | _ => false
                         end) calls.
@@ -519,7 +519,7 @@ Module BoardroomVoting (Params : BoardroomParams).
 
           finish_registration_by (setup cstate) < finish_vote_by (setup cstate) /\
 
-          (Blockchain.current_slot bstate < finish_vote_by (setup cstate) ->
+          (BlockchainBase.current_slot bstate < finish_vote_by (setup cstate) ->
           has_tallied inc_calls = false) /\
 
           length (public_keys cstate) = FMap.size (registered_voters cstate) /\
@@ -529,7 +529,7 @@ Module BoardroomVoting (Params : BoardroomParams).
 
           (MsgAssumption pks parties inc_calls ->
           SignupOrderAssumption pks parties inc_calls ->
-          (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
+          (finish_registration_by (setup cstate) < BlockchainBase.current_slot bstate ->
             length pks = length (signups inc_calls)) ->
 
           Permutation (map (fun '(_, v) => voter_index v)
@@ -845,7 +845,7 @@ Module BoardroomVoting (Params : BoardroomParams).
           SignupOrderAssumption pks parties inc_calls ->
 
           (* ..and that the correct number of people register *)
-          (finish_registration_by (setup cstate) < Blockchain.current_slot bstate ->
+          (finish_registration_by (setup cstate) < BlockchainBase.current_slot bstate ->
           length pks = length (signups inc_calls)) ->
 
           (* then if we have not tallied yet, the tally is none *)

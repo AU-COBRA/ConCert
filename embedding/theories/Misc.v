@@ -102,6 +102,17 @@ Section CombineProp.
       simpl. now rewrite rev_unit.
   Qed.
 
+  Lemma combine_rev' : forall A B (l2 : list B) (l1 : list A),
+    #|l1| = #|l2| ->
+    combine (rev' l1) (rev' l2) = rev' (combine l1 l2).
+  Proof.
+    intros.
+    unfold rev'.
+    rewrite <- 3!rev_alt.
+    apply combine_rev.
+    exact H.
+  Qed.
+
   Lemma map_combine_snd : forall A B (l2 : list B) (l1 : list A),
     #|l1| = #|l2| ->
    map snd (combine l1 l2) = l2.

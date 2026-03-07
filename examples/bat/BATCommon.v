@@ -25,6 +25,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.EIP20 Require EIP20Token.
 Import ListNotations.
 
+Import DeriveSer.
+
 
 
 Section BATCommon.
@@ -86,14 +88,11 @@ Section BATCommon.
 
   Section Serialization.
 
-  Global Instance setup_serializable : Serializable Setup :=
-    Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
-  Global Instance msg_serializable : Serializable Msg :=
-    Derive Serializable Msg_rect <tokenMsg, create_tokens, finalize, refund>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
-  Global Instance state_serializable : Serializable State :=
-    Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
   (* end hide *)

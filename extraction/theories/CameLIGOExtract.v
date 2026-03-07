@@ -252,7 +252,7 @@ Section LigoExtract.
     match annot_extract_template_env_specalize Σ seeds ignore with
     | Ok (eΣ; annots) =>
       (* dependencies should be printed before the dependent definitions *)
-      let ldef_list := List.rev (print_global_env TT eΣ annots) in
+      let ldef_list := List.rev' (print_global_env TT eΣ annots) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let not_empty_str := (negb ∘ (String.eqb "") ∘ snd) in
 
@@ -386,7 +386,7 @@ Section LigoExtract.
     | Ok annot_env =>
     let '(eΣ; annots) := annot_env in
         (* dependencies should be printed before the dependent definitions *)
-    let ldef_list := List.rev (print_global_env TT eΣ annots) in
+    let ldef_list := List.rev' (print_global_env TT eΣ annots) in
       (* filtering empty strings corresponding to the ignored definitions *)
       let not_empty_str := (negb ∘ (String.eqb "") ∘ snd) in
 
