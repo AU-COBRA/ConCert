@@ -6,7 +6,7 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import SerializableBase.
 From Stdlib Require Import Permutation.
 From Stdlib Require Import List.
-From Stdlib Require Import ZArith_base.
+From Stdlib Require Import ZArith.
 Import ListNotations.
 
 
