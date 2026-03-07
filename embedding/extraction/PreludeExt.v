@@ -173,7 +173,7 @@ Next Obligation.
     now rewrite H.
 Defined.
 Next Obligation.
-  assert (snat : Serializable.Serializable (nat + nat)) by typeclasses eauto.
+  assert (snat : SerializableBase.Serializable (nat + nat)) by typeclasses eauto.
   destruct snat as [s d H].
   unshelve econstructor.
   * intros addr. destruct addr.
