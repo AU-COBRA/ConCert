@@ -1,6 +1,7 @@
 -R ../utils/theories ConCert.Utils
 
 -R theories ConCert.Execution
+theories/BlockchainBase.v
 theories/Blockchain.v
 theories/BoundedN.v
 theories/BuildUtils.v
