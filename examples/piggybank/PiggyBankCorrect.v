@@ -272,9 +272,9 @@ Section SafetyProperties.
       + unfold is_smashed in Esmash.
         cbn. now subst.
       + destruct new_state. inversion H1. rewrite <- H5 in H. discriminate H.
-    - instantiate (CallFacts := fun _ ctx prev_state queue _ =>
+    - set_call_facts (fun _ ctx prev_state queue _ =>
       ctx_from ctx <> ctx_contract_address ctx).
-      now destruct fact.
+      now destruct head.
     - specialize (IH H). rewrite IH in perm.
       now eapply Permutation.Permutation_nil in perm.
     - solve_facts.
@@ -314,11 +314,11 @@ Section SafetyProperties.
       inversion receive_some.
       + unfold is_smashed in Esmash. destruct prev_state, new_state.
         inversion H1. cbn in *. now subst.
-      + instantiate (CallFacts := fun _ ctx prev_state queue _ =>
-        (prev_state.(piggyState) = Intact -> ctx_contract_balance ctx - ctx_amount ctx = balance prev_state) /\
-        (prev_state.(piggyState) = Intact -> queue = [])
-        /\ ctx_from ctx <> ctx_contract_address ctx).
-        destruct facts as [Hamount [Hqueue _]].
+      + set_call_facts (fun _ ctx prev_state queue _ =>
+          (prev_state.(piggyState) = Intact -> ctx_contract_balance ctx - ctx_amount ctx = balance prev_state) /\
+          (prev_state.(piggyState) = Intact -> queue = [])
+          /\ ctx_from ctx <> ctx_contract_address ctx)
+          as (Hamount & Hqueue & _).
         unfold is_smashed in Esmash. destruct prev_state.(piggyState) eqn:Estate; try discriminate.
         rewrite Hqueue, <- Hamount; try reflexivity. cbn. lia.
     - now destruct facts.

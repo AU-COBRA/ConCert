@@ -854,9 +854,9 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
-        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive & _).
+    - set_call_facts (fun _ ctx _ _ _ =>
+        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx)
+        as (ctx_amount_positive & _).
       simpl in *.
       apply contract_not_payable in receive_some as not_payable.
       apply new_acts_amount_zero in receive_some as amount_zero_new_acts.
@@ -1310,10 +1310,10 @@ Section Theories.
     contract_induction;
       intros; auto.
     - now cbn in *; erewrite init_total_supply_correct by eauto.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
         total_supply state = sum_balances state /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (balances_eq_total_supply & _).
+        ctx_from ctx <> ctx_contract_address ctx)
+        as (balances_eq_total_supply & _).
       unfold callFrom in *.
       unfold BlockchainBase.receive in receive_some.
       erewrite <- admin_constant; eauto.

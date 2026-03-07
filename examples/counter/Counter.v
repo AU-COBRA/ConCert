@@ -184,23 +184,18 @@ Section SafetyProperties.
         always returns an empty list of actions. We instantiate the [CallFacts]
         predicate with the assumption that the from-address is not equal to the
         contract address. We will be asked to prove this goal later. *)
-      instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
-        subst CallFacts; cbn in *; congruence.
+      set_call_facts (fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
+        congruence.
     + (* we asked to prove additional assumptions we might have made.
       Since we instantiated only [CallFacts], we instantiate other assumptions
       with a trivial proposition *)
-      instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      instantiate (DeployFacts := fun _ _ => True).
-      unset_all; subst; cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
-      cbn. intros cstate Hc Hstate.
+      solve_facts.
       (* we use the fact that [counter_receive] doesn't return any actions *)
       assert ((outgoing_acts bstate_from to_addr) = []) as Hempty.
       { apply lift_outgoing_acts_nil with (contract := counter_contract); eauto.
         intros. eapply (receive_produces_no_calls (chain := chain) (ctx := ctx)); eauto. apply H. }
       unfold outgoing_acts in *. rewrite queue_prev in *.
-      subst act; cbn in Hempty.
+      cbn in Hempty.
       now destruct_address_eq.
   Qed.
 

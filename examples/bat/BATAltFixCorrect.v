@@ -742,7 +742,7 @@ Section Theories.
         now apply N.Div0.mod_le.
         apply balance_le_sum_balances.
     - contract_induction; intros;
-        only 1: instantiate (CallFacts := fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
+        try set_call_facts (fun _ _ cstate _ _ => cstate.(tokenExchangeRate) <> 0);
         unfold BlockchainBase.receive in *; eauto.
       + now apply init_preserves_balances_sum in init_some.
       + solve_facts.
@@ -1341,7 +1341,7 @@ Section Theories.
     - now inversion IH.
     - apply Forall_app; split; auto.
       clear IH.
-      instantiate (CallFacts := fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
+      set_call_facts (fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
       destruct_message;
         try now erewrite eip20_new_acts_correct by eauto.
       + now contract_simpl.
@@ -1421,10 +1421,10 @@ Section Theories.
   Proof.
     contract_induction; intros; auto.
     - now inversion IH.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
+    - set_call_facts (fun _ ctx _ _ _ =>
         (0 <= (ctx_contract_balance ctx))%Z /\
         ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (contract_balance_positive & _).
+      split_facts in facts.
       destruct_message;
         (* m = EIP msg *)
         try now (apply eip20_new_acts_correct in receive_some; subst).
@@ -1469,10 +1469,10 @@ Section Theories.
     contract_induction; intros; auto; try rename H into not_finalized.
     - specialize (IH not_finalized).
       discriminate.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
           ctx_from ctx <> ctx_contract_address ctx /\
-          total_supply state = sum_balances state).
-      destruct facts as (_ & supply_eq_sum_balances).
+          total_supply state = sum_balances state)
+       as (_ & supply_eq_sum_balances).
       destruct_message;
         try (
           apply eip_only_changes_token_state in receive_some as finalized_unchanged;
@@ -1545,18 +1545,18 @@ Section Theories.
       split; intros.
       + now rewrite <- IH_finalized by assumption.
       + now rewrite <- IH_funding by assumption.
-    - instantiate (CallFacts := fun chain ctx state out_acts _ =>
+    - set_call_facts (fun chain ctx state out_acts _ =>
         (0 <= ctx_amount ctx)%Z /\
         tokenExchangeRate state <> 0 /\
         total_supply state = sum_balances state /\
         (isFinalized state = false /\
                 ((current_slot chain <= fundingEnd state)%nat \/
                 tokenCreationMin state <= total_supply state) -> out_acts = []) /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive &
-                        exchange_rate_nonzero &
-                        supply_eq_sum_balances &
-                        funding_no_outgoing_acts & _).
+        ctx_from ctx <> ctx_contract_address ctx)
+         as (ctx_amount_positive &
+             exchange_rate_nonzero &
+             supply_eq_sum_balances &
+             funding_no_outgoing_acts & _).
       clear tag prev_inc_calls prev_out_txs.
       destruct msg. destruct m.
       + apply eip_only_changes_token_state in receive_some as finalized_unchanged.

@@ -167,8 +167,7 @@ Proof.
   contract_induction; intros; cbn in *; auto.
   - intro before_deadline.
     apply IH.
-    instantiate (AddBlockFacts := fun _ old_slot _ _ new_slot _ => new_slot > old_slot);
-      subst AddBlockFacts; cbn in facts.
+    set_block_facts (fun _ old_slot _ _ new_slot _ => new_slot > old_slot).
     unfold deadline_passed in *. unfold is_true in *.
     rewrite Bool.negb_true_iff in *. propify. lia.
   - intros before_deadline.
@@ -403,8 +402,7 @@ Proof.
   contract_induction; intros; cbn in *; auto.
   - inversion_clear init_some.
     cbn.
-    instantiate (DeployFacts := fun _ ctx => ctx_amount ctx >= 0);
-      subst DeployFacts; cbn in *.
+    set_deploy_facts (fun _ ctx => ctx_amount ctx >= 0).
     lia.
   - lia.
   - destruct msg as [msg| ]; tryfalse.
@@ -414,11 +412,10 @@ Proof.
     replace s with new_state in * by congruence.
     replace new_acts with (map to_action_body l) in * by congruence.
 
-    instantiate (CallFacts := fun _ ctx cstate _ _ => ctx_amount ctx >= 0 /\
+    set_call_facts (fun _ ctx cstate _ _ => ctx_amount ctx >= 0 /\
                                         consistent_balance cstate /\
-                                        donations_non_neg cstate);
-      subst CallFacts; cbn in *.
-    destruct facts as [Hamt_non_neg [Hconsistent Hpos]].
+                                        donations_non_neg cstate)
+      as (Hamt_non_neg & Hconsistent & Hpos).
     specialize (cf_transfer_cases Hpos Hconsistent Hreceive) as cf_cases.
     clear receive_some Hreceive.
     destruct cf_cases as [H | [H | H]].

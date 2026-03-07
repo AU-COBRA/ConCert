@@ -1070,9 +1070,8 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
+    - set_call_facts (fun _ ctx _ _ _ =>
         (0 <= ctx_amount ctx)%Z).
-      unfold CallFacts in facts.
       cbn in receive_some.
       destruct_message;
         rewrite_acts_correct;
@@ -1155,17 +1154,15 @@ Section Theories.
     intros.
     subst effective_balance.
     contract_induction; intros; auto.
-    - instantiate (DeployFacts := fun _ ctx =>
+    - set_deploy_facts (fun _ ctx =>
         (0 <= ctx_amount ctx)%Z).
-      unfold DeployFacts in facts.
       cbn in *.
       apply init_correct in init_some as (_ & -> & _).
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
+    - set_call_facts (fun _ ctx _ _ _ =>
         (0 <= ctx_amount ctx)%Z).
-      unfold CallFacts in facts.
       cbn in receive_some.
       destruct_message;
         rewrite_acts_correct;
@@ -1212,14 +1209,14 @@ Section Theories.
     intros.
     subst transfered_balance.
     contract_induction; intros; cbn in *; auto.
-    - instantiate (DeployFacts := fun _ ctx =>
+    - set_deploy_facts (fun _ ctx =>
         (0 <= ctx_amount ctx)%Z).
       auto.
     - lia.
-    - instantiate (CallFacts := fun _ ctx state out_acts _ =>
+    - set_call_facts (fun _ ctx state out_acts _ =>
         (0 <= ctx_amount ctx)%Z /\
         Z.of_N (xtzPool state) <= ctx_contract_balance ctx- sumZ (fun act => act_body_amount act) out_acts).
-      destruct facts.
+      split_facts in facts.
       destruct_message;
         rewrite_acts_correct;
         rewrite_receive_is_some;
@@ -1464,7 +1461,7 @@ Section Theories.
       intros; auto.
     - cbn.
       now apply list_relations.list.Forall_cons in IH as [].
-    - instantiate (CallFacts := fun _ _ state out_acts _ =>
+    - set_call_facts (fun _ _ state out_acts _ =>
         state.(lqtAddress) = null_address ->
           Forall (fun act_body =>
             match act_body with
@@ -1475,7 +1472,6 @@ Section Theories.
               end
             | _ => True
             end) out_acts).
-      unfold CallFacts in facts.
       cbn in receive_some.
       destruct_message;
         rewrite_acts_correct;

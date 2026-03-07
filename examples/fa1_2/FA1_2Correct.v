@@ -709,8 +709,7 @@ Section Theories.
       /\ deploy_info.(deployment_amount) = 0%Z.
   Proof.
     contract_induction; intros; auto.
-    - instantiate (DeployFacts := fun _ ctx => (0 <= ctx_amount ctx)%Z).
-      unfold DeployFacts in facts.
+    - set_deploy_facts (fun _ ctx => (0 <= ctx_amount ctx)%Z).
       contract_simpl.
       now propify.
     - solve_facts.
@@ -731,9 +730,9 @@ Section Theories.
       lia.
     - cbn in IH.
       lia.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
-        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive & _).
+    - set_call_facts (fun _ ctx _ _ _ =>
+        (0 <= ctx_amount ctx)%Z /\ ctx_from ctx <> ctx_contract_address ctx)
+        as (ctx_amount_positive & _).
       simpl in *.
       apply contract_not_payable in receive_some as not_payable.
       apply new_acts_amount_zero in receive_some as amount_zero_new_acts.
@@ -1141,7 +1140,7 @@ Section Theories.
       intros; auto.
     - cbn. unfold BlockchainBase.init in *.
       now erewrite init_total_supply_correct by eauto.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
         ctx_from ctx <> ctx_contract_address ctx).
       unfold BlockchainBase.receive in receive_some.
       simpl in *.

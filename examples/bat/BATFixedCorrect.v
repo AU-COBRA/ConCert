@@ -1332,7 +1332,7 @@ Section Theories.
     - now inversion IH.
     - apply Forall_app; split; auto.
       clear IH.
-      instantiate (CallFacts := fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
+      set_call_facts (fun _ ctx state _ _ => fundDeposit state <> ctx_contract_address ctx).
       destruct_message;
         try now erewrite eip20_new_acts_correct by eauto.
       + now contract_simpl.
@@ -1412,10 +1412,10 @@ Section Theories.
   Proof.
     contract_induction; intros; auto.
     - now inversion IH.
-    - instantiate (CallFacts := fun _ ctx _ _ _ =>
+    - set_call_facts (fun _ ctx _ _ _ =>
         (0 <= (ctx_contract_balance ctx))%Z /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (contract_balance_positive & _).
+        ctx_from ctx <> ctx_contract_address ctx)
+        as (contract_balance_positive & _).
       destruct_message;
         (* m = EIP msg *)
         try now (apply eip20_new_acts_correct in receive_some; subst).
@@ -1504,11 +1504,11 @@ Section Theories.
     contract_induction; intros; auto.
     - cbn in init_some.
       now contract_simpl.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
         total_supply state = sum_balances state /\
         (isFinalized state = false -> FMap.find state.(batFundDeposit) (balances state) = Some state.(initSupply)) /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (sum_balances_eq_total_supply & no_init_supply_refund & _).
+        ctx_from ctx <> ctx_contract_address ctx)
+        as (sum_balances_eq_total_supply & no_init_supply_refund & _).
       destruct_message;
         try apply eip_only_changes_token_state in receive_some as init_supply_unchanged.
       + apply try_transfer_preserves_total_supply in receive_some as supply_unchanged.
@@ -1587,7 +1587,7 @@ Section Theories.
         * now rewrite <- finalized_unchanged in funding_not_over.
         * rewrite <- new_supply, <- finalized_unchanged in goal_hit.
           now cbn in goal_hit.
-    - now instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx).
+    - now set_call_facts (fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx).
     - apply IH in not_finalized. subst.
       now apply Permutation.Permutation_nil in perm.
     - solve_facts.
@@ -1614,10 +1614,10 @@ Section Theories.
       destruct_match in init_some; try congruence.
       inversion init_some. subst. cbn in *.
       setoid_rewrite FMap.find_add_ne; auto.
-    - instantiate (CallFacts := fun _ ctx state _ _ =>
+    - set_call_facts (fun _ ctx state _ _ =>
         tokenExchangeRate state <> 0 /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (exchange_rate_nonzero & _).
+        ctx_from ctx <> ctx_contract_address ctx)
+        as (exchange_rate_nonzero & _).
       unfold BlockchainBase.receive in receive_some.
       cbn in receive_some.
       destruct msg. destruct m.
@@ -1681,7 +1681,7 @@ Section Theories.
       split; intros.
       + now rewrite <- IH_finalized by assumption.
       + now rewrite <- IH_funding by assumption.
-    - instantiate (CallFacts := fun chain ctx state out_acts _ =>
+    - set_call_facts (fun chain ctx state out_acts _ =>
         (0 <= ctx_amount ctx)%Z /\
         initSupply state <= total_supply state /\
         tokenExchangeRate state <> 0 /\
@@ -1692,14 +1692,14 @@ Section Theories.
         (isFinalized state = false /\
                       ((current_slot chain <= fundingEnd state)%nat \/
                       tokenCreationMin state <= total_supply state) -> out_acts = []) /\
-        ctx_from ctx <> ctx_contract_address ctx).
-      destruct facts as (ctx_amount_positive &
-                        supply_bound &
-                        exchange_rate_nonzero &
-                        tokens_modulo_exchange_rate &
-                        tokens_bound &
-                        funding_no_outgoing_acts &
-                        _).
+        ctx_from ctx <> ctx_contract_address ctx)
+        as (ctx_amount_positive &
+            supply_bound &
+            exchange_rate_nonzero &
+            tokens_modulo_exchange_rate &
+            tokens_bound &
+            funding_no_outgoing_acts &
+            _).
       destruct msg. destruct m.
       + apply eip_only_changes_token_state in receive_some as finalized_unchanged.
         apply eip20_new_acts_correct in receive_some as no_new_acts.

@@ -621,6 +621,98 @@ Global Notation
   TagPermuteQueue (at level 100, only printing).
 
 
+Tactic Notation "set_block_facts" uconstr(g) :=
+  let x := type_term (g : nat -> nat -> nat -> nat -> nat -> nat -> Prop) in
+  match goal with
+  | H := ?f : nat -> nat -> nat -> nat -> nat -> nat -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : nat) (_ : nat) (_ : nat) (_ : nat) (_ : nat) (_ : nat) => _) _ _ _ _ _ _) |- _ =>
+        cbn in H
+      end
+  | _ => fail "Could not instantiate AddBlockFacts"
+  end.
+
+Tactic Notation "set_block_facts" uconstr(g) "as" simple_intropattern(L) :=
+  let x := type_term (g : nat -> nat -> nat -> nat -> nat -> nat -> Prop) in
+  match goal with
+  | H := ?f : nat -> nat -> nat -> nat -> nat -> nat -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : nat) (_ : nat) (_ : nat) (_ : nat) (_ : nat) (_ : nat) => _) _ _ _ _ _ _) |- _ =>
+        cbn in H; destruct H as L
+      end
+  | _ => fail "Could not instantiate AddBlockFacts"
+  end.
+
+Tactic Notation "set_deploy_facts" uconstr(g) :=
+  let x := type_term (g : Chain -> ContractCallContext -> Prop) in
+  match goal with
+  | H := ?f : Chain -> ContractCallContext -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : Chain) (_ : ContractCallContext) => _) _ _) |- _ =>
+        cbn in H
+      end
+  | _ => fail "Could not instantiate DeployFacts"
+  end.
+
+Tactic Notation "set_deploy_facts" uconstr(g) "as" simple_intropattern(L) :=
+  let x := type_term (g : Chain -> ContractCallContext -> Prop) in
+  match goal with
+  | H := ?f : Chain -> ContractCallContext -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : Chain) (_ : ContractCallContext) => _) _ _) |- _ =>
+        cbn in H; destruct H as L
+      end
+  | _ => fail "Could not instantiate DeployFacts"
+  end.
+
+Tactic Notation "set_call_facts" uconstr(g) :=
+  match goal with
+  | H := ?f : Chain -> ContractCallContext -> _ -> list ActionBody -> option (list (ContractCallInfo _)) -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : Chain) (_ : ContractCallContext) _ (_ : list ActionBody) (_ : option (list (ContractCallInfo _))) => _) _ _ _ _ _) |- _ =>
+        cbn in H
+      end
+  | _ => fail "Could not instantiate CallFacts"
+  end.
+
+Tactic Notation "set_call_facts" uconstr(g) "as" simple_intropattern(L) :=
+  match goal with
+  | H := ?f : Chain -> ContractCallContext -> _ -> list ActionBody -> option (list (ContractCallInfo _)) -> Prop |- _ =>
+      is_evar f; instantiate (H := g); subst H;
+      match goal with
+      | H : ((fun (_ : Chain) (_ : ContractCallContext) _ (_ : list ActionBody) (_ : option (list (ContractCallInfo _))) => _) _ _ _ _ _) |- _ =>
+        cbn in H; destruct H as L
+      end
+  | _ => fail "Could not instantiate CallFacts"
+  end.
+
+Ltac split_facts_aux H :=
+  match goal with
+  | [H': _ /\ _ |- _] =>
+    match H' with H =>
+      let x := fresh "fact" in
+      let y := fresh "fact" in
+      destruct H as [x y];
+      try split_facts_aux y
+    end
+  end.
+
+Tactic Notation "split_facts" "in" hyp(H) :=
+  split_facts_aux H.
+Tactic Notation "split_facts" "in" hyp(H) "as" simple_intropattern(L) :=
+  match goal with
+  | [H': _ /\ _ |- _] =>
+    match H' with H =>
+      destruct H as L
+    end
+  end.
+
+
 Ltac solve_facts :=
   repeat match goal with
     | H := ?f : nat -> nat -> nat -> nat -> nat -> nat -> Prop |- _ =>

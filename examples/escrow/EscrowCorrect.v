@@ -75,12 +75,7 @@ Section Theories.
       destruct action_facts as [? [? ?]].
       destruct_address_eq; congruence.
     - now rewrite <- perm.
-    - instantiate (DeployFacts := fun _ _ => True).
-      instantiate (CallFacts := fun _ _ _ _ _ => True).
-      instantiate (AddBlockFacts := fun _ _ _ _ _ _ => True).
-      unset_all; subst; cbn in *.
-      destruct_chain_step; auto.
-      destruct_action_eval; auto.
+    - solve_facts.
   Qed.
 
   Definition txs_to (to : Address) (txs : list Tx) : list Tx :=
@@ -219,8 +214,7 @@ Section Theories.
       }
       rewrite <- (Z_div_exact_2 (ctx_amount ctx) 2) by (auto; lia).
       split; auto.
-      instantiate (DeployFacts := fun _ ctx => ctx_amount ctx >= 0);
-        subst DeployFacts; cbn in *.
+      set_deploy_facts (fun _ ctx => ctx_amount ctx >= 0);
       apply Z.eqb_neq in amount_some.
       lia.
     - (* Transfer from contract to someone *)
@@ -395,8 +389,8 @@ Section Theories.
       + (* None *)
         congruence.
     - (* Self call *)
-      instantiate (CallFacts := fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
-        subst CallFacts; cbn in *; congruence.
+      set_call_facts (fun _ ctx _ _ _ => ctx_from ctx <> ctx_contract_address ctx);
+        congruence.
     - (* Permuting queue *)
       do 5 (split; try tauto).
       split.
