@@ -862,6 +862,167 @@ Section TraceFacts.
       now apply Z.ge_le.
   Qed.
 
+  Theorem origin_user_address : forall bstate,
+    reachable bstate ->
+    List.Forall (fun act => address_is_contract act.(act_origin) = false) (chain_state_queue bstate).
+  Proof.
+    intros * [trace].
+    remember empty_state.
+    induction trace; subst; try auto.
+    destruct_chain_step.
+    - clear env_eq.
+      apply List.Forall_forall.
+      rewrite List.Forall_forall in origin_correct.
+      rewrite List.Forall_forall in acts_from_accs.
+      intros x Hin.
+      specialize (origin_correct x Hin).
+      specialize (acts_from_accs x Hin).
+      unfold act_is_from_account, act_origin_is_eq_from in *.
+      destruct_address_eq; try discriminate.
+      now rewrite e.
+    - rewrite queue_prev in *.
+      rewrite queue_new in *.
+      specialize (IHtrace eq_refl).
+      apply list_relations.list.Forall_cons in IHtrace as [Hact IHtrace].
+      apply All_Forall.app_Forall; auto.
+      destruct_action_eval; try (subst; apply List.Forall_nil).
+      + subst.
+        apply All_Forall.Forall_map.
+        cbn in *.
+        rewrite Hact.
+        apply List.Forall_forall.
+        reflexivity.
+    - rewrite queue_prev in *.
+      rewrite queue_new in *.
+      specialize (IHtrace eq_refl).
+      apply list_relations.list.Forall_cons in IHtrace as [Hact IHtrace].
+      assumption.
+    - eapply Extras.forall_respects_permutation; eauto.
+  Qed.
+
+  Lemma current_slot_chain_height bstate :
+    reachable bstate ->
+    (bstate.(chain_height) <= bstate.(current_slot))%nat.
+  Proof.
+    intros [trace].
+    remember empty_state.
+    induction trace as [ | Heq from to trace IH step ]; subst.
+    - auto.
+    - destruct_chain_step;
+      try destruct_action_eval;
+      rewrite_environment_equiv;
+      auto.
+      + inversion valid_header. cbn.
+        rewrite valid_height.
+        specialize (IH eq_refl).
+        lia.
+  Qed.
+
+  Definition context_valid' {from to : ChainState} (trace : ChainTrace from to) : Prop.
+  Proof.
+    induction trace.
+    - exact True.
+    - destruct_chain_step.
+      + apply IHtrace.
+      + destruct_action_eval.
+        * exact True.
+        * match goal with
+          | H : wc_init _ _ ?ctx _ = Ok _ |- _ =>
+            exact (ValidContext ctx)
+          end.
+        * match goal with
+          | H : wc_receive _ _ ?ctx _ _ = Ok _ |- _ =>
+            exact (ValidContext ctx)
+          end.
+      + apply IHtrace.
+      + apply IHtrace.
+  Defined.
+
+  Lemma context_valid : forall bstate (trace : ChainTrace empty_state bstate),
+    context_valid' trace.
+  Proof.
+    intros.
+    remember empty_state as e.
+    induction trace; try apply I.
+    destruct_chain_step; try now apply IHtrace.
+    destruct_action_eval; try apply I.
+    - (* init case *)
+      cbn.
+      constructor.
+      + subst.
+        specialize (origin_user_address mid) as H.
+        rewrite queue_prev in *.
+        apply list_relations.list.Forall_cons in H as [Hact _].
+        * assumption.
+        * now apply trace_reachable.
+      + assumption.
+      + cbn. lia.
+      + cbn. lia.
+    - (* receive case *)
+      cbn.
+      constructor.
+      + subst.
+        specialize (origin_user_address mid) as H.
+        rewrite queue_prev in *.
+        apply list_relations.list.Forall_cons in H as [Hact _].
+        * assumption.
+        * now apply trace_reachable.
+      + apply contract_addr_format in deployed.
+        assumption.
+        subst. now apply trace_reachable.
+      + subst.
+        rewrite_environment_equiv. cbn.
+        destruct_address_eq; subst; try contradiction.
+        lia.
+        specialize (account_balance_nonnegative _ to_addr (trace_reachable trace)).
+        lia.
+      + cbn. lia.
+  Qed.
+
+  Definition chain_valid' {from to : ChainState} (trace : ChainTrace from to) : Prop.
+  Proof.
+    induction trace.
+    - exact True.
+    - destruct_chain_step.
+      + apply IHtrace.
+      + destruct_action_eval.
+        * exact True.
+        * match goal with
+          | H : wc_init _ ?chain _ _ = Ok _ |- _ =>
+            exact (ValidChain chain)
+          end.
+        * match goal with
+          | H : wc_receive _ ?chain _ _ _ = Ok _ |- _ =>
+            exact (ValidChain chain)
+          end.
+      + apply IHtrace.
+      + apply IHtrace.
+  Defined.
+
+  Lemma chain_valid : forall bstate (trace : ChainTrace empty_state bstate),
+    chain_valid' trace.
+  Proof.
+    intros.
+    remember empty_state.
+    induction trace; try apply I.
+    destruct_chain_step; try now apply IHtrace.
+    destruct_action_eval; try apply I.
+    - (* init case *)
+      cbn. subst.
+      constructor.
+      + apply current_slot_chain_height.
+        now apply trace_reachable.
+      + apply finalized_heigh_chain_height.
+        now apply trace_reachable.
+    - (* receive case *)
+      cbn. subst.
+      constructor.
+      + apply current_slot_chain_height.
+        now apply trace_reachable.
+      + apply finalized_heigh_chain_height.
+        now apply trace_reachable.
+  Qed.
+
 End TraceFacts.
 
 
