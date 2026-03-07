@@ -6,6 +6,7 @@ theories/BlockchainTheories.v
 theories/BlockchainInduction.v
 theories/BlockchainBuilder.v
 theories/Blockchain.v
+theories/BlockchainDSF.v
 theories/BoundedN.v
 theories/ChainedList.v
 theories/Circulation.v
