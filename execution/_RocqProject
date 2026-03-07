@@ -19,6 +19,7 @@ theories/ContractMonads.v
 theories/SerializableBase.v
 theories/SerializableInstances.v
 theories/SerializableSound.v
+theories/SerializableDerive.v
 theories/Serializable.v
 theories/ContractCommon.v
 
