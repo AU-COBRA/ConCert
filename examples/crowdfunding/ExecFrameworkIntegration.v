@@ -176,12 +176,8 @@ Proof.
     reflexivity.
   - eauto using Hreceive.
   - eauto using Hreceive.
-  - instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst; cbn in *.
-    destruct_chain_step; auto.
-    + inversion valid_header; lia.
-    + destruct eval; auto.
+  - solve_facts.
+    inversion valid_header; lia.
 Qed.
 
 (** ** Contract balance in the local state consistent with the sum of individual contributions *)
@@ -223,12 +219,7 @@ Proof.
       as [[resp_state resp_acts]| ] eqn:Hreceive; tryfalse.
     cbn in *.
     now replace new_state with fin by congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
+  - solve_facts.
 Qed.
 
 Lemma undeployed_balance_0 (bstate : ChainState) addr :
@@ -288,12 +279,7 @@ Proof.
     split; auto.
     eauto using receive_only_transfer.
   - now rewrite <- perm.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-    unset_all; subst.
-    destruct step; auto.
-    destruct a; auto.
+  - solve_facts.
 Qed.
 
 Local Open Scope nat.
@@ -357,12 +343,8 @@ Proof.
     destruct (Receive.receive _ _ _ _) as [[resp_state resp_acts]| ]; tryfalse.
     cbn in *.
     now replace fin with new_state in * by congruence.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-    instantiate (DeployFacts := fun _ _ => Logic.True).
-    unset_all; subst; cbn in *.
-    destruct step; auto.
-    destruct a; auto.
-    intros; lia.
+  - solve_facts.
+    lia.
 Qed.
 
 Lemma cf_transfer_cases {sch sctx msg init fin acts} :
@@ -477,13 +459,8 @@ Proof.
       destruct H as [? [? [? ?]]]; subst; cbn in *.
       lia.
   - now rewrite <- perm.
-  - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True);
-      unset_all; subst; cbn in *.
-    destruct step; auto.
-    destruct a; auto.
-    intros.
-    apply trace_reachable in from_reachable.
-    split; eauto.
+  - solve_facts.
+    repeat split; eauto.
 Qed.
 
 Corollary cf_backed_after_block {ChainBuilder : ChainBuilderType}

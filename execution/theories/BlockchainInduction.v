@@ -621,6 +621,30 @@ Global Notation
   TagPermuteQueue (at level 100, only printing).
 
 
+Ltac solve_facts :=
+  repeat match goal with
+    | H := ?f : nat -> nat -> nat -> nat -> nat -> nat -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ _ _ _ _ => Logic.True)
+    | H := ?f : _ -> ContractCallContext -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ => Logic.True)
+    | H := ?f : Chain -> ContractCallContext -> _ ->
+    list ActionBody -> option (list (ContractCallInfo _)) -> Prop |- _ =>
+        is_evar f; instantiate (H := fun _ _ _ _ _ => Logic.True)
+    end;
+    unset_all; subst;
+    destruct_chain_step; [
+       auto
+     | destruct_action_eval; [
+         auto
+       | auto
+       | auto; intros ?cstate ?deployed ?deployed_state;
+          cbn; subst
+       ]
+     | auto
+     | auto
+    ].
+
+
 
 Section LiftTransactionProp.
   Context {BaseTypes : ChainBase}
@@ -655,12 +679,7 @@ Section LiftTransactionProp.
       split; auto.
       eauto.
     - now rewrite <- perm.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-      instantiate (DeployFacts := fun _ _ => Logic.True).
-      instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-      unset_all; subst.
-      destruct step; auto.
-      destruct a; auto.
+    - solve_facts.
   Qed.
 
   (** If the receive function always returns an empty list of actions,
@@ -708,12 +727,7 @@ Section LiftTransactionProp.
     - now eapply Hinit.
     - now eapply Hreceive.
     - now eapply Hreceive.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-      instantiate (DeployFacts := fun _ _ => Logic.True).
-      instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-      unset_all; subst.
-      destruct step; auto.
-      destruct a; auto.
+    - solve_facts.
   Qed.
 
   Lemma lift_dep_info_contract_state_prop
@@ -741,12 +755,7 @@ Section LiftTransactionProp.
     - now eapply Hinit.
     - now eapply Hreceive.
     - now eapply Hreceive.
-    - instantiate (AddBlockFacts := fun _ _ _ _ _ _ => Logic.True).
-      instantiate (DeployFacts := fun _ _ => Logic.True).
-      instantiate (CallFacts := fun _ _ _ _ _ => Logic.True).
-      unset_all; subst.
-      destruct step; auto.
-      destruct a; auto.
+    - solve_facts.
   Qed.
 
 End LiftTransactionProp.
