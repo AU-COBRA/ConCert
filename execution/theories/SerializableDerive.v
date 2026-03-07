@@ -1,6 +1,7 @@
 From ConCert.Execution Require Import Monad.
 From ConCert.Execution Require Import OptionMonad.
 From ConCert.Execution Require Import SerializableBase.
+From Ltac2 Require Ltac2.
 
 
 
@@ -95,3 +96,78 @@ Notation "'Derive' 'Serializable' rect < c0 , .. , cn >" :=
      | [pairs := ?x |- _] => make_serializable rect x
      end))
     (at level 0, rect at level 10, c0, cn at level 9, only parsing).
+
+
+
+Module DeriveSer.
+  Import Ltac2.
+
+  Ltac2 fail s :=
+    Control.zero (Tactic_failure (Some (Message.of_string s))).
+
+  Ltac2 assert_oib ind :=
+    if Int.gt (Ind.nblocks ind) 1 then
+      fail "Mututal inductives not supported"
+    else
+      ().
+
+  Ltac2 apply_params c p :=
+    Constr.Unsafe.make (Constr.Unsafe.App c p).
+
+  Ltac2 get_constructors ind p :=
+    let ncons := Ind.nconstructors ind in
+    let cons_i := List.seq 0 1 ncons in
+    List.fold_right (fun x acc =>
+        let c := Env.instantiate (Std.ConstructRef (Ind.get_constructor ind x)) in
+        let c := apply_params c p in
+        '(($c, $acc))
+        ) cons_i '(tt).
+
+  Ltac2 get_rect ind :=
+    let id := Env.path (Std.IndRef ind) in
+    let id' := Ident.of_string (String.app (Ident.to_string (List.last id)) "_rect") in
+    let id' := Option.map (fun x => List.append (List.removelast id) [x]) id' in
+    let id' := Option.bind id' (fun x => Env.get x) in
+    let id' := Option.map (fun x => Env.instantiate x) id' in
+    match id' with
+    | Some c => c
+    | None => fail "Could not find _rect definition"
+    end.
+
+  Ltac2 get_ind x :=
+    match (Constr.Unsafe.kind x) with
+    | Constr.Unsafe.Ind ind _ => (Array.empty, ind)
+    | Constr.Unsafe.App c l =>
+      match (Constr.Unsafe.kind c) with
+      | Constr.Unsafe.Ind ind _ => (l, ind)
+      | _ => fail "Argument not an inductive type"
+      end
+    | _ => fail "Argument not an inductive type"
+    end.
+
+  Ltac2 assert_nparam_correct n p :=
+    if Int.equal (Array.length p) n then
+      ()
+    else
+      fail "Error: invalid parameters".
+
+  Ltac2 derive_serializable x :=
+    let (params, ind) := get_ind x in
+    let i := Ind.data ind in
+    assert_oib i;
+    let n_params := Ind.nparams i in
+    assert_nparam_correct n_params params;
+    let cons_l := get_constructors i params in
+    let c_rect := apply_params (get_rect ind) params in
+    ltac1:(rect l |- make_serializable rect l) (Ltac1.of_constr c_rect) (Ltac1.of_constr cons_l).
+
+  Ltac2 auto_derive_serializable () :=
+    lazy_match! goal with
+    | [ |- Serializable ?e ] => derive_serializable e
+    | [ |- _] => fail "Goal is not an Serializable instance"
+    end.
+
+  Notation "'Derive' 'Ser'" :=
+    ltac2:(auto_derive_serializable ()) (only parsing).
+
+End DeriveSer.
