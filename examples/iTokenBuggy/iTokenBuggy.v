@@ -15,6 +15,8 @@ From ConCert.Utils Require Import Extras.
 From ConCert.Utils Require Import RecordUpdate.
 
 Import ListNotations.
+Import DeriveSer.
+
 
 
 Section iTokenBuggy.
@@ -51,14 +53,11 @@ Section iTokenBuggy.
 
   Section Serialization.
 
-    Global Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <transfer_from, approve, mint, burn>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
 

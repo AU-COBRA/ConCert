@@ -11,8 +11,11 @@ From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
+Import DeriveSer.
 
 Open Scope Z.
+
+
 
 (** ** Definition *)
 Section Counter.
@@ -85,12 +88,12 @@ Section Counter.
     |}.
 
   Section Serialization.
-    (** Deriving the [Serializable] instances for the state and for the messages *)
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<Inc, Dec>.
+    (** Deriving the [Serializable] instances for the state and for the messages *)
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   (** The counter contract *)

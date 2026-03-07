@@ -23,10 +23,13 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ResultMonad.
 
 Import ListNotations.
+Import DeriveSer.
 
 Open Scope list.
 
 Import AcornBlockchain CrowdfundingContract CrowdfundingProperties.
+
+
 
 Definition expr_to_tc Σ := compose trans (expr_to_term Σ).
 Definition type_to_tc := compose trans type_to_term.
@@ -69,11 +72,9 @@ Section Serialize.
     now autorewrite with hints.
   Defined.
 
-  Global Instance State_serializable : Serializable State_rocq :=
-    Derive Serializable State_rocq_rect<mkState_rocq>.
+  Global Instance State_serializable : Serializable State_rocq := Derive Ser.
 
-  Global Instance Msg_serializable : Serializable Msg_rocq :=
-    Derive Serializable Msg_rocq_rect<Donate_rocq, GetFunds_rocq, Claim_rocq>.
+  Global Instance Msg_serializable : Serializable Msg_rocq := Derive Ser.
 
 End Serialize.
 

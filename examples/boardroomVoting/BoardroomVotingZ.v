@@ -16,6 +16,7 @@ From ConCert.Examples.BoardroomVoting Require Import Egcd.
 From ConCert.Examples.BoardroomVoting Require Import Euler.
 
 Import ListNotations.
+Import DeriveSer.
 
 
 
@@ -128,17 +129,15 @@ Module BoardroomVoting (Params : BoardroomParams).
   (* end hide *)
 
   Section Serialization.
-    Global Instance Setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect<build_setup>.
 
-    Global Instance VoterInfo_serializable : Serializable VoterInfo :=
-      Derive Serializable VoterInfo_rect<build_voter_info>.
+    Global Instance Setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance State_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
+    Global Instance VoterInfo_serializable : Serializable VoterInfo := Derive Ser.
 
-    Global Instance Msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<signup, commit_to_vote, submit_vote, tally_votes>.
+    Global Instance State_serializable : Serializable State := Derive Ser.
+
+    Global Instance Msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
 
   Definition encodeA : A -> positive := countable.encode.

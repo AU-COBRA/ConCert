@@ -11,6 +11,7 @@ From Stdlib Require Import List.
 From Stdlib Require Import ZArith.
 
 Import ListNotations.
+Import DeriveSer.
 
 
 
@@ -27,13 +28,7 @@ Section FA2Client.
   | Call_fa2_metadata_callback : list token_metadata -> FA2ClientMsg
   | Call_fa2_permissions_descriptor : permissions_descriptor -> FA2ClientMsg.
 
-  Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg :=
-    Derive Serializable FA2ClientMsg_rect <
-      Call_fa2_is_operator,
-      Call_fa2_balance_of_param,
-      Call_fa2_total_supply_param,
-      Call_fa2_metadata_callback,
-      Call_fa2_permissions_descriptor>.
+  Global Instance FA2ClientMsg_serializable : Serializable FA2ClientMsg := Derive Ser.
 
   Definition ClientMsg := @FA2ReceiverMsg BaseTypes FA2ClientMsg.
 
@@ -56,11 +51,9 @@ Section FA2Client.
 
   Section Serialization.
 
-    Global Instance setup_serializable : Serializable ClientSetup :=
-      Derive Serializable ClientSetup_rect <build_clientsetup>.
+    Global Instance setup_serializable : Serializable ClientSetup := Derive Ser.
 
-    Global Instance state_serializable : Serializable ClientState :=
-      Derive Serializable ClientState_rect <build_clientstate>.
+    Global Instance state_serializable : Serializable ClientState := Derive Ser.
 
     Global Instance ClientMsg_serializable : Serializable ClientMsg := FA2Token.FA2ReceiverMsg_serializable.
 
@@ -104,9 +97,7 @@ Section FA2TransferHook.
   Inductive FA2TransferHookMsg :=
   | set_permission_policy : permissions_descriptor -> FA2TransferHookMsg.
 
-  Global Instance FA2TransferHookMsg_serializable : Serializable FA2TransferHookMsg :=
-    Derive Serializable FA2TransferHookMsg_rect <
-      set_permission_policy>.
+  Global Instance FA2TransferHookMsg_serializable : Serializable FA2TransferHookMsg := Derive Ser.
 
   Definition TransferHookMsg := @FA2TransferHook BaseTypes FA2TransferHookMsg.
 
@@ -131,11 +122,9 @@ Section FA2TransferHook.
 
   Section Serialization.
 
-    Global Instance hooksetup_serializable : Serializable HookSetup :=
-      Derive Serializable HookSetup_rect <build_hooksetup>.
+    Global Instance hooksetup_serializable : Serializable HookSetup := Derive Ser.
 
-    Global Instance hookstate_serializable : Serializable HookState :=
-      Derive Serializable HookState_rect <build_hookstate>.
+    Global Instance hookstate_serializable : Serializable HookState := Derive Ser.
 
   End Serialization.
 

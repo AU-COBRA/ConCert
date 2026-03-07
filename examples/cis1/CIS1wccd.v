@@ -18,6 +18,8 @@ From ConCert.Utils Require Import RecordUpdate.
 From ConCert.Utils Require Import Extras.
 
 Import ListNotations.
+Import DeriveSer.
+
 
 
 Definition requireTrue (cond : bool) :=
@@ -71,17 +73,13 @@ Section WccdToken.
 
   Section Serialization.
 
-    Global Instance OpUpdateKind_serializable : Serializable OpUpdateKind :=
-      Derive Serializable OpUpdateKind_rect <opAdd, opDelete>.
+    Global Instance OpUpdateKind_serializable : Serializable OpUpdateKind := Derive Ser.
 
-    Global Instance state_serializable : Serializable AddressState :=
-      Derive Serializable AddressState_rect <Build_AddressState>.
+    Global Instance state_serializable : Serializable AddressState := Derive Ser.
 
-    Global Instance wccd_transfer_params_serializable : Serializable wccd_transfer_params :=
-      Derive Serializable wccd_transfer_params_rect <Build_wccd_transfer_params>.
+    Global Instance wccd_transfer_params_serializable : Serializable wccd_transfer_params := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <wccd_msg_transfer, wccd_msg_balanceOf, wccd_msg_updateOperator, wccd_msg_mint, wccd_msg_burn>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
   End Serialization.
 

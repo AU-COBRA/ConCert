@@ -23,6 +23,10 @@ From ConCert.Execution Require Import ContractCommon.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List. Import ListNotations.
 
+Import DeriveSer.
+
+
+
 Definition non_zero_amount (amt : Z) : bool := (0 <? amt)%Z.
 
 (** * Contract types *)
@@ -189,49 +193,30 @@ Module D2LqtSInstances <: Dexter2LqtSerializable.
   Section Serialization.
     Context `{ChainBase}.
 
-    Instance callback_serializable : Serializable callback :=
-    Derive Serializable callback_rect <Build_callback>.
+    Instance callback_serializable : Serializable callback := Derive Ser.
 
-    Instance transfer_param_serializable : Serializable transfer_param :=
-      Derive Serializable transfer_param_rect <build_transfer_param>.
+    Instance transfer_param_serializable : Serializable transfer_param := Derive Ser.
 
-    Instance approve_param_serializable : Serializable approve_param :=
-      Derive Serializable approve_param_rect <build_approve_param>.
+    Instance approve_param_serializable : Serializable approve_param := Derive Ser.
 
-    Instance mintOrBurn_param_serializable : Serializable mintOrBurn_param :=
-      Derive Serializable mintOrBurn_param_rect <build_mintOrBurn_param>.
+    Instance mintOrBurn_param_serializable : Serializable mintOrBurn_param := Derive Ser.
 
-    Instance getAllowance_param_serializable : Serializable getAllowance_param :=
-      Derive Serializable getAllowance_param_rect <build_getAllowance_param>.
+    Instance getAllowance_param_serializable : Serializable getAllowance_param := Derive Ser.
 
-    Instance getBalance_param_serializable : Serializable getBalance_param :=
-      Derive Serializable getBalance_param_rect <build_getBalance_param>.
+    Instance getBalance_param_serializable : Serializable getBalance_param := Derive Ser.
 
-    Instance getTotalSupply_param_serializable : Serializable getTotalSupply_param :=
-      Derive Serializable getTotalSupply_param_rect <build_getTotalSupply_param>.
+    Instance getTotalSupply_param_serializable : Serializable getTotalSupply_param := Derive Ser.
 
     Instance FA12ReceiverMsg_serializable {Msg : Type}
                                          `{Serializable Msg}
-                                          : Serializable (@FA12ReceiverMsg Msg) :=
-      Derive Serializable (@FA12ReceiverMsg_rect Msg) <
-        (@receive_allowance Msg),
-        (@receive_balance_of Msg),
-        (@receive_total_supply Msg),
-        (@other_msg Msg)>.
+                                          : Serializable (@FA12ReceiverMsg Msg) := Derive Ser.
 
-    Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <msg_transfer,
-                                  msg_approve,
-                                  msg_mint_or_burn,
-                                  msg_get_allowance,
-                                  msg_get_balance,
-                                  msg_get_total_supply>.
+    Instance msg_serializable : Serializable Msg := Derive Ser.
 
-    Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Instance state_serializable : Serializable State := Derive Ser.
 
-    Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Instance setup_serializable : Serializable Setup := Derive Ser.
+
   End Serialization.
 End D2LqtSInstances.
 

@@ -9,7 +9,9 @@ From ConCert.Execution Require Import ContractCommon.
 From ConCert.Examples.FA2 Require Import FA2Token.
 From ConCert.Examples.FA2 Require Import FA2LegacyInterface.
 From ConCert.Utils Require Import RecordUpdate.
+
 Import ListNotations.
+Import DeriveSer.
 
 
 
@@ -58,19 +60,15 @@ Section ExchangeBuggyContract.
 
   Section Serialization.
 
-    Global Instance exchange_paramserializable : Serializable exchange_param :=
-      Derive Serializable exchange_param_rect <build_exchange_param>.
+    Global Instance exchange_paramserializable : Serializable exchange_param := Derive Ser.
 
-    Global Instance ExchangeMsg_serializable : Serializable ExchangeMsg :=
-      Derive Serializable ExchangeMsg_rect <tokens_to_asset, add_to_tokens_reserve>.
+    Global Instance ExchangeMsg_serializable : Serializable ExchangeMsg := Derive Ser.
 
-    Global Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
     Global Instance ClientMsg_serializable : Serializable Msg := FA2Token.FA2ReceiverMsg_serializable.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
 

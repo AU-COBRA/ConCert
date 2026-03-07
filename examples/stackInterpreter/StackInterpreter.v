@@ -7,7 +7,11 @@ From Stdlib Require Import Notations.
 From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 
+Import DeriveSer.
+
 Local Open Scope string_scope.
+
+
 
 Section StackInterpreter.
   Context {Base : ChainBase}.
@@ -27,14 +31,11 @@ Section StackInterpreter.
 
   Inductive value : Set := BVal : bool -> value | ZVal : Z -> value.
 
-  Global Instance op_serializable : Serializable op :=
-    Derive Serializable op_rect <Add, Sub, Mult, Lt, Le, Equal>.
+  Global Instance op_serializable : Serializable op := Derive Ser.
 
-  Global Instance instruction_serializable : Serializable instruction :=
-    Derive Serializable instruction_rect <IPushZ, IPushB, IObs, IIf, IElse, IEndIf, IOp>.
+  Global Instance instruction_serializable : Serializable instruction := Derive Ser.
 
-  Global Instance value_serializable : Serializable value :=
-    Derive Serializable value_rect <BVal, ZVal>.
+  Global Instance value_serializable : Serializable value := Derive Ser.
 
   Definition ext_map := FMap (string * Z) value.
   Definition lookup (k : string * Z) (m : ext_map) := FMap.find k m.

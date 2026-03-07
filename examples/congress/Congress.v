@@ -14,6 +14,8 @@ From ConCert.Execution Require Import Serializable.
 From ConCert.Execution Require Import ContractCommon.
 From ConCert.Utils Require Import RecordUpdate.
 
+Import DeriveSer.
+
 
 
 Section Congress.
@@ -81,31 +83,17 @@ Section Congress.
 
   Section Serialization.
 
-    Global Instance rules_serializable : Serializable Rules :=
-      Derive Serializable Rules_rect <build_rules>.
+    Global Instance rules_serializable : Serializable Rules := Derive Ser.
 
-    Global Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance congress_action_serializable : Serializable CongressAction :=
-      Derive Serializable CongressAction_rect <cact_transfer, cact_call>.
+    Global Instance congress_action_serializable : Serializable CongressAction := Derive Ser.
 
-    Global Instance proposal_serializable : Serializable Proposal :=
-      Derive Serializable Proposal_rect <build_proposal>.
+    Global Instance proposal_serializable : Serializable Proposal := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <transfer_ownership,
-                                    change_rules,
-                                    add_member,
-                                    remove_member,
-                                    create_proposal,
-                                    vote_for_proposal,
-                                    vote_against_proposal,
-                                    retract_vote,
-                                    finish_proposal>.
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
 

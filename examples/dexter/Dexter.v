@@ -10,6 +10,10 @@ From ConCert.Execution Require Import ResultMonad.
 From ConCert.Execution Require Import Serializable.
 From ConCert.Examples.EIP20 Require EIP20Token.
 
+Import DeriveSer.
+
+
+
 (* A liquidity exchange contract inspired by the Dexter contract.
    Allows for exchanging tokens to money, and allows the owner to add tokens to the
    reserve held by this contract. *)
@@ -50,17 +54,13 @@ Section Dexter.
 
   Section Serialization.
 
-    Global Instance exchange_paramserializable : Serializable exchange_param :=
-      Derive Serializable exchange_param_rect <build_exchange_param>.
+    Global Instance exchange_paramserializable : Serializable exchange_param := Derive Ser.
 
-    Global Instance DexterMsg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect <tokens_to_asset, add_to_tokens_reserve>.
+    Global Instance DexterMsg_serializable : Serializable Msg := Derive Ser.
 
-    Global Instance setup_serializable : Serializable Setup :=
-      Derive Serializable Setup_rect <build_setup>.
+    Global Instance setup_serializable : Serializable Setup := Derive Ser.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect <build_state>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
 
   End Serialization.
 

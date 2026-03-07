@@ -14,9 +14,12 @@ From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.
 
 Import MRMonadNotation.
+Import DeriveSer.
 
 Local Open Scope string_scope.
 Open Scope Z.
+
+
 
 Definition PREFIX := "".
 
@@ -104,8 +107,7 @@ Module Counter.
     end.
 
   (** Deriving the [Serializable] instances for the state and for the messages *)
-  Global Instance Msg_serializable : Serializable msg :=
-    Derive Serializable msg_rect<Inc, Dec>.
+  Global Instance Msg_serializable : Serializable msg := Derive Ser.
 
   (** A contract instance used by the execution framework *)
   Definition CounterContract :=

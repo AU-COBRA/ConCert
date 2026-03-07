@@ -12,6 +12,8 @@ From ConCert.Execution Require Import Serializable.
 From Stdlib Require Import List. Import ListNotations.
 From Stdlib Require Import ZArith.
 
+Import DeriveSer.
+
 
 
 (** * Types *)
@@ -43,14 +45,13 @@ Section PiggyBankTypes.
   MetaRocq Run (make_setters State).
 
   Section Serialization.
-    Global Instance piggyState_serializable : Serializable PiggyState :=
-      Derive Serializable PiggyState_rect<Intact, Smashed>.
 
-    Global Instance state_serializable : Serializable State :=
-      Derive Serializable State_rect<build_state>.
+    Global Instance piggyState_serializable : Serializable PiggyState := Derive Ser.
 
-    Global Instance msg_serializable : Serializable Msg :=
-      Derive Serializable Msg_rect<Insert, Smash>.
+    Global Instance state_serializable : Serializable State := Derive Ser.
+
+    Global Instance msg_serializable : Serializable Msg := Derive Ser.
+
   End Serialization.
   (* end hide *)
 End PiggyBankTypes.
