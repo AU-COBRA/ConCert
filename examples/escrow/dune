@@ -26,6 +26,7 @@
     ConCert.Execution
     ConCert.Execution.Test
     ConCert.Extraction
+    ConCert.Embedding
     ConCert.Embedding.Extraction
   )
 )
