@@ -18,9 +18,6 @@ depends: [
 ]
 
 build: [
-  [make "examples"]
-  [make "html"] {with-doc}
-]
-install: [
-  [make "install-examples"]
+  ["dune" "subst"] {dev}
+  ["dune" "build" "-p" name "-j" jobs "@install" "@runtest" {with-test} "@doc" {with-doc} "--stop-on-first-error"]
 ]

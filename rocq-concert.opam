@@ -31,9 +31,6 @@ depends: [
 ]
 
 build: [
-  [make "core"]
-  [make "html"] {with-doc}
-]
-install: [
-  [make "install"]
+  ["dune" "subst"] {dev}
+  ["dune" "build" "-p" name "-j" jobs "@install" "@runtest" {with-test} "@doc" {with-doc} "--stop-on-first-error"]
 ]
