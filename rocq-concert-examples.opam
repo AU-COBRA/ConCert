@@ -14,7 +14,7 @@ bug-reports: "https://github.com/AU-COBRA/ConCert/issues"
 doc: "https://au-cobra.github.io/ConCert/toc.html"
 
 depends: [
-  "rocq-concert-examples" {= version}
+  "rocq-concert" {= version}
 ]
 
 build: [
