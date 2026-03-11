@@ -12,7 +12,7 @@
     coqPackages = {
       coq.override.version = "9.1";
       metarocq.override.version = "1.4.1-9.1";
-      stdpp.override.version = "stdpp-1.13.0";
+      stdpp.override.version = "1.13.0";
       QuickChick.override.version = "2.1.1";
       TypedExtraction.override.version = "0.2.0";
     };
