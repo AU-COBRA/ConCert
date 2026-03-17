@@ -1,0 +1,7 @@
+(alias
+  (name default)
+  (deps
+    (package rocq-concert)
+    (package rocq-concert-examples)
+  )
+)

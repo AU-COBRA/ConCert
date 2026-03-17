@@ -63,6 +63,8 @@ dexter2/Dexter2CPMMExtractLIGO.v
 dexter2/Dexter2Printers.v
 dexter2/Dexter2Gens.v
 dexter2/Dexter2Tests.v
+dexter2/extract/ExtractCPMMLIGO.v
+dexter2/extract/ExtractFA12LIGO.v
 
 -Q exchangeBuggy ConCert.Examples.ExchangeBuggy
 exchangeBuggy/ExchangeBuggy.v
@@ -83,10 +85,13 @@ cis1/CIS1wccd.v
 
 -Q stackInterpreter ConCert.Examples.StackInterpreter
 stackInterpreter/StackInterpreter.v
-stackInterpreter/StackInterpreterRustExtract.v
 stackInterpreter/StackInterpreterExtract.v
+stackInterpreter/StackInterpreterRustExtract.v
 stackInterpreter/StackInterpreterLiquidityExtract.v
 stackInterpreter/StackInterpreterLIGOExtract.v
+stackInterpreter/extract/ExtractStackInterpRust.v
+stackInterpreter/extract/ExtractStackInterpLiquidity.v
+stackInterpreter/extract/ExtractStackInterpLIGO.v
 
 -Q congress ConCert.Examples.Congress
 congress/Congress.v
@@ -120,6 +125,7 @@ boardroomVoting/BoardroomVotingZ.v
 boardroomVoting/BoardroomVotingTest.v
 boardroomVoting/BoardroomVotingExtractionCameLIGO.v
 boardroomVoting/BoardroomVotingExtractionLiquidity.v
+boardroomVoting/extract/ExtractBoardroomVotingLIGO.v
 
 -Q counter ConCert.Examples.Counter
 counter/Counter.v
@@ -141,6 +147,8 @@ crowdfunding/CrowdfundingDataExt.v
 crowdfunding/CrowdfundingExt.v
 crowdfunding/CrowdfundingCameLIGO.v
 crowdfunding/CrowdfundingLiquidity.v
+crowdfunding/extract/ExtractCrowdfundingCameLIGO.v
+crowdfunding/extract/ExtractCrowdfundingLiquidity.v
 
 -Q piggybank ConCert.Examples.PiggyBank
 piggybank/PiggyBank.v
