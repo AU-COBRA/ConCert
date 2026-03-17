@@ -11,10 +11,10 @@
   bundles."9.1" = {
     coqPackages = {
       coq.override.version = "9.1";
-      metarocq.override.version = "1.4.1-9.1";
+      metarocq-erasure.override.version = "1.5.1-9.1";
       stdpp.override.version = "1.13.0";
       QuickChick.override.version = "2.1.1";
-      TypedExtraction.override.version = "0.2.0";
+      TypedExtraction.override.version = "0.2.1";
     };
     rocqPackages = {
       rocq-core.override.version = "9.1";
