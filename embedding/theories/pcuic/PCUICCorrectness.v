@@ -36,7 +36,7 @@ Hint Resolve assumption_context_subst
              PCUICSigmaCalculus.context_assumptions_context : hints.
 
 #[local]
-Arguments monad_utils.bind /.
+Arguments ExtLib.Structures.Monad.bind /.
 
 (** Soundness (In the paper: Theorem 1) *)
 Theorem expr_to_term_sound (n : nat) (ρ : env val) Σ1 Σ2

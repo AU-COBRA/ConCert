@@ -21,7 +21,7 @@ From Stdlib Require Import Lia.
 From MetaRocq.Template Require Import All.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 

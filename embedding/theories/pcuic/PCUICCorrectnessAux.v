@@ -49,7 +49,7 @@ Local Set Keyed Unification.
 #[global] Remove Hints Bool.trans_eq_bool : core.
 
 #[local]
-Arguments monad_utils.bind /.
+Arguments ExtLib.Structures.Monad.bind /.
 
 Module P := PCUICAst.
 Module PcbvCurr := PCUICWcbvEval.

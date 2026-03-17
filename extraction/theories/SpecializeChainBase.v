@@ -17,7 +17,7 @@
 (* From Stdlib Require Import String. *)
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Extraction Require Import Common.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.PCUIC Require Import PCUICAst.
 From MetaRocq.PCUIC Require Import PCUICAstUtils.
 From MetaRocq.Utils Require Import monad_utils.
@@ -28,7 +28,7 @@ From MetaRocq.Utils Require Import MRProd.
 From Stdlib Require Import List.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 
 Local Open Scope bs_scope.
 

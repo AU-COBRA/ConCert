@@ -9,7 +9,7 @@ From ConCert.Examples.StackInterpreter Require Import StackInterpreterExtract.
 From ConCert.Utils Require Import BSEnv.
 From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
-Import MRMonadNotation.
+Import MonadNotation.
 Import Interpreter.
 
 

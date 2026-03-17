@@ -22,7 +22,7 @@ From Stdlib Require Import String.
 Module TCString := bytestring.String.
 
 Module P := PCUICAst.
-Import MRMonadNotation.
+Import MonadNotation.
 Import ListNotations.
 
 (** ** Translation of types *)

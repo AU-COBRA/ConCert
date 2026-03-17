@@ -12,6 +12,7 @@
     Stdlib
     Ltac2
     Equations
+    ExtLib
     MetaRocq
     TypedExtraction
     stdpp

@@ -10,10 +10,10 @@ From ConCert.Embedding.Extraction Require Import SimpleBlockchainExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingDataExt.
 From ConCert.Examples.Crowdfunding Require Import CrowdfundingExt.
 From MetaRocq.Template Require Import All.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 
 Import AcornBlockchain.
-Import MRMonadNotation.
+Import MonadNotation.
 Import CrowdfundingContract.
 Import Receive.
 

@@ -16,7 +16,7 @@ From MetaRocq.Erasure.Typed Require Import Utils.
 From MetaRocq.Erasure.Typed Require Import ExAst.
 From MetaRocq.Erasure.Typed Require Import Annotations.
 From MetaRocq.Erasure.Typed Require Import Extraction.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Erasure Require Import EAst.
 From MetaRocq.Erasure Require Import EAstUtils.
 From MetaRocq.Utils Require Import MRList.

@@ -8,7 +8,7 @@ From MetaRocq.Utils Require Import utils.
 
 Global Unset Asymmetric Patterns.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Class SetterFromGetter {A B} (a : A -> B) :=
   setter_from_getter : (B -> B) -> A -> A.

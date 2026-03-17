@@ -13,7 +13,7 @@ From ConCert.Embedding Require Import Prelude.
 Import ListNotations.
 From MetaRocq.Template Require Import All.
 
-Import MRMonadNotation.
+Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 

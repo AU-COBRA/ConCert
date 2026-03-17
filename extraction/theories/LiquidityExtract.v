@@ -9,7 +9,7 @@ From ConCert.Extraction Require Import Common.
 From MetaRocq.Erasure.Typed Require Import Optimize.
 From MetaRocq.Erasure.Typed Require Import Extraction.
 From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From ConCert.Utils Require Import BSEnv.
 From ConCert.Utils Require Import BytestringExtra.
@@ -19,7 +19,7 @@ From MetaRocq.Template Require Import All.
 From MetaRocq.Utils Require Import bytestring.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 
 
 Definition to_constant_decl (gd : option global_decl) :=

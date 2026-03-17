@@ -4,7 +4,7 @@ From Stdlib Require Import List.
 From ConCert.Utils Require StringExtra.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 
 Module TCString := bytestring.String.
 

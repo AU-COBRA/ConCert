@@ -8,7 +8,7 @@ From ConCert.Extraction Require Import CameLIGOPretty.
 From ConCert.Extraction Require Import Common.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Erasure.Typed Require Import ExAst.
 From MetaRocq.Erasure.Typed Require Import Optimize.
 From MetaRocq.Erasure.Typed Require Import Extraction.
@@ -25,7 +25,7 @@ From MetaRocq.Utils Require Import bytestring.
 From MetaRocq.Common Require Import Kernames.
 From MetaRocq.Template Require Import TemplateMonad.
 
-Import MRMonadNotation ListNotations.
+Import MonadNotation ListNotations.
 
 Record CameLIGOMod {Base : ChainBase} (msg ctx setup storage operation error : Type) :=
   { lmd_module_name : string ;

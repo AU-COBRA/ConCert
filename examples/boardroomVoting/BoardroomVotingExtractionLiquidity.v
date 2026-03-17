@@ -17,7 +17,7 @@ From ConCert.Examples.BoardroomVoting Require Import BoardroomVotingZ.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.

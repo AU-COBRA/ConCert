@@ -17,7 +17,7 @@ From MetaRocq.Erasure.Typed Require Import CertifyingEta.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import Bool.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Local Open Scope string_scope.
 Open Scope Z.

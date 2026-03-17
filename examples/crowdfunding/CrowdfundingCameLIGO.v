@@ -14,7 +14,7 @@ From ConCert.Extraction Require Import CameLIGOExtract.
 From ConCert.Execution Require Import Blockchain.
 From ConCert.Execution Require Import ResultMonad.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Open Scope Z.
 

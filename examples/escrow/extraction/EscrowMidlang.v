@@ -6,7 +6,7 @@ From TypedExtraction Require Import Common.
 From TypedExtraction Require Import ElmExtract.
 From MetaRocq.Erasure.Typed Require Import CertifyingInlining.
 From MetaRocq.Erasure.Typed Require Import Extraction.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From TypedExtraction Require Import PrettyPrinterMonad.
 From ConCert.Examples.Escrow Require Import Escrow.
@@ -14,7 +14,7 @@ From MetaRocq.Common Require Import Kernames.
 From MetaRocq.Template Require Import All.
 From Stdlib Require Import List.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 
 
