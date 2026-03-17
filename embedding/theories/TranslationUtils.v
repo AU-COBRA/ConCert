@@ -11,7 +11,7 @@ From Stdlib Require Import Basics.
 From Stdlib Require Import List.
 
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Import ListNotations.
 

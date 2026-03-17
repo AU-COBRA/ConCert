@@ -303,10 +303,3 @@ Definition TT_rename : list (string * string) :=
   ; ((string_of_kername <%% BV.State %%>), "state") (* we add [storage] so it is printed without the prefix *)
   ; ("tt", "()")
   ].
-
-Time MetaRocq Run (CameLIGO_prepare_extraction to_inline TT_remap TT_rename [] "cctx_instance" BV_MODULE).
-
-Time Definition cameLIGO_boardroomvoting := Eval vm_compute in cameligo_boardroomvoting_prepared.
-
-Redirect "cameligo-extract/BoardroomVoting.mligo"
-MetaRocq Run (tmMsg cameLIGO_boardroomvoting).

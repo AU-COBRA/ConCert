@@ -9,7 +9,7 @@ From Stdlib Require Import Notations.
 From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 Local Open Scope string_scope.
-Import MRMonadNotation.
+Import MonadNotation.
 
 Definition map_key_type := (string * Z).
 Definition action := ActionBody.

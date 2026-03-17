@@ -15,8 +15,6 @@ From ConCert.Execution Require Import ContractCommon.
 From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 
-Import MRMonadNotation.
-
 
 
 Definition PREFIX := "".

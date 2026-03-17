@@ -162,7 +162,7 @@ Module EscrowLiquidityExtraction.
     ; <%% @set_State_buyer_withdrawable %%>
     ].
 
-  Import MRMonadNotation.
+  Import MonadNotation.
 
   Time MetaRocq Run
       (t <- liquidity_extraction_specialize PREFIX TT_remap_liquidity TT_rename_liquidity to_inline ESCROW_MODULE_LIQUIDITY ;;

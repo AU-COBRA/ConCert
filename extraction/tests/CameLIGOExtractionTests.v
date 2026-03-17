@@ -9,7 +9,7 @@ From Stdlib Require Import Lia.
 From Stdlib Require Import List.
 
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 #[local]
 Parameter (cb : BlockchainBase.ChainBase).

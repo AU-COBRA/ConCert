@@ -10,14 +10,14 @@ From ConCert.Execution Require Import Blockchain.
 From TypedExtraction Require Import Common.
 From MetaRocq.Erasure.Typed Require Import Extraction.
 From MetaRocq.Erasure.Typed Require Import Optimize.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Erasure.Typed Require Import Utils.
 From TypedExtraction Require Import RustExtract.
 From ConCert.Extraction Require Import SpecializeChainBase.
 From TypedExtraction Require Import PrettyPrinterMonad.
 From TypedExtraction Require Import Printing.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 
 

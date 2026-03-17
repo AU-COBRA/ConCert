@@ -6,12 +6,13 @@
   (flags
     -w -notation-overridden
     -w -non-reversible-notation
-    -output-dir ../../extraction/tests/extracted-code/
+    -output-dir extracted-code/
   )
   (theories
     Stdlib
     Ltac2
     Equations
+    ExtLib
     MetaRocq
     TypedExtraction
     stdpp

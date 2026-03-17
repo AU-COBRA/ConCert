@@ -2,7 +2,7 @@ jobs:
   ConCert:
     needs:
     - coq
-    - metarocq
+    - metarocq-erasure
     - QuickChick
     - stdpp
     - TypedExtraction
@@ -59,9 +59,9 @@ jobs:
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
         --argstr job "coq"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq'
+      name: 'Building/fetching previous CI target: metarocq-erasure'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq"
+        --argstr job "metarocq-erasure"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: bignums'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
@@ -156,7 +156,7 @@ jobs:
   TypedExtraction:
     needs:
     - coq
-    - metarocq
+    - metarocq-erasure
     runs-on: ubuntu-latest
     steps:
     - name: Determine which commit to initially checkout
@@ -214,9 +214,9 @@ jobs:
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
         --argstr job "stdlib"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq'
+      name: 'Building/fetching previous CI target: metarocq-erasure'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq"
+        --argstr job "metarocq-erasure"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: 'Building/fetching previous CI target: TypedExtraction-plugin'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
@@ -284,7 +284,7 @@ jobs:
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
         --argstr job "coq"
-  metarocq:
+  metarocq-erasure:
     needs:
     - coq
     runs-on: ubuntu-latest
@@ -323,11 +323,11 @@ jobs:
         extraPullNames: coq, coq-community, metarocq
         name: au-cobra
     - id: stepGetDerivation
-      name: Getting derivation for current job (metarocq)
+      name: Getting derivation for current job (metarocq-erasure)
       run: "NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link \\\n   --argstr bundle
-        \"9.1\" --argstr job \"metarocq\" \\\n   --dry-run 2> err > out || (touch
-        fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting derivation
-        failed\"; exit 1; fi\n"
+        \"9.1\" --argstr job \"metarocq-erasure\" \\\n   --dry-run 2> err > out ||
+        (touch fail; true)\ncat out err\nif [ -e fail ]; then echo \"Error: getting
+        derivation failed\"; exit 1; fi\n"
     - id: stepCheck
       name: Checking presence of CI target for current job
       run: "if $(cat out err | grep -q \"built:\") ; then\n  echo \"CI target needs
@@ -344,25 +344,25 @@ jobs:
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
         --argstr job "equations"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq-safechecker-plugin'
+      name: 'Building/fetching previous CI target: ExtLib'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq-safechecker-plugin"
+        --argstr job "ExtLib"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq-erasure-plugin'
+      name: 'Building/fetching previous CI target: stdlib'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq-erasure-plugin"
+        --argstr job "stdlib"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq-translations'
+      name: 'Building/fetching previous CI target: metarocq-safechecker'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq-translations"
+        --argstr job "metarocq-safechecker"
     - if: steps.stepCheck.outputs.status != 'fetched'
-      name: 'Building/fetching previous CI target: metarocq-quotation'
+      name: 'Building/fetching previous CI target: metarocq-template-pcuic'
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq-quotation"
+        --argstr job "metarocq-template-pcuic"
     - if: steps.stepCheck.outputs.status != 'fetched'
       name: Building/fetching current CI target
       run: NIXPKGS_ALLOW_UNFREE=1 nix-build --no-out-link --argstr bundle "9.1"
-        --argstr job "metarocq"
+        --argstr job "metarocq-erasure"
   rocq-core:
     needs: []
     runs-on: ubuntu-latest

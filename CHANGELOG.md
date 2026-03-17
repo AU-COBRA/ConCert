@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.1] - 2026-03-17
+* Port to MetaRocq 1.5.1
+* Fix extraction output directory with dune build
+
+Compatible with Rocq 9.1
+
+
 ## [1.0.0] - 2026-03-09
 Initial release
 
@@ -15,5 +22,6 @@ Compatible with Rocq 9.1
 
 
 
-[unreleased]: https://github.com/AU-COBRA/ConCert/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/AU-COBRA/ConCert/compare/v1.0.1...HEAD
 [1.0.0]: https://github.com/AU-COBRA/ConCert/releases/tag/v1.0.0
+[1.0.0]: https://github.com/AU-COBRA/ConCert/releases/tag/v1.0.1

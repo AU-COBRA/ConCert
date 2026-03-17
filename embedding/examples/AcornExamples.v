@@ -12,7 +12,7 @@ From Stdlib Require Import String.
 From Stdlib Require Import List.
 From Stdlib Require Import PeanoNat.
 
-Import MRMonadNotation.
+Import MonadNotation.
 Import ListNotations.
 
 Open Scope list.

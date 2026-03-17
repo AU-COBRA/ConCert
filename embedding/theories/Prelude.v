@@ -14,7 +14,7 @@ From Stdlib Require Import String.
 From Stdlib Require Import ZArith.
 From Stdlib Require Import List.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Import ListNotations.
 Import BaseTypes.

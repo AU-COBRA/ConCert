@@ -35,22 +35,9 @@ Definition STACK_INTERP_MODULE : ConcordiumMod _ _ :=
 
 Open Scope list.
 
-#[local]
+#[export]
 Instance RustConfig : RustPrintConfig :=
     {| term_box_symbol := "()";
        type_box_symbol := "()";
        any_type_symbol := "()";
        print_full_names := false |}.
-
-Redirect "concordium-extract/interp.rs"
-MetaRocq Run (concordium_extraction
-               STACK_INTERP_MODULE
-               (ConcordiumRemap.build_remaps
-                  (ConcordiumRemap.remap_Z_arith
-                     ++ ConcordiumRemap.remap_blockchain_consts
-                     ++ remap_extra_consts)
-                  ConcordiumRemap.remap_inline_bool_ops
-                  (ConcordiumRemap.remap_std_types
-                     ++ ConcordiumRemap.remap_blockchain_inductives))
-               (fun kn => eq_kername <%% bool_rec %%> kn
-                          || eq_kername <%% bool_rect %%> kn)).

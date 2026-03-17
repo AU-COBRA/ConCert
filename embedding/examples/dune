@@ -11,6 +11,7 @@
     Stdlib
     Ltac2
     Equations
+    ExtLib
     MetaRocq
     ConCert.Utils
     ConCert.Execution

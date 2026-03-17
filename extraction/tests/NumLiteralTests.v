@@ -1,6 +1,6 @@
 From ConCert.Extraction Require Import Common.
 From MetaRocq.Erasure.Typed Require Import Extraction.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Template Require Import Ast.
 From MetaRocq.Utils Require Import monad_utils.
 From MetaRocq.Utils Require Import bytestring.
@@ -43,7 +43,7 @@ Example Z_syn_to_Z_fail :
   Z_syn_to_Z (EAst.tApp _Zpos (EAst.tApp _xI (EAst.tVar ""))) = None.
 Proof. reflexivity. Qed.
 
-Import MRMonadNotation Core.
+Import MonadNotation Core.
 Open Scope monad_scope.
 
 Definition result_err_bytestring A := result A bytestring.String.t.

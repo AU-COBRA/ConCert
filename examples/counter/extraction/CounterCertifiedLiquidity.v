@@ -13,7 +13,7 @@ From ConCert.Execution Require Import ResultMonad.
 From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.
 
-Import MRMonadNotation.
+Import MonadNotation.
 Import DeriveSer.
 
 Local Open Scope string_scope.

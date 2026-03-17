@@ -10,7 +10,7 @@ From ConCert.Examples.Crowdfunding Require Import CrowdfundingData.
 From Stdlib Require Import String.
 From MetaRocq.Template Require Import All.
 
-Import MRMonadNotation.
+Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 

@@ -15,7 +15,7 @@ From Stdlib Require Import List.
 From MetaRocq.Template Require Import All.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 Import BaseTypes.
 Open Scope list.
 

@@ -7,14 +7,14 @@ From TypedExtraction Require Import Common.
 From TypedExtraction Require Import ElmExtract.
 From TypedExtraction Require Import PrettyPrinterMonad.
 From MetaRocq.Erasure.Typed Require Import Extraction.
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Common Require Import Kernames.
 From MetaRocq.Template Require Import All.
 From Stdlib Require Import List.
 From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 
 #[local]

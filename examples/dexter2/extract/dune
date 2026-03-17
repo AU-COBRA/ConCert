@@ -1,0 +1,31 @@
+(alias
+  (name extraction)
+  (deps (alias_rec all)))
+
+(rocq.theory
+  (name ConCert.Examples.Dexter2.Extract)
+  (flags
+    -output-dir extracted-code/
+  )
+  (theories
+    Stdlib
+    Ltac2
+    Equations
+    ExtLib
+    MetaRocq
+    TypedExtraction
+    stdpp
+    elpi
+    elpi_elpi
+    HB
+    mathcomp
+    SimpleIO
+    ExtLib
+    QuickChick
+    ConCert.Utils
+    ConCert.Execution
+    ConCert.Execution.Test
+    ConCert.Extraction
+    ConCert.Examples.FA2
+    ConCert.Examples.Dexter2
+  ))

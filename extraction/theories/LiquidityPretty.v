@@ -38,7 +38,7 @@ From MetaRocq.Utils Require Import bytestring.
 Local Open Scope bs_scope.
 Local Open Scope program_scope.
 
-Import ListNotations MRMonadNotation.
+Import ListNotations MonadNotation.
 Import String.
 
 

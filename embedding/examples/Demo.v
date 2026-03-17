@@ -16,7 +16,7 @@ Definition global_to_tc := compose trans_minductive_entry trans_global_dec.
 Module TC := Common.BasicAst.
 
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 Import BaseTypes.
 Import StdLib.
 
@@ -109,7 +109,7 @@ Proof. reflexivity. Qed.
 
 MetaRocq Unquote Definition rocq_my_negb := (expr_to_tc Σ (indexify nil my_negb_syn)).
 
-Import MRMonadNotation.
+Import MonadNotation.
 
 Definition is_zero_syn :=
   [|

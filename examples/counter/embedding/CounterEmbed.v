@@ -13,7 +13,7 @@ From ConCert.Embedding.Extraction Require Import PreludeExt.
 From ConCert.Utils Require Import Env.
 From MetaRocq.Template Require Import All.
 Import ListNotations.
-Import MRMonadNotation.
+Import MonadNotation.
 
 Module Counter.
   Import AcornBlockchain.

@@ -1,4 +1,4 @@
-From MetaRocq.Erasure.Typed Require Import ResultMonad.
+From MetaRocq.Utils Require Import ResultMonad.
 From MetaRocq.Template Require Import Ast.
 From MetaRocq.Template Require Import LiftSubst.
 From MetaRocq.Template Require Import AstUtils.
@@ -13,7 +13,7 @@ From MetaRocq.SafeChecker Require Import PCUICWfEnvImpl.
 From Stdlib.Strings Require Import Byte.
 
 Import PCUICErrors.
-Import MRMonadNotation.
+Import MonadNotation.
 Import String.
 
 
