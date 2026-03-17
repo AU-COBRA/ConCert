@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 * Port to MetaRocq 1.5.1
+* Fix extraction output directory with dune build
 
 
 ## [1.0.0] - 2026-03-09
