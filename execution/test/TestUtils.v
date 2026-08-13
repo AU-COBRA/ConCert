@@ -173,7 +173,7 @@ Open Scope string_scope.
 (* TODO: reenable deprecated-dirpath-Coq warning once Quickchick is updated with full Rocq support *)
 (* TODO: reenable non-recursive warning once fixed upstream in Quickchick*)
 #[warnings="-non-recursive,-deprecated-dirpath-Coq"]
-Derive Show for unit.
+QCDerive Show for unit.
 
 Definition deserialize_to_string {ty : Type}
                                 `{Serializable ty}
