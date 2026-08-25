@@ -17,7 +17,7 @@ depends: [
   "rocq-rust-extraction" {= "0.2.1"}
   "rocq-elm-extraction" {= "0.2.1"}
   "rocq-stdpp" {= "1.13.0"}
-  "coq-quickchick" {= "2.1.1"}
+  "coq-quickchick" {= "2.2.0"}
 ]
 build: [
   ["dune" "subst"] {dev}
