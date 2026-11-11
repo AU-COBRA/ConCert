@@ -147,7 +147,7 @@ html: all
 	rocq doc --html --interpolate --parse-comments \
 		--with-header extra/header.html --with-footer extra/footer.html \
 		--toc \
-		--coqlib_url https://rocq-prover.org/doc/V9.0.0/corelib \
+		--coqlib_url https://rocq-prover.org/doc/V9.1.0/corelib \
     	--external https://rocq-prover.org/doc/V9.0.0/stdlib Stdlib \
 		--external https://plv.mpi-sws.org/coqdoc/stdpp stdpp \
 		--external https://metarocq.github.io/html MetaRocq \
