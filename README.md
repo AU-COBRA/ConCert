@@ -13,7 +13,7 @@ ConCert can find real-world attacks as explained
 
 ## How to build
 
-Our development works with Rocq 9.0 and depends on MetaRocq, and std++.
+Our development works with Rocq 9.1 and depends on MetaRocq, and std++.
 The tests depend on QuickChick.
 The dependencies can be installed through `opam`.
 
@@ -21,7 +21,7 @@ Branches compatible with older versions of Rocq/Coq can be found [here](https://
 
 ### Install dependencies and build ConCert locally
 
-Installing the necessary dependencies requires the opam package manager and a switch with Rocq 9.0 installed.
+Installing the necessary dependencies requires the opam package manager and a switch with Rocq 9.1 installed.
 If you don't already have a switch set up run the following commands
 
 ```bash
